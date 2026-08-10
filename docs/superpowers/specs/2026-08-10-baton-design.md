@@ -376,8 +376,7 @@ On first launch, the user picks an AI model:
 | Model | Size | RAM needed | Speed | Use case |
 |---|---|---|---|---|
 | Qwen 3 1.7B Q4_K_M | 1.1 GB | 6 GB+ | ~15-25 tok/s | Default, any modern Android |
-| Gemma 3 4B Q4_K_M | 2.5 GB | 8 GB+ | ~8-12 tok/s | Best multilingual (Tamil/Telugu/Hindi) |
-| Phi-4-mini 3.8B Q4_K_M | 2.7 GB | 8 GB+ | ~10-15 tok/s | Strongest English reasoning |
+| Phi-4-mini 3.8B Q4_K_M | 2.7 GB | 8 GB+ | ~10-15 tok/s | Strongest English reasoning on flagships |
 
 Models are downloaded once, SHA-256 verified, cached in `models-cache/`. The app works fully without a model (raw text capture only, no auto-extraction).
 
@@ -401,7 +400,7 @@ The home screen's people list shows badge = open count. After 3 days of no activ
 
 ### 8.3 Layer 3: AI-drafted nudge
 
-Tapping an OUTGOING instruction that's been quiet 3+ days shows a "Draft nudge" button. Tap → llama.cpp drafts a WhatsApp-style message in the user's voice (Hindi-English mixed, polite, with context). The user sees the draft, edits if wanted, taps **Copy** or **Share via WhatsApp** (opens WhatsApp with the person pre-selected if their number is on file). The `nudge_drafts` row is marked SENT with `sent_via`.
+Tapping an OUTGOING instruction that's been quiet 3+ days shows a "Draft nudge" button. Tap → llama.cpp drafts a WhatsApp-style message in the user's voice (English, polite, with context from the instruction). The user sees the draft, edits if wanted, taps **Copy** or **Share via WhatsApp** (opens WhatsApp with the person pre-selected if their number is on file). The `nudge_drafts` row is marked SENT with `sent_via`.
 
 ### 8.4 Layer 4: Evening review
 
@@ -618,9 +617,14 @@ Three layers:
 
 ---
 
-## 16. Open questions
+## 16. Resolved decisions and remaining open questions
 
-1. **Tamil/Telugu/Hindi voice support.** Default model is English-only. Multilingual Whisper models are bigger. v1 ships with English + Hindi; Tamil/Telugu is a v1.1+ ask.
+**Resolved (2026-08-10):**
+
+1. **Localisation: NO.** v1 ships English-only. No Tamil / Telugu / Hindi voice support, no multilingual model variant. The English-only model path is the right call for the solo user's actual workflow; adding localisation would force a larger model and slower capture. v1.1+ can revisit if the user expands to a Tamil Nadu force-wide deployment.
+
+**Open:**
+
 2. **Calendar integration.** Should Baton be able to add events to the system calendar when a due date is set? Easy via Android `CalendarContract`; need to decide if it should ask first time.
 3. **WhatsApp Business API for actual nudge sending.** Currently a "tap to copy + open WhatsApp" flow. Sending programmatically requires a WhatsApp Business account and BSP. Not in v1.
 4. **Share-target.** Should Baton register as a share target so WhatsApp messages / emails can be forwarded into it? Yes for v1.1, no for v1.
