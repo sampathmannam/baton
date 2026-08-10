@@ -550,7 +550,11 @@ Five milestones, each independently shippable. Each has a finding test that prov
 - LLM extraction (Qwen 3 1.7B default), GBNF-constrained JSON
 - Confirmation card flow
 - Person auto-creation on first sight
+- "Add to Calendar" toggle on confirmation card (CalendarContract integration, opt-in per instruction)
+- Share-target ingest (text + images, registered in manifest, raw capture flows into the same LLM extraction)
 - Finding test: tap note bar, type "Tell SHO Ramu to send FIR 47 by Friday", see a correctly extracted INSTRUCTION
+- Finding test: tap "Add to Calendar" on a due-dated instruction, see a calendar event created with the right title/time
+- Finding test: share a text from another app to Baton, see a raw capture → LLM extraction → saveable INSTRUCTION
 
 ### M2 — Voice + photo + sync (weeks 4-5)
 
@@ -625,10 +629,10 @@ Three layers:
 
 **Open:**
 
-2. **Calendar integration.** Should Baton be able to add events to the system calendar when a due date is set? Easy via Android `CalendarContract`; need to decide if it should ask first time.
-3. **WhatsApp Business API for actual nudge sending.** Currently a "tap to copy + open WhatsApp" flow. Sending programmatically requires a WhatsApp Business account and BSP. Not in v1.
-4. **Share-target.** Should Baton register as a share target so WhatsApp messages / emails can be forwarded into it? Yes for v1.1, no for v1.
-5. **Backup destination.** v1 ships with Supabase as the de-facto backup. Local encrypted export to a file is a v1.0.1 add.
+2. **Calendar integration.** ✅ YES for v1. When an instruction has a `dueAt`, the confirmation card has a "Add to Calendar" toggle (default OFF, opt-in per instruction). Implemented via Android `CalendarContract`. First time it's used, a one-time permission flow explains the data flow.
+3. **WhatsApp Business API for actual nudge sending.** ❌ NO. v1 stays with the "tap to copy + open WhatsApp" flow. Programmatic send requires a WhatsApp Business account + BSP + per-message costs; not in scope.
+4. **Share-target ingest.** ✅ YES for v1. Baton registers as a share target for text and images. Forwarding a WhatsApp message or an email into Baton creates a raw capture with the original content preserved; the LLM runs on the device to extract.
+5. **Local encrypted export.** ❌ NO for v1. Supabase is the de-facto backup. Local export (Argon2id-derived key, encrypted file) is a v1.1 candidate.
 
 ---
 
@@ -637,13 +641,15 @@ Three layers:
 - Multi-user / team mode
 - CCTNS / eCourts integration
 - WhatsApp Business API (programmatic send)
+- Local encrypted file export (Supabase is the v1 backup)
 - iOS app
 - Wear OS app
 - Web app
-- Calendar integration
-- Share-target ingest
+- Localisation beyond English
 
 These may come in v1.1+.
+
+**In scope for v1:** calendar integration (Android `CalendarContract`), share-target ingest (text + images), single-device + multi-device sync via Supabase, on-device AI only, cloud MCP server, MindAnchor integration.
 
 ---
 
