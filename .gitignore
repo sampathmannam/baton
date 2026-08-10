@@ -1,0 +1,62 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.aar
+*.dex
+*.class
+
+# Kotlin
+.kotlin/
+
+# Keystores
+*.jks
+*.keystore
+
+# Logs
+*.log
+hs_err_pid*
+replay_pid*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+*.swp
+*.swo
+
+# Project-local
+app/release/
+app/debug/
+*.hprof
+*.trace
+.kotlin/
+
+# Local AI model files (downloaded at first run, NOT in repo)
+models/*.gguf
+models/*.bin
+*.gguf
+*.bin
+models-cache/
+
+# Secrets
+secrets.properties
+google-services.json
+.env
+.env.local
