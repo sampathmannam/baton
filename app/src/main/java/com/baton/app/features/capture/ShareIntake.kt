@@ -1,52 +1,79 @@
 package com.baton.app.features.capture
 
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 
 /**
- * M1-T7 helper that extracts the shared text from a SEND intent.
- * The user picks Baton from another app's share sheet; the system
- * dispatches an `Intent(ACTION_SEND)` with `type=text/plain` and
- * `EXTRA_TEXT=<text>` to our `ShareReceiverActivity`. This object
- * is the single point that pulls the text out and validates the
- * shape of the intent before we forward it to MainActivity.
+ * M1-T7 / M2-T1 helper that extracts the shared payload from a SEND
+ * intent. The user picks Baton from another app's share sheet; the
+ * system dispatches an `Intent(ACTION_SEND)` to our
+ * `ShareReceiverActivity`. This object pulls the payload out and
+ * validates the shape before we forward to MainActivity.
+ *
+ * M1 handled text/plain only. M2-T1 adds image MIME types via ML
+ * Kit OCR; the receiver hands the image URI to
+ * [com.baton.app.features.capture.PhotoCapture] for text
+ * recognition, then forwards the recognised text to MainActivity.
+ * M2-T4 wires voice via audio MIME if we ever choose to support
+ * share-as-audio (out of scope for v1).
  *
  * The receiver activity is a no-UI forwarder; the actual capture
  * sheet lives in MainActivity. We pre-fill the text on the VM and
  * open the sheet on resume.
- *
- * M1 only handles `text/plain` (no images / OCR yet — that's M2).
  */
 object ShareIntake {
 
-    /**
-     * The MIME type this intake accepts. M2 will add an image MIME
-     * type alongside the OCR pipeline.
-     */
-    const val ACCEPTED_MIME_TYPE: String = "text/plain"
+    /** The text MIME type. */
+    const val TEXT_MIME_TYPE: String = "text/plain"
 
-    /**
-     * The intent action we look for.
-     */
+    /** The image MIME prefix. M2-T1: any image MIME type is accepted. */
+    const val IMAGE_MIME_PREFIX: String = "image/"
+
+    /** The intent action we look for. */
     const val ACTION: String = Intent.ACTION_SEND
 
     /**
-     * Returns the shared text if [intent] is a valid Baton share
-     * intent (ACTION_SEND + text/plain + non-blank EXTRA_TEXT), or
-     * `null` otherwise. A `null` result tells the caller "ignore
-     * this intent, it's not for us" — the receiver activity then
-     * simply forwards to MainActivity without a pre-filled note.
+     * Result of inspecting an inbound share intent. Either text
+     * (the shared string is ready to drop into the capture sheet)
+     * or an image URI (the receiver must OCR it before forwarding).
      */
-    fun extractText(intent: Intent?): String? {
+    sealed class Result {
+        data class Text(val text: String) : Result()
+        data class Image(val uri: Uri) : Result()
+    }
+
+    /**
+     * Inspect [intent] and return the share payload, or `null` if
+     * the intent is not a valid Baton share.
+     *
+     *  - `ACTION_SEND` + `text/plain` + non-blank `EXTRA_TEXT`
+     *    → `Result.Text(<text>)`
+     *  - `ACTION_SEND` + any image MIME + non-null `EXTRA_STREAM`
+     *    → `Result.Image(<uri>)`
+     *  - anything else (wrong action, wrong MIME, missing extras)
+     *    → `null`
+     */
+    fun inspect(intent: Intent?): Result? {
         if (intent == null) return null
         if (intent.action != ACTION) return null
-        val type = intent.type
-        // We require the type to be set explicitly. The Android share
-        // sheet always sets the type; an Intent with action=SEND but
-        // no MIME is either malformed or a non-share intent.
-        if (type == null || !type.equals(ACCEPTED_MIME_TYPE, ignoreCase = true)) return null
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT)
-        if (text.isNullOrBlank()) return null
-        return text
+        val type = intent.type ?: return null
+        return when {
+            type.equals(TEXT_MIME_TYPE, ignoreCase = true) -> {
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+                if (text.isNullOrBlank()) null else Result.Text(text)
+            }
+            type.startsWith(IMAGE_MIME_PREFIX, ignoreCase = true) -> {
+                val uri: Uri? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                }
+                if (uri == null) null else Result.Image(uri)
+            }
+            else -> null
+        }
     }
 
     /**
@@ -61,6 +88,16 @@ object ShareIntake {
         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         putExtra(EXTRA_SHARED_TEXT, sharedText)
     }
+
+    /**
+     * Same as [buildForwardIntent] but carries an already-OCR'd text
+     * extracted from a shared image. The receiver activity is
+     * responsible for running the OCR (see [PhotoCapture]) before
+     * calling this; the forward intent is identical in shape to the
+     * text-only case.
+     */
+    fun buildForwardFromImage(ocrText: String): Intent =
+        buildForwardIntent(sharedText = ocrText)
 
     /** Extras key MainActivity reads to know what shared text to pre-fill. */
     const val EXTRA_SHARED_TEXT: String = "com.baton.app.features.capture.EXTRA_SHARED_TEXT"

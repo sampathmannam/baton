@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- M2-T2: where the camera writes the captured image. The
+         file is in the app's private cache so it does not need
+         WRITE_EXTERNAL_STORAGE; we hand the FileProvider a
+         content:// URI to the system camera. -->
+    <cache-path
+        name="captures"
+        path="captures/" />
+</paths>

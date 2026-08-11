@@ -16,8 +16,8 @@
 
     <!-- M1: single note bar + capture sheet -->
     <string name="note_bar_hint">Tap to add a note</string>
-    <string name="note_bar_mic">Voice (coming in M2)</string>
-    <string name="note_bar_camera">Photo (coming in M2)</string>
+    <string name="note_bar_mic">Voice</string>
+    <string name="note_bar_camera">Photo</string>
     <string name="capture_sheet_title">New note</string>
     <string name="capture_sheet_close">Close</string>
     <string name="capture_sheet_text_label">Note</string>

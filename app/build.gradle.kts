@@ -182,6 +182,13 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.okhttp)
 
+    // M2-T2: photo capture via CameraX + ML Kit on-device OCR.
+    implementation(libs.camerax.camera.core)
+    implementation(libs.camerax.camera.camera2)
+    implementation(libs.camerax.camera.lifecycle)
+    implementation(libs.camerax.camera.view)
+    implementation(libs.mlkit.text.recognition)
+
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.turbine)

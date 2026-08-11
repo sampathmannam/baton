@@ -69,8 +69,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun consumeSharedText(intent: Intent?) {
-        val shared = ShareIntake.extractText(intent) ?: return
-        rootViewModel.onSharedText(shared)
+        val payload = ShareIntake.inspect(intent) ?: return
+        when (payload) {
+            is ShareIntake.Result.Text -> rootViewModel.onSharedText(payload.text)
+            is ShareIntake.Result.Image -> {
+                // The receiver activity already OCR'd the image and
+                // forwarded the text. If the user shared the image
+                // directly to MainActivity (e.g. via a deep-link),
+                // there's no OCR'd text in the intent — we treat that
+                // as "no pre-fill" and the user re-captures.
+                // The deep-link path lands here; the share-sheet
+                // path lands via ShareReceiverActivity which does
+                // the OCR before forwarding.
+            }
+        }
     }
 }
 
