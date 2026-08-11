@@ -43,6 +43,9 @@ class MainActivity : ComponentActivity() {
         // share. (ShareReceiverActivity forwards to MainActivity
         // with EXTRA_SHARED_TEXT.)
         consumeSharedText(intent)
+        // M2-T5: pick up the QUICK_CAPTURE action from a cold
+        // launch via the quick-settings tile or home-screen widget.
+        consumeQuickCapture(intent)
         setContent {
             BatonTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -66,6 +69,13 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)  // so getIntent() returns the new one
         consumeSharedText(intent)
+        consumeQuickCapture(intent)
+    }
+
+    private fun consumeQuickCapture(intent: Intent?) {
+        if (intent?.action == com.baton.app.features.capture.BatonCaptureWidget.ACTION_QUICK_CAPTURE) {
+            rootViewModel.onQuickCapture()
+        }
     }
 
     private fun consumeSharedText(intent: Intent?) {
@@ -118,5 +128,22 @@ class RootViewModel @Inject constructor(
 
     fun consumeSharedText() {
         _sharedText.value = null
+    }
+
+    /**
+     * M2-T5: a one-shot signal that the user came in via the
+     * quick-settings tile or the home-screen widget. The UI opens
+     * the capture sheet (focused on the text input) and clears the
+     * signal so a configuration change does not re-open it.
+     */
+    private val _quickCapture = MutableStateFlow(false)
+    val quickCapture: StateFlow<Boolean> = _quickCapture.asStateFlow()
+
+    fun onQuickCapture() {
+        _quickCapture.value = true
+    }
+
+    fun consumeQuickCapture() {
+        _quickCapture.value = false
     }
 }

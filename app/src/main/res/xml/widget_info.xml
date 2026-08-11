@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppWidgetProviderInfo for BatonCaptureWidget.
+
+  minWidth/minHeight: 110dp x 110dp is the smallest cell that still
+  shows the mic button + "Baton" label clearly on most launchers.
+  minResizeWidth/Height: lets the user shrink to a 2x1 cell.
+
+  widgetCategory: home_screen only on M2 (keyguard/lock-screen widget
+  support needs a separate provider-class and BIND_APPWIDGET permission
+  signature flow; deferred to a follow-up).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/widget_baton_capture"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="80dp"
+    android:minResizeHeight="80dp"
+    android:previewImage="@layout/widget_baton_capture_preview"
+    android:previewLayout="@layout/widget_baton_capture_preview"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description" />

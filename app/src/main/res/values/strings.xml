@@ -33,4 +33,10 @@
 
     <!-- M1-T7: share-target ingest -->
     <string name="share_to_baton">Save to Baton</string>
+
+    <!-- M2-T5: quick-settings tile + lock-screen widget -->
+    <string name="widget_label">Baton</string>
+    <string name="widget_mic_button_desc">Quick-capture</string>
+    <string name="widget_description">Tap the mic to capture a note to Baton.</string>
+    <string name="tile_label">Baton quick-capture</string>
 </resources>
