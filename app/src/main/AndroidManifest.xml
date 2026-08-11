@@ -33,5 +33,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- M1-T7: text-share target. The user picks Baton from
+             another app's share sheet; we forward the shared text
+             to MainActivity which opens the capture sheet pre-filled.
+             M2 will add an image/* MIME type alongside the OCR
+             pipeline. -->
+        <activity-alias
+            android:name=".features.capture.ShareReceiverActivity"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="@string/share_to_baton">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>
