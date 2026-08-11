@@ -4,6 +4,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- M1-T6: Calendar integration via CalendarContract.ACTION_INSERT.
+         The system Calendar app handles the per-account picker; on
+         API 33+ the WRITE_CALENDAR permission is NOT needed because
+         the user picks the calendar in the system UI. The
+         `maxSdkVersion=32` keeps the manifest clean for newer API
+         levels and avoids the runtime permission dance. -->
+    <uses-permission
+        android:name="android.permission.WRITE_CALENDAR"
+        android:maxSdkVersion="32" />
+
     <application
         android:name=".BatonApplication"
         android:allowBackup="false"

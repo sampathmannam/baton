@@ -1,5 +1,6 @@
 package com.baton.app.features.capture
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.captures.CaptureMode
@@ -9,9 +10,12 @@ import com.baton.app.data.instructions.Priority
 import com.baton.app.data.instructions.Source
 import com.baton.app.data.person.PersonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,6 +40,17 @@ class CaptureViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(CaptureUiState())
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
+
+    /**
+     * M1-T6: one-shot side effects. The ViewModel emits an [Intent]
+     * here when the user confirms with "Add to Calendar" on and the
+     * LLM extracted a `due_at`. The Composable collects this and
+     * launches via [android.content.Context.startActivity]. The
+     * [Channel] buffers the event so a config change (rotation)
+     * doesn't drop the intent.
+     */
+    internal val calendarIntentsChannel: Channel<CalendarEventData> = Channel(capacity = Channel.BUFFERED)
+    val calendarIntents: Flow<CalendarEventData> = calendarIntentsChannel.receiveAsFlow()
 
     fun openSheet() {
         _state.update { it.copy(isVisible = true) }
@@ -159,6 +174,7 @@ class CaptureViewModel @Inject constructor(
         if (!current.canConfirm) return
         _state.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
+            println("DEBUG: onConfirm coroutine started, current.addToCalendar=${current.addToCalendar}")
             val personId: String? = proposal.person?.let { name ->
                 runCatching { personRepository.findOrCreate(name = name) }
                     .onFailure {
@@ -186,6 +202,21 @@ class CaptureViewModel @Inject constructor(
                 )
             }
             result.onSuccess {
+                // M1-T6: emit a calendar event data *after* the
+                // instruction lands. The instruction is the source
+                // of truth; the calendar event is a copy. The
+                // Composable converts the data to an Intent and
+                // launches it via the Activity context.
+                if (current.addToCalendar) {
+                    val event = CalendarGate.buildEventData(
+                        title = title,
+                        description = proposal.instructionText,
+                        dueAt = proposal.dueAt,
+                    )
+                    if (event != null) {
+                        calendarIntentsChannel.trySend(event)
+                    }
+                }
                 dismissSheet()
             }.onFailure { e ->
                 _state.update {

@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -46,6 +47,16 @@ fun CaptureSheet(
     onDismiss: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // M1-T6: collect calendar events from the VM and launch them
+    // via the Activity context. The Channel is buffered so a config
+    // change between save + launch doesn't drop the event.
+    LaunchedEffect(viewModel) {
+        viewModel.calendarIntents.collect { event ->
+            context.startActivity(CalendarGate.toIntent(event))
+        }
+    }
 
     // When the sheet is hidden upstream, also clear VM state.
     LaunchedEffect(state.isVisible) {
@@ -113,6 +124,7 @@ private fun CaptureSheetContent(
         if (state.proposal != null) {
             ConfirmationCard(
                 proposal = state.proposal!!,
+                addToCalendar = state.addToCalendar,
                 onPersonChange = onProposalPersonChange,
                 onActionChange = onProposalActionChange,
                 onInstructionTextChange = onProposalTextChange,
