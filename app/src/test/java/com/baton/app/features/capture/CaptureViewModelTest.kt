@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -384,5 +385,82 @@ class CaptureViewModelTest {
 
         assertEquals(1, ins.created.size)
         assertEquals(Priority.HIGH, ins.created[0].priority)
+    }
+
+    @Test
+    fun `onConfirm with Add-to-Calendar on and a dueAt emits a calendar event`() = runTest(testDispatcher) {
+        val proposal = ExtractedInstruction(
+            person = "SHO Ramu",
+            action = "send FIR 47",
+            dueAt = "2099-08-15T17:00:00+05:30",  // far future so the test is stable
+            priority = "NORMAL",
+            instructionText = "Tell SHO Ramu to send FIR 47 by Friday",
+            confidence = 0.92,
+        )
+        val (repo, person, ins) = fakes()
+        val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
+        vm.openSheet()
+        vm.onTextChanged(proposal.instructionText)
+        vm.onExtract()
+        advanceUntilIdle()
+        vm.onAddToCalendarChanged(true)
+        vm.onConfirm()
+        advanceUntilIdle()
+
+        // Read the channel directly. The channel is `internal` so the
+        // production side never accesses it; the test gets a clean
+        // synchronous poll without Flow collection overhead.
+        val event = vm.calendarIntentsChannel.tryReceive().getOrNull()
+        assertNotNull("calendar event should be emitted", event)
+        assertEquals("send FIR 47 — SHO Ramu", event!!.title)
+        assertEquals("Tell SHO Ramu to send FIR 47 by Friday", event.description)
+    }
+
+    @Test
+    fun `onConfirm with Add-to-Calendar on but no dueAt does NOT emit a calendar event`() = runTest(testDispatcher) {
+        val proposal = ExtractedInstruction(
+            person = null,
+            action = "review pending cases",
+            dueAt = null,
+            priority = "NORMAL",
+            instructionText = "Review pending cases on Sunday",
+            confidence = 0.7,
+        )
+        val (repo, person, ins) = fakes()
+        val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
+        vm.openSheet()
+        vm.onTextChanged(proposal.instructionText)
+        vm.onExtract()
+        advanceUntilIdle()
+        vm.onAddToCalendarChanged(true)
+        vm.onConfirm()
+        advanceUntilIdle()
+
+        val event = vm.calendarIntentsChannel.tryReceive().getOrNull()
+        assertNull("no calendar event should be emitted when there's no dueAt", event)
+    }
+
+    @Test
+    fun `onConfirm without Add-to-Calendar does NOT emit a calendar event`() = runTest(testDispatcher) {
+        val proposal = ExtractedInstruction(
+            person = "SHO Ramu",
+            action = "send FIR 47",
+            dueAt = "2099-08-15T17:00:00+05:30",
+            priority = "NORMAL",
+            instructionText = "Tell SHO Ramu to send FIR 47 by Friday",
+            confidence = 0.92,
+        )
+        val (repo, person, ins) = fakes()
+        val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
+        vm.openSheet()
+        vm.onTextChanged(proposal.instructionText)
+        vm.onExtract()
+        advanceUntilIdle()
+        // addToCalendar stays false
+        vm.onConfirm()
+        advanceUntilIdle()
+
+        val event = vm.calendarIntentsChannel.tryReceive().getOrNull()
+        assertNull(event)
     }
 }

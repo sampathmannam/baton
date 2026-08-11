@@ -31,12 +31,14 @@ import com.baton.app.R
 @Composable
 fun ConfirmationCard(
     proposal: ExtractedInstruction,
+    addToCalendar: Boolean,
     onPersonChange: (String) -> Unit,
     onActionChange: (String) -> Unit,
     onInstructionTextChange: (String) -> Unit,
     onAddToCalendarChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val hasDueAt = !proposal.dueAt.isNullOrBlank()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -75,15 +77,23 @@ fun ConfirmationCard(
             minLines = 2,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.confirmation_add_to_calendar),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.confirmation_add_to_calendar),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (!hasDueAt) {
+                    Text(
+                        text = "Needs a due time",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
             Switch(
-                checked = false,  // M1-T6 wires the toggle state
+                checked = addToCalendar && hasDueAt,
                 onCheckedChange = onAddToCalendarChange,
-                enabled = false,  // M1-T6 enables this
+                enabled = hasDueAt,
             )
         }
     }
