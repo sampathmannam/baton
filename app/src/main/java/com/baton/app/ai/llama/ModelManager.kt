@@ -1,6 +1,7 @@
 package com.baton.app.ai.llama
 
 import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -10,6 +11,8 @@ import okhttp3.Request
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Downloads the Qwen 3 1.7B Q4_K_M GGUF model on first run. The
@@ -19,8 +22,9 @@ import java.security.MessageDigest
  * (gitignored). M3 will revisit if we want to ship the model
  * pre-installed via Play asset delivery.
  */
-class ModelManager(
-    private val context: Context,
+@Singleton
+open class ModelManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val httpClient: OkHttpClient = OkHttpClient(),
 ) {
 
@@ -71,7 +75,7 @@ class ModelManager(
         emit(DownloadProgress.Done(target))
     }.flowOn(Dispatchers.IO)
 
-    fun modelFile(): File = File(context.filesDir, "models/qwen3-1.7b-q4_k_m.gguf")
+    open fun modelFile(): File = File(context.filesDir, "models/qwen3-1.7b-q4_k_m.gguf")
 
     private fun verify(file: File, expectedSha: String? = null): Boolean {
         if (!file.exists()) return false

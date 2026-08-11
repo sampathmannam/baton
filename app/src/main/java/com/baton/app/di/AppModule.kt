@@ -10,6 +10,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
+import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
 /**
@@ -36,4 +37,9 @@ object AppModule {
     @Singleton
     fun provideAuthRepository(httpClient: HttpClient): AuthRepository =
         AuthRepository(httpClient)
+
+    /** M1-T3: OkHttp is used by ModelManager to download the GGUF model. */
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient = OkHttpClient()
 }
