@@ -1,5 +1,6 @@
 package com.baton.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.auth.AuthSessionState
+import com.baton.app.features.capture.ShareIntake
 import com.baton.app.ui.auth.AuthScreen
 import com.baton.app.ui.home.HomeScreen
 import com.baton.app.ui.theme.BatonTheme
@@ -25,6 +27,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -36,6 +39,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // M1-T7: pick up a shared text if the launch intent was a
+        // share. (ShareReceiverActivity forwards to MainActivity
+        // with EXTRA_SHARED_TEXT.)
+        consumeSharedText(intent)
         setContent {
             BatonTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -53,6 +60,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)  // so getIntent() returns the new one
+        consumeSharedText(intent)
+    }
+
+    private fun consumeSharedText(intent: Intent?) {
+        val shared = ShareIntake.extractText(intent) ?: return
+        rootViewModel.onSharedText(shared)
     }
 }
 
@@ -73,4 +91,20 @@ class RootViewModel @Inject constructor(
             started = SharingStarted.Eagerly,
             initialValue = AuthSessionState.Loading,
         )
+
+    /**
+     * M1-T7: an incoming shared text, exposed to the UI. The
+     * HomeScreen observes this, opens the capture sheet, and
+     * clears the value once the user sees it.
+     */
+    private val _sharedText = MutableStateFlow<String?>(null)
+    val sharedText: StateFlow<String?> = _sharedText.asStateFlow()
+
+    fun onSharedText(text: String) {
+        _sharedText.value = text
+    }
+
+    fun consumeSharedText() {
+        _sharedText.value = null
+    }
 }

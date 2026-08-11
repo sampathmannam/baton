@@ -30,4 +30,7 @@
     <string name="confirmation_action">Action</string>
     <string name="confirmation_instruction_text">Instruction</string>
     <string name="confirmation_add_to_calendar">Add to calendar (coming in M1-T6)</string>
+
+    <!-- M1-T7: share-target ingest -->
+    <string name="share_to_baton">Save to Baton</string>
 </resources>

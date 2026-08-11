@@ -21,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
+import com.baton.app.RootViewModel
 import com.baton.app.data.person.Person
 import com.baton.app.features.capture.CaptureSheet
 import com.baton.app.features.capture.CaptureViewModel
@@ -44,11 +46,26 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     captureViewModel: CaptureViewModel = hiltViewModel(),
+    rootViewModel: RootViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val captureState by captureViewModel.state.collectAsStateWithLifecycle()
+    val sharedText by rootViewModel.sharedText.collectAsStateWithLifecycle()
     var showAddPerson by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // M1-T7: when a shared text arrives, pre-fill the capture sheet
+    // and open it. The user can then tap Extract (or edit) and the
+    // usual capture flow takes over. We consume the value once the
+    // sheet is open so the next share lands fresh.
+    LaunchedEffect(sharedText) {
+        val text = sharedText
+        if (text != null) {
+            captureViewModel.onTextChanged(text)
+            captureViewModel.openSheet()
+            rootViewModel.consumeSharedText()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
