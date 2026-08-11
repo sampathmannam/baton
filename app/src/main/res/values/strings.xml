@@ -13,4 +13,15 @@
     <string name="tab_home">Home</string>
     <string name="tab_today">Today</string>
     <string name="tab_settings">Settings</string>
+
+    <!-- M1: single note bar + capture sheet -->
+    <string name="note_bar_hint">Tap to add a note</string>
+    <string name="note_bar_mic">Voice (coming in M2)</string>
+    <string name="note_bar_camera">Photo (coming in M2)</string>
+    <string name="capture_sheet_title">New note</string>
+    <string name="capture_sheet_close">Close</string>
+    <string name="capture_sheet_text_label">Note</string>
+    <string name="capture_sheet_text_placeholder">Type a free-form note. We\'ll extract the instruction.</string>
+    <string name="capture_sheet_extract">Extract</string>
+    <string name="capture_sheet_confirm">Save</string>
 </resources>

@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,44 +34,69 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
 import com.baton.app.data.person.Person
+import com.baton.app.features.capture.CaptureSheet
+import com.baton.app.features.capture.CaptureViewModel
+import com.baton.app.features.capture.NoteBar
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
+    captureViewModel: CaptureViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var showSheet by remember { mutableStateOf(false) }
+    val captureState by captureViewModel.state.collectAsStateWithLifecycle()
+    var showAddPerson by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.home_title)) })
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showSheet = true }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(title = { Text(stringResource(R.string.home_title)) })
+            },
+            floatingActionButton = {
+                FloatingActionButton(onClick = { showAddPerson = true }) {
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
+                }
+            },
+        ) { padding ->
+            when (val s = state) {
+                HomeUiState.Empty -> EmptyState(padding)
+                HomeUiState.Loading -> Box(modifier = Modifier.fillMaxSize().padding(padding))
+                is HomeUiState.Loaded -> PersonList(s.persons, padding)
+                is HomeUiState.Error -> ErrorState(s.message, padding)
             }
-        },
-    ) { padding ->
-        when (val s = state) {
-            HomeUiState.Empty -> EmptyState(padding)
-            HomeUiState.Loading -> Box(modifier = Modifier.fillMaxSize().padding(padding))
-            is HomeUiState.Loaded -> PersonList(s.persons, padding)
-            is HomeUiState.Error -> ErrorState(s.message, padding)
+        }
+
+        // The single note bar floats at the bottom on top of every screen.
+        // In M1 it sits on Home only; in M4 it moves to MainActivity so it
+        // floats above Home, Today, and Settings.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 12.dp),
+        ) {
+            NoteBar(onClick = { captureViewModel.openSheet() })
         }
     }
 
-    if (showSheet) {
+    if (showAddPerson) {
         AddPersonSheet(
             onSave = { name, designation, station ->
                 scope.launch {
                     viewModel.createPerson(name, designation, station)
                 }
-                showSheet = false
+                showAddPerson = false
             },
-            onDismiss = { showSheet = false },
+            onDismiss = { showAddPerson = false },
+        )
+    }
+
+    if (captureState.isVisible) {
+        CaptureSheet(
+            viewModel = captureViewModel,
+            onDismiss = { /* sheet is closed via VM dismissSheet(); nothing to do */ },
         )
     }
 }
@@ -96,6 +123,7 @@ private fun EmptyState(padding: PaddingValues) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(80.dp))  // leave room for the NoteBar
         }
     }
 }
@@ -111,6 +139,7 @@ private fun PersonList(persons: List<Person>, padding: PaddingValues) {
             PersonRow(person)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
+        item { Spacer(Modifier.height(80.dp)) }  // leave room for the NoteBar
     }
 }
 
