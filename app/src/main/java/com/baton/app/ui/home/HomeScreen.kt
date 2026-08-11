@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,10 +37,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
 import com.baton.app.RootViewModel
 import com.baton.app.data.person.Person
+import com.baton.app.features.capture.CameraLauncher
 import com.baton.app.features.capture.CaptureSheet
 import com.baton.app.features.capture.CaptureViewModel
 import com.baton.app.features.capture.NoteBar
+import com.baton.app.features.capture.PhotoCapture
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +56,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val captureState by captureViewModel.state.collectAsStateWithLifecycle()
     val sharedText by rootViewModel.sharedText.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -65,6 +71,28 @@ fun HomeScreen(
             captureViewModel.openSheet()
             rootViewModel.consumeSharedText()
         }
+    }
+
+    // M2-T2: camera launcher. The launch returns `success=true`
+    // when the user took a picture; we OCR the file at the
+    // pending URI and feed the result to the capture VM.
+    val pendingUri = remember { mutableStateOf<android.net.Uri?>(null) }
+    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicture(),
+    ) { success ->
+        val uri = pendingUri.value
+        if (success && uri != null) {
+            scope.launch {
+                val text = withContext(Dispatchers.IO) {
+                    runCatching { PhotoCapture.recognize(context, uri) }
+                        .getOrElse { "" }
+                }
+                if (text.isNotBlank()) {
+                    captureViewModel.onPhotoTextRecognized(text)
+                }
+            }
+        }
+        pendingUri.value = null
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -94,7 +122,19 @@ fun HomeScreen(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 12.dp),
         ) {
-            NoteBar(onClick = { captureViewModel.openSheet() })
+            NoteBar(
+                onTextClick = { captureViewModel.openSheet() },
+                onCameraClick = {
+                    val uri = CameraLauncher.newCaptureUri(context)
+                    pendingUri.value = uri
+                    cameraLauncher.launch(uri)
+                },
+                onMicClick = {
+                    // M2-T4 will wire this to the voice capture service.
+                    // For now, just open the sheet so the user can type.
+                    captureViewModel.openSheet()
+                },
+            )
         }
     }
 

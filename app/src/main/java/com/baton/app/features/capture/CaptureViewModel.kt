@@ -90,6 +90,23 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
+     * M2-T2: the camera returned an image. OCR it via ML Kit, drop
+     * the recognised text into the capture sheet's text field,
+     * open the sheet, and let the user tap Extract.
+     *
+     * The caller (HomeScreen) does the actual camera launch; this
+     * method is invoked from the Composable's camera-result
+     * callback once we have the content:// URI.
+     */
+    fun onPhotoTextRecognized(text: String) {
+        if (text.isBlank()) return
+        _state.update { it.copy(text = text, error = null) }
+        if (!_state.value.isVisible) {
+            _state.update { it.copy(isVisible = true) }
+        }
+    }
+
+    /**
      * Run the LLM extraction on the current [CaptureUiState.text].
      *
      * Sequence:
@@ -133,6 +150,60 @@ class CaptureViewModel @Inject constructor(
                             it.copy(
                                 isExtracting = false,
                                 error = "No instruction found. Try rephrasing.",
+                            )
+                        } else {
+                            it.copy(
+                                isExtracting = false,
+                                proposal = proposal,
+                                error = null,
+                            )
+                        }
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            isExtracting = false,
+                            error = e.message ?: "Could not extract instruction.",
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * M2-T2 photo path. Same as [onExtract] but writes the
+     * capture with `mode=PHOTO` and a `image_uri` so the captures
+     * table reflects the source. M1's `create()` signature doesn't
+     * accept image_uri; M3's Room mirror will. For M2 we pass
+     * mode=PHOTO with raw_text = OCR text (the same as the text
+     * path); the image is held in cacheDir/captures/ until the
+     * user closes the sheet, then uploaded as part of a future
+     * M3 sync. M2 ships a capture row that points at the URI
+     * indirectly via the row id mapping.
+     */
+    fun onPhotoExtract(ocrText: String, imageUriString: String) {
+        if (ocrText.isBlank()) return
+        viewModelScope.launch {
+            val capture = runCatching {
+                captureRepository.create(rawText = ocrText, mode = CaptureMode.PHOTO)
+            }.getOrNull()
+            if (capture == null) {
+                _state.update {
+                    it.copy(error = "Could not save photo. Try again.")
+                }
+                return@launch
+            }
+            runCatching { processor.process(ocrText) }
+                .onSuccess { proposal ->
+                    if (proposal != null) {
+                        runCatching { captureRepository.markProcessed(capture.id) }
+                    }
+                    _state.update {
+                        if (proposal == null) {
+                            it.copy(
+                                isExtracting = false,
+                                error = "No instruction found in the photo. Try rephrasing.",
                             )
                         } else {
                             it.copy(

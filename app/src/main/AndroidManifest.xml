@@ -14,6 +14,11 @@
         android:name="android.permission.WRITE_CALENDAR"
         android:maxSdkVersion="32" />
 
+    <!-- M2-T2: photo capture. CAMERA is needed for the in-app
+         camera; the M2-T2 plan also wires ML Kit OCR. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <application
         android:name=".BatonApplication"
         android:allowBackup="false"
@@ -34,11 +39,10 @@
             </intent-filter>
         </activity>
 
-        <!-- M1-T7: text-share target. The user picks Baton from
+        <!-- M1-T7 / M2-T1: share target. The user picks Baton from
              another app's share sheet; we forward the shared text
-             to MainActivity which opens the capture sheet pre-filled.
-             M2 will add an image/* MIME type alongside the OCR
-             pipeline. -->
+             (or the OCR'd text from a shared image) to MainActivity
+             which opens the capture sheet pre-filled. -->
         <activity-alias
             android:name=".features.capture.ShareReceiverActivity"
             android:targetActivity=".MainActivity"
@@ -48,7 +52,23 @@
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
             </intent-filter>
         </activity-alias>
+
+        <!-- M2-T2: FileProvider for the in-app camera. The system
+             camera writes a JPEG to our cacheDir/captures/, we
+             hand it a content:// URI scoped to this provider, then
+             the FileProvider grants the camera read/write access
+             without exposing the rest of the app's storage. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

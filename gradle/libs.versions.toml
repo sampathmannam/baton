@@ -29,6 +29,8 @@ mockk = "1.13.13"
 okhttp = "4.12.0"
 ndk = "27.3.13750724"
 llamaCpp = "b4600"
+mlkitTextRecognition = "16.0.1"
+camerax = "1.4.0"
 
 [libraries]
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
@@ -74,6 +76,11 @@ robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectr
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt-android-testing" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkitTextRecognition" }
+camerax-camera-core = { module = "androidx.camera:camera-core", version.ref = "camerax" }
+camerax-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+camerax-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+camerax-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
