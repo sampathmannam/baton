@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.person.Person
 import com.baton.app.data.person.PersonRepository
+import com.baton.app.data.sync.RealtimeSync
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,15 +15,15 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val personRepository: PersonRepository,
+    realtimeSync: RealtimeSync,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
+        // Initial fetch
         viewModelScope.launch {
-            // M0: read once from the repository. M3 will replace this with
-            // a `stateIn`-backed Flow that observes Room + syncs with Supabase.
             runCatching { personRepository.observeAll() }
                 .onSuccess { persons ->
                     _state.value = if (persons.isEmpty()) {
@@ -34,6 +35,16 @@ class HomeViewModel @Inject constructor(
                 .onFailure { e ->
                     _state.value = HomeUiState.Error(e.message ?: "Unknown error")
                 }
+        }
+        // M2-T7: subscribe to Realtime changes. When another device
+        // (or this device) writes a row, refresh the list.
+        viewModelScope.launch {
+            realtimeSync.changes.collect { change ->
+                when (change) {
+                    is RealtimeSync.Change.Persons -> refreshList()
+                    is RealtimeSync.Change.Instructions -> { /* TBD: instructions list lands in M3 */ }
+                }
+            }
         }
     }
 
