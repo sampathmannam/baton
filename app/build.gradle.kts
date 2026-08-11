@@ -180,6 +180,10 @@ dependencies {
     implementation(libs.supabase.storage.kt)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
+    // M2-T7: Realtime WebSocket subscription. The OkHttp engine
+    // supports WebSockets; the Android engine does not.
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.websockets)
     implementation(libs.okhttp)
 
     // M2-T2: photo capture via CameraX + ML Kit on-device OCR.

@@ -5,12 +5,21 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.android.Android
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.websocket.WebSockets
 import javax.inject.Singleton
 
 /**
  * Hilt module that provides the singleton [HttpClient] used by the Supabase
  * client.
+ *
+ * **Why OkHttp and not the Android engine:** the M2-T7 Realtime
+ * plugin needs WebSockets; the Android engine does not advertise
+ * the `WebSocketCapability` and throws at install time. OkHttp
+ * supports WebSockets out of the box and is already a transitive
+ * dep (ModelManager uses it to download the GGUF model). The
+ * [WebSockets] plugin is installed explicitly so the Ktor client
+ * reports the capability regardless of which engine is underneath.
  *
  * **Why no [SupabaseClient] binding here:** Hilt's KSP1 processor cannot
  * resolve KMP AAR classes (e.g. `io.github.jan.supabase.SupabaseClient`) at
@@ -28,5 +37,7 @@ object SupabaseModule {
 
     @Provides
     @Singleton
-    fun provideHttpClient(): HttpClient = HttpClient(Android)
+    fun provideHttpClient(): HttpClient = HttpClient(OkHttp) {
+        install(WebSockets)
+    }
 }
