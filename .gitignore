@@ -51,6 +51,12 @@ app/debug/
 *.trace
 .kotlin/
 
+# M1-T3: vendored llama.cpp source tree, downloaded by the
+# `vendorLlamaCpp` Gradle task at configuration time. Rebuilds
+# are cheap (CMake caches the configure step) so this stays out
+# of the repo. Delete the directory to force a re-vendor.
+app/src/main/cpp/llama-cpp/
+
 # Local AI model files (downloaded at first run, NOT in repo)
 models/*.gguf
 models/*.bin

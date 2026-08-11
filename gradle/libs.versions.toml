@@ -26,6 +26,9 @@ supabase = "3.1.1"
 ktor = "3.0.3"
 turbine = "1.1.0"
 mockk = "1.13.13"
+okhttp = "4.12.0"
+ndk = "27.3.13750724"
+llamaCpp = "b4600"
 
 [libraries]
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
@@ -70,6 +73,7 @@ espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref =
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", version.ref = "hilt-android-testing" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

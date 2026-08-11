@@ -43,6 +43,24 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+
+        // M1: on-device LLM (llama.cpp JNI). arm64-v8a only per the
+        // global constraint. The CMake build is configured below
+        // (see externalNativeBuild + the vendorLlamaCpp task).
+        ndk { abiFilters += listOf("arm64-v8a") }
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17"
+                arguments += "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildTypes {
@@ -74,6 +92,46 @@ android {
         }
     }
 }
+
+// M1-T3: vendor the pinned llama.cpp release into app/src/main/cpp/llama-cpp/
+// at configuration time. CMake's add_subdirectory() then compiles it as
+// part of the externalNativeBuild above. This is a no-op if the directory
+// already exists, so a developer can delete it to force a re-vendor.
+//
+// The fallback (if CMake+NDK doesn't build on a particular host) is to
+// download the prebuilt libllama.so for android-arm64 from the
+// ggerganov/llama.cpp releases page and skip this task — see
+// docs/superpowers/plans/2026-08-11-baton-m1-capture.md Task 3 risks.
+val vendorLlamaCpp = tasks.register("vendorLlamaCpp") {
+    val tag = "b4600"
+    val url = "https://github.com/ggerganov/llama.cpp/archive/refs/tags/$tag.tar.gz"
+    val cppDir = layout.projectDirectory.dir("src/main/cpp/llama-cpp")
+    val marker = layout.buildDirectory.file("llama-cpp/$tag.vendored")
+    outputs.file(marker)
+    doLast {
+        if (cppDir.asFile.exists() && cppDir.asFile.listFiles()?.isNotEmpty() == true) {
+            logger.lifecycle("llama-cpp already present, skipping vendor")
+            marker.get().asFile.parentFile.mkdirs()
+            marker.get().asFile.writeText("present\n")
+            return@doLast
+        }
+        val tarball = layout.buildDirectory.file("llama-cpp/$tag.tar.gz").get().asFile
+        tarball.parentFile.mkdirs()
+        logger.lifecycle("Downloading $url -> ${tarball.absolutePath}")
+        ant.invokeMethod("get", mapOf("src" to url, "dest" to tarball.absolutePath, "verbose" to true))
+        logger.lifecycle("Extracting ${tarball.absolutePath}")
+        ant.invokeMethod("untar", mapOf("src" to tarball.absolutePath, "dest" to cppDir.asFile.parentFile.absolutePath, "compression" to "gzip"))
+        // The tarball extracts into llama.cpp-<tag>/; rename to llama-cpp/.
+        val extracted = cppDir.asFile.parentFile.resolve("llama.cpp-$tag")
+        if (extracted.exists()) {
+            extracted.renameTo(cppDir.asFile)
+        }
+        marker.get().asFile.parentFile.mkdirs()
+        marker.get().asFile.writeText("present\n")
+    }
+}
+tasks.matching { it.name.startsWith("externalNativeBuild") || it.name.startsWith("configureCMake") }
+    .configureEach { dependsOn(vendorLlamaCpp) }
 
 dependencies {
     implementation(libs.core.ktx)
@@ -115,6 +173,7 @@ dependencies {
     implementation(libs.supabase.storage.kt)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
@@ -123,6 +182,7 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.okhttp)
     kspTest(libs.hilt.compiler)
 
     androidTestImplementation(libs.androidx.junit)
