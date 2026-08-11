@@ -1,0 +1,7 @@
+-- =============================================================================
+-- Baton M0 seed
+-- Intentionally empty. The user is solo (single-user pilot). Inserting seed
+-- rows for a second user would break the M0 finding test, which asserts that
+-- user A cannot read user B's rows under RLS.
+-- =============================================================================
+-- (no rows)
