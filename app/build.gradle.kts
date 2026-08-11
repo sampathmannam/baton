@@ -19,6 +19,11 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        val supabaseUrl: String = providers.gradleProperty("BATON_SUPABASE_URL").getOrElse("")
+        val supabaseAnonKey: String = providers.gradleProperty("BATON_SUPABASE_ANON_KEY").getOrElse("")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
 
     buildTypes {
@@ -39,7 +44,10 @@ android {
 
     kotlinOptions { jvmTarget = "17" }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     packaging {
         resources {
@@ -80,6 +88,7 @@ dependencies {
     implementation(libs.sqlcipher.android)
     implementation(libs.security.crypto)
 
+    implementation(libs.supabase.kt)
     implementation(libs.supabase.postgrest.kt)
     implementation(libs.supabase.auth.kt)
     implementation(libs.supabase.functions.kt)
@@ -94,6 +103,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.ktor.client.mock)
     kspTest(libs.hilt.compiler)
 
     androidTestImplementation(libs.androidx.junit)
