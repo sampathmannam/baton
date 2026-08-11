@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,25 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+}
+
+// local.properties is NOT auto-loaded into Gradle properties; AGP only
+// reads sdk.dir from it. Read keys ourselves so a clone + add-to-properties
+// + build works without editing gradle.properties (which is checked in).
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val supabaseUrl: String = localProps.getProperty("BATON_SUPABASE_URL", "")
+    .ifBlank { providers.gradleProperty("BATON_SUPABASE_URL").getOrElse("") }
+val supabaseAnonKey: String = localProps.getProperty("BATON_SUPABASE_ANON_KEY", "")
+    .ifBlank { providers.gradleProperty("BATON_SUPABASE_ANON_KEY").getOrElse("") }
+if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
+    throw GradleException(
+        "BATON_SUPABASE_URL and BATON_SUPABASE_ANON_KEY must be set in local.properties " +
+        "(gitignored). Copy from local.properties.example and fill in the values from " +
+        "the Supabase dashboard."
+    )
 }
 
 android {
@@ -20,8 +41,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        val supabaseUrl: String = providers.gradleProperty("BATON_SUPABASE_URL").getOrElse("")
-        val supabaseAnonKey: String = providers.gradleProperty("BATON_SUPABASE_ANON_KEY").getOrElse("")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }

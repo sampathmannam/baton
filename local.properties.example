@@ -1,0 +1,5 @@
+# Supabase project credentials. Copy this file to `local.properties` and
+# fill in the values from the Supabase dashboard (Project Settings -> API).
+# `local.properties` is gitignored; never commit it.
+BATON_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+BATON_SUPABASE_ANON_KEY=sb_publishable_YOUR_ANON_KEY
