@@ -60,3 +60,16 @@ secrets.properties
 google-services.json
 .env
 .env.local
+
+# Ad-hoc emulator debug artifacts (left behind by adb shell input + uiautomator
+# dump during live e2e testing). Real verification screenshots live in
+# docs/verification/ and ARE checked in.
+ui-*.xml
+ui.xml
+.gradle-build.log
+m0-*.png
+m0-*.xml
+baton-*.png
+
+# But keep the curated evidence set
+!docs/verification/
