@@ -20,6 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -28,6 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
 import com.baton.app.data.person.Person
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,13 +40,15 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(stringResource(R.string.home_title)) })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* M0: no-op. M1 wires AddPerson sheet. */ }) {
+            FloatingActionButton(onClick = { showSheet = true }) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
             }
         },
@@ -53,12 +60,27 @@ fun HomeScreen(
             is HomeUiState.Error -> ErrorState(s.message, padding)
         }
     }
+
+    if (showSheet) {
+        AddPersonSheet(
+            onSave = { name, designation, station ->
+                scope.launch {
+                    viewModel.createPerson(name, designation, station)
+                }
+                showSheet = false
+            },
+            onDismiss = { showSheet = false },
+        )
+    }
 }
 
 @Composable
 private fun EmptyState(padding: PaddingValues) {
     Box(
-        modifier = Modifier.fillMaxSize().padding(padding).padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -81,7 +103,9 @@ private fun EmptyState(padding: PaddingValues) {
 @Composable
 private fun PersonList(persons: List<Person>, padding: PaddingValues) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),
     ) {
         items(items = persons, key = { it.id }) { person ->
             PersonRow(person)
@@ -109,7 +133,10 @@ private fun PersonRow(person: Person) {
 @Composable
 private fun ErrorState(message: String, padding: PaddingValues) {
     Box(
-        modifier = Modifier.fillMaxSize().padding(padding).padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(32.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(message, style = MaterialTheme.typography.bodyMedium)
