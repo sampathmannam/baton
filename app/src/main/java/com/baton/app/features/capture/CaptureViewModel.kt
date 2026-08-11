@@ -2,6 +2,8 @@ package com.baton.app.features.capture
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.baton.app.data.captures.CaptureMode
+import com.baton.app.data.captures.CaptureRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,17 +13,14 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Drives the note bar + capture sheet. In M1, the [CaptureProcessor] is a
- * no-op by default (M1-T2 wires a real insert-capture call; M1-T4 wires
- * the on-device LLM).
- *
- * The state class is in [CaptureUiState]. The four events a user can fire
- * are [openSheet], [dismissSheet], [onTextChanged], [onExtract] and
- * [onConfirm] (latter is a no-op until M1-T5).
+ * Drives the note bar + capture sheet. M1-T2 inserts a `captures` row
+ * before the LLM runs; M1-T4 wires the on-device LLM; M1-T5 wires the
+ * save flow.
  */
 @HiltViewModel
 class CaptureViewModel @Inject constructor(
     private val processor: CaptureProcessor,
+    private val captureRepository: CaptureRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CaptureUiState())
@@ -44,10 +43,18 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * Run the LLM extraction on the current [CaptureUiState.text]. Stays
-     * open on success (showing the proposal) or failure (showing the
-     * error). M1-T2 inserts a row in the `captures` table before this
-     * call; M1-T4 wires the real LLM.
+     * Run the LLM extraction on the current [CaptureUiState.text].
+     *
+     * Sequence:
+     *  1. Insert a `captures` row (`mode=TEXT, raw_text=text,
+     *     processed=false`). The row id is logged but not currently
+     *     surfaced in the UI.
+     *  2. Hand the text to the [CaptureProcessor]. The M1 default
+     *     returns `null`; M1-T4 wires the on-device LLM.
+     *  3. On success, mark the capture `processed=true` (M1-T5 will
+     *     also write the linked `instructions` row in the same
+     *     operation). On failure, the capture stays `processed=false`
+     *     and the user can retry.
      */
     fun onExtract() {
         val current = _state.value
@@ -55,8 +62,25 @@ class CaptureViewModel @Inject constructor(
         val text = current.text
         _state.update { it.copy(isExtracting = true, error = null) }
         viewModelScope.launch {
+            val capture = runCatching {
+                captureRepository.create(rawText = text, mode = CaptureMode.TEXT)
+            }.getOrNull()
+            if (capture == null) {
+                _state.update {
+                    it.copy(
+                        isExtracting = false,
+                        error = "Could not save note. Try again.",
+                    )
+                }
+                return@launch
+            }
             runCatching { processor.process(text) }
                 .onSuccess { proposal ->
+                    if (proposal != null) {
+                        // M1-T5 will replace this with the full save flow;
+                        // for now, marking processed is the best we can do.
+                        runCatching { captureRepository.markProcessed(capture.id) }
+                    }
                     _state.update {
                         if (proposal == null) {
                             it.copy(

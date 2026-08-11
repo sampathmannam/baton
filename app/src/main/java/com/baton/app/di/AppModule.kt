@@ -1,6 +1,8 @@
 package com.baton.app.di
 
 import com.baton.app.data.auth.AuthRepository
+import com.baton.app.data.captures.CaptureRepository
+import com.baton.app.data.captures.SupabaseCaptureRepository
 import com.baton.app.data.person.PersonRepository
 import com.baton.app.data.person.SupabasePersonRepository
 import dagger.Module
@@ -24,6 +26,11 @@ object AppModule {
     @Singleton
     fun providePersonRepository(httpClient: HttpClient): PersonRepository =
         SupabasePersonRepository(httpClient)
+
+    @Provides
+    @Singleton
+    fun provideCaptureRepository(httpClient: HttpClient): CaptureRepository =
+        SupabaseCaptureRepository(httpClient)
 
     @Provides
     @Singleton
