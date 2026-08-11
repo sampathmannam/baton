@@ -9,7 +9,10 @@ build/
 *.iml
 .idea/
 local.properties
-captures/
+# AGP's default `captures/` output is gitignored; we don't use AGP's
+# screenshot test infrastructure so this stays. (Removed from the M0
+# .gitignore so app/src/main/java/com/baton/app/data/captures/ can
+# be tracked.)
 .externalNativeBuild/
 .cxx/
 *.apk
