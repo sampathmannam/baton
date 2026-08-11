@@ -18,13 +18,14 @@ data class CaptureUiState(
     val isVisible: Boolean = false,
     val text: String = "",
     val isExtracting: Boolean = false,
+    val isSaving: Boolean = false,
     val proposal: ExtractedInstruction? = null,
     val addToCalendar: Boolean = false,
     val error: String? = null,
 ) {
     val canExtract: Boolean
-        get() = isVisible && text.isNotBlank() && !isExtracting
+        get() = isVisible && text.isNotBlank() && !isExtracting && !isSaving
 
     val canConfirm: Boolean
-        get() = isVisible && proposal != null
+        get() = isVisible && proposal != null && !isSaving
 }

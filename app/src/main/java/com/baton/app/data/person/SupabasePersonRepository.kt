@@ -4,6 +4,7 @@ import com.baton.app.BuildConfig
 import com.baton.app.data.supabase.buildSupabaseClient
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 import io.ktor.client.HttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -50,6 +51,41 @@ class SupabasePersonRepository(
             }
             .decodeSingle()
         return inserted.toDomain()
+    }
+
+    override suspend fun findByName(name: String): Person? {
+        // Order by created_at so the first hit is deterministic.
+        val rows: List<PersonRow> = client.postgrest
+            .from("persons")
+            .select(columns = Columns.list("id", "name", "designation", "station", "phone", "user_id")) {
+                filter {
+                    eq("name", name)
+                }
+                limit(1)
+            }
+            .decodeList()
+        return rows.firstOrNull()?.toDomain()
+    }
+
+    override suspend fun findOrCreate(
+        name: String,
+        designation: String?,
+        station: String?,
+    ): Person {
+        findByName(name)?.let { return it }
+        // Race window: two concurrent calls could both miss the lookup
+        // and both attempt to insert. The unique constraint
+        // `(user_id, name, designation, station)` makes the second
+        // insert fail; we catch and re-lookup.
+        return try {
+            create(name = name, designation = designation, station = station)
+        } catch (e: Exception) {
+            // The unique-violation class is platform-specific; PostgREST
+            // returns HTTP 409. Treat any insert failure here as a race
+            // and re-read.
+            val found = findByName(name)
+            found ?: throw e
+        }
     }
 }
 

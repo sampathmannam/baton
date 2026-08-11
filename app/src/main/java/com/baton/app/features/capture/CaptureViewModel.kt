@@ -4,6 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.captures.CaptureMode
 import com.baton.app.data.captures.CaptureRepository
+import com.baton.app.data.instructions.InstructionRepository
+import com.baton.app.data.instructions.Priority
+import com.baton.app.data.instructions.Source
+import com.baton.app.data.person.PersonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,14 +17,21 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Drives the note bar + capture sheet. M1-T2 inserts a `captures` row
- * before the LLM runs; M1-T4 wires the on-device LLM; M1-T5 wires the
- * save flow.
+ * Drives the note bar + capture sheet.
+ *
+ *  - M1-T1: the no-op state machine + capture sheet UI.
+ *  - M1-T2: inserts a `captures` row before the LLM runs.
+ *  - M1-T4: wires the on-device LLM; produces the `ExtractedInstruction`
+ *    proposal.
+ *  - M1-T5: on Confirm, `findOrCreate` the named person and
+ *    `create` the instruction row, then dismiss.
  */
 @HiltViewModel
 class CaptureViewModel @Inject constructor(
     private val processor: CaptureProcessor,
     private val captureRepository: CaptureRepository,
+    private val personRepository: PersonRepository,
+    private val instructionRepository: InstructionRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CaptureUiState())
@@ -129,13 +140,73 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * Confirm the proposal. M1: no-op. M1-T5 wires the save flow
-     * (instruction + auto-created person). The sheet closes regardless;
-     * the caller decides what to do on success.
+     * Confirm the proposal and save. Sequence:
+     *  1. `personRepository.findOrCreate(name)` if the proposal named a
+     *     person. If `proposal.person` is `null`, the instruction is
+     *     stored with `person_id = null` (a free-floating note).
+     *  2. `instructionRepository.create(...)` writes the row.
+     *  3. Dismiss the sheet. On error, surface a user-readable message
+     *     and keep the sheet open so the user can retry.
+     *
+     * M1 only saves; the M2 nudge flow will move the instruction
+     * through `ACK_PENDING` → `DONE`. The M1-T6 calendar toggle, when
+     * on, also fires a `CalendarContract.Events.Insert` intent in
+     * parallel (added in T6).
      */
     fun onConfirm() {
         val current = _state.value
+        val proposal = current.proposal ?: return
         if (!current.canConfirm) return
-        dismissSheet()
+        _state.update { it.copy(isSaving = true, error = null) }
+        viewModelScope.launch {
+            val personId: String? = proposal.person?.let { name ->
+                runCatching { personRepository.findOrCreate(name = name) }
+                    .onFailure {
+                        _state.update {
+                            it.copy(
+                                isSaving = false,
+                                error = "Could not save person. Try again.",
+                            )
+                        }
+                    }
+                    .getOrNull()
+                    ?.id
+            }
+            if (_state.value.error != null) return@launch
+            val title = buildTitle(proposal)
+            val priority = parsePriority(proposal.priority)
+            val result = runCatching {
+                instructionRepository.create(
+                    personId = personId,
+                    source = Source.TEXT,
+                    priority = priority,
+                    title = title,
+                    rawText = proposal.instructionText,
+                    dueAt = proposal.dueAt,
+                )
+            }
+            result.onSuccess {
+                dismissSheet()
+            }.onFailure { e ->
+                _state.update {
+                    it.copy(
+                        isSaving = false,
+                        error = e.message ?: "Could not save instruction.",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun buildTitle(proposal: ExtractedInstruction): String {
+        val action = proposal.action.trim().ifBlank { proposal.instructionText.take(40) }
+        val person = proposal.person?.takeIf { it.isNotBlank() }
+        return if (person != null) "$action — $person" else action
+    }
+
+    private fun parsePriority(raw: String): Priority = when (raw.trim().uppercase()) {
+        "HIGH", "URGENT" -> Priority.HIGH
+        "LOW" -> Priority.LOW
+        else -> Priority.NORMAL
     }
 }

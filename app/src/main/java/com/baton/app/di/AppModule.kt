@@ -3,6 +3,8 @@ package com.baton.app.di
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.captures.CaptureRepository
 import com.baton.app.data.captures.SupabaseCaptureRepository
+import com.baton.app.data.instructions.InstructionRepository
+import com.baton.app.data.instructions.SupabaseInstructionRepository
 import com.baton.app.data.person.PersonRepository
 import com.baton.app.data.person.SupabasePersonRepository
 import dagger.Module
@@ -32,6 +34,11 @@ object AppModule {
     @Singleton
     fun provideCaptureRepository(httpClient: HttpClient): CaptureRepository =
         SupabaseCaptureRepository(httpClient)
+
+    @Provides
+    @Singleton
+    fun provideInstructionRepository(httpClient: HttpClient): InstructionRepository =
+        SupabaseInstructionRepository(httpClient)
 
     @Provides
     @Singleton
