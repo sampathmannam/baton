@@ -1,30 +1,25 @@
 package com.baton.app.di
 
-import com.baton.app.data.person.Person
 import com.baton.app.data.person.PersonRepository
+import com.baton.app.data.person.SupabasePersonRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.ktor.client.HttpClient
 import javax.inject.Singleton
 
 /**
- * App-wide Hilt module. Real bindings (Supabase client, Room DB, AI engine)
- * are added in later tasks. This module exists so the test can verify
- * the Hilt graph compiles from day one.
- *
- * The [providePersonRepository] binding is a stub that returns an empty list
- * so the Hilt graph compiles and the Home screen renders its empty state.
- * Task 6 (DI wire-up) replaces this with the Supabase-backed implementation.
+ * App-wide Hilt module. The [providePersonRepository] binding is the
+ * Supabase-backed implementation — Task 6 wired it up. The [SupabaseClient]
+ * is built inside the repository (not bound here) to keep Hilt's KSP
+ * processor from trying to resolve a KMP AAR type at binding-analysis time.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
     @Provides
     @Singleton
-    fun providePersonRepository(): PersonRepository = EmptyPersonRepository
-}
-
-private object EmptyPersonRepository : PersonRepository {
-    override suspend fun observeAll(): List<Person> = emptyList()
+    fun providePersonRepository(httpClient: HttpClient): PersonRepository =
+        SupabasePersonRepository(httpClient)
 }

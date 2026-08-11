@@ -23,7 +23,7 @@ espresso = "3.6.1"
 robolectric = "4.13"
 hilt-android-testing = "2.52"
 supabase = "3.1.1"
-ktor = "2.3.12"
+ktor = "3.0.3"
 turbine = "1.1.0"
 mockk = "1.13.13"
 
@@ -53,6 +53,7 @@ compose-material3 = { module = "androidx.compose.material3:material3", version.r
 compose-material-icons = { module = "androidx.compose.material:material-icons-extended" }
 navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }
+supabase-kt = { module = "io.github.jan-tennert.supabase:supabase-kt", version.ref = "supabase" }
 supabase-postgrest-kt = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
 supabase-auth-kt = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
 supabase-functions-kt = { module = "io.github.jan-tennert.supabase:functions-kt", version.ref = "supabase" }
@@ -60,6 +61,7 @@ supabase-realtime-kt = { module = "io.github.jan-tennert.supabase:realtime-kt", 
 supabase-storage-kt = { module = "io.github.jan-tennert.supabase:storage-kt", version.ref = "supabase" }
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 junit = { module = "junit:junit", version.ref = "junit" }
