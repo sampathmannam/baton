@@ -70,5 +70,34 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- M2-T5: quick-settings tile. The user adds Baton from the
+             system shade; tapping fires the QUICK_CAPTURE deep link
+             into MainActivity. label uses @string/tile_label so it
+             shows in the tile picker. -->
+        <service
+            android:name=".features.capture.BatonTileService"
+            android:label="@string/tile_label"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- M2-T5: home-screen / lock-screen widget. Same deep link
+             as the tile. -->
+        <receiver
+            android:name=".features.capture.BatonCaptureWidget"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
     </application>
 </manifest>

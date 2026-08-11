@@ -56,6 +56,7 @@ fun HomeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val captureState by captureViewModel.state.collectAsStateWithLifecycle()
     val sharedText by rootViewModel.sharedText.collectAsStateWithLifecycle()
+    val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -70,6 +71,18 @@ fun HomeScreen(
             captureViewModel.onTextChanged(text)
             captureViewModel.openSheet()
             rootViewModel.consumeSharedText()
+        }
+    }
+
+    // M2-T5: when the user taps the quick-settings tile or the
+    // home-screen widget, the deep link fires ACTION_QUICK_CAPTURE
+    // and MainActivity signals via [RootViewModel.quickCapture].
+    // We open the capture sheet (empty, focused on the text input)
+    // and consume the signal so a config change does not re-open.
+    LaunchedEffect(quickCapture) {
+        if (quickCapture) {
+            captureViewModel.openSheet()
+            rootViewModel.consumeQuickCapture()
         }
     }
 
