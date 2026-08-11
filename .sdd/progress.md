@@ -1,116 +1,107 @@
-# Baton M1 progress ledger
+# Baton progress ledger
 
 Branch: m0/skeleton
-Tag: m1-capture at acf8c2e
-
-Started: 2026-08-11
-Completed: 2026-08-11 (skeleton → live e2e) → 2026-08-11 (M1 capture + save + share + calendar)
+Tags: m0-skeleton, m0-final, m1-capture
 
 ## M0 status: COMPLETE — APK installed, sign-in live, RLS verified, list shows user data
 
 ## M1 status: COMPLETE — 8 tasks shipped, 46/46 unit tests green, debug + release APK built, m1-capture tag pushed
 
-### M1-T1: Single note bar UI + capture sheet (text-only)
-- commit 1fbb677
-- NoteBar (floating), CaptureSheet (ModalBottomSheet), CaptureViewModel + UiState
-- 8/8 unit tests pass
-- Fix: ModalBottomSheet.onDismissRequest syncs VM so scrim/BACK/ESC re-arm openSheet()
+## M2 status: PARTIAL — 2 of 8 tasks shipped (photo + share image), 52/52 unit tests green, debug APK rebuilt
 
-### M1-T2: Captures table write-through to Supabase
-- commit c5ffccf
-- data/captures/{Capture, CaptureRepository, SupabaseCaptureRepository}
-- 8/8 unit tests pass
-- Fix: AGP-default gitignored `captures/`; re-included `data/captures/`
+### M2-T1 + M2-T2: share intent accepts image + in-app camera + ML Kit OCR
+- commit c4e71e5
+- ShareIntake.inspect(intent) returns `Result.Text` or `Result.Image`
+- ShareReceiverActivity handles both; images flow through `PhotoCapture.recognize` (ML Kit TextRecognition.getClient(LATIN)) then forward to MainActivity
+- CameraLauncher wraps `ActivityResultContracts.TakePicture` + FileProvider; `newCaptureUri(context)` writes a placeholder JPEG in cacheDir/captures/ and hands the camera a content:// URI
+- NoteBar now exposes `onTextClick`, `onCameraClick`, `onMicClick`; camera icon is enabled and clickable
+- CaptureViewModel.onPhotoTextRecognized(text) pre-fills the sheet and opens it
+- AndroidManifest: CAMERA permission + FileProvider for cacheDir/captures/ + camera feature
+- 14 ShareIntakeTest cases (8 → 14): text, image (png/jpeg/star), null MIME, missing extras
+- Live e2e on emulator-5554: app launches with the new APK, NoteBar shows the enabled camera + mic icons
 
-### M1-T3: llama.cpp JNI integration
-- commit fd64850
-- app/src/main/cpp/{CMakeLists.txt, llama_jni.cpp, llama-cpp/ (vendored b4600)}
-- ai/llama/{LlamaBridge, ModelManager, LlamaError}
-- 13 MB native libs: libbaton-llama.so + libllama.so + libggml-{base,cpu}.so + libc++_shared + libomp
-- NDK 27.3.13750724 + CMake 3.22.1 + arm64-v8a only
+### M2 status: T3-T8 deferred (see Carry-forward)
 
-### M1-T4: On-device LLM extraction + GBNF grammar + confirmation card
-- commit d3f8678
-- assets/prompts/extract_v1.txt (5-shot prompt)
-- assets/grammars/instruction.gbnf (constrained JSON)
-- ai/extraction/Extractor.kt + Hilt binding in CaptureModule
-- features/capture/ConfirmationCard.kt (High/Medium/Low confidence chip, no red)
-- di/AppModule.kt provides OkHttpClient
-- 21/21 unit tests pass (5 new ExtractorTest)
-- Live e2e on emulator-5554: app launches, NoteBar opens sheet, sheet re-opens after dismiss
+The M2 plan covered 8 tasks. T1+T2 (photo + share image) shipped. T3-T8
+(Whisper.cpp JNI, voice foreground service, quick-settings tile, lock-
+screen widget, Room mirror, Postgrest + Realtime sync, conflict
+resolution, multi-device smoke test) are deferred. Rationale:
 
-### M1-T5: Save confirmation → instructions + persons (FT-1.2, FT-1.3)
-- commit 53389a6
-- data/instructions/{Instruction, InstructionRepository, SupabaseInstructionRepository}
-- SupabasePersonRepository.findByName + findOrCreate
-- CaptureViewModel.onConfirm: findOrCreate person + create instruction
-- Prompt fix: URGENT → HIGH (schema enum is LOW/NORMAL/HIGH)
-- 27/27 unit tests pass (3 new SupabaseInstructionRepositoryTest with MockEngine, 3 new CaptureViewModelTest save flow tests)
-- Live e2e: programmatic POST to /rest/v1/instructions with the same shape the app sends returns 201 + row readable back
+- **Whisper JNI (T3)** is a multi-day lift: vendor whisper.cpp at
+  b4600 alongside llama.cpp, write `whisper_jni.cpp` (PCM byte
+  array → text), add the `ggml-tiny.en.bin` model download (75 MB
+  separate from the 1.1 GB Qwen model), wire OkHttp + SHA-256 verify.
+  Realistic in a 4-hour focused session; out of scope for this
+  drive.
+- **Voice foreground service (T4)** is the surrounding plumbing
+  (RECORD_AUDIO + FOREGROUND_SERVICE_MICROPHONE permissions,
+  `microphone` foreground service type, AudioRecord at 16 kHz, a
+  Channel<PCM> from service to VM). Depends on T3.
+- **Quick-settings tile + lock-screen widget (T5)** is the
+  always-available UX. Depends on T4.
+- **Room mirror + Postgrest writer (T6)** is a big rewrite of the
+  data layer. Every repo writes through to Room, then enqueues
+  sync ops. M3 work.
+- **Realtime subscription (T7)** is smaller than T6 — a single
+  `client.realtime.channel(...).on("postgres_changes", ...)` per
+  table that re-fetches on event. M2.1 candidate.
+- **Conflict resolution (T8)** depends on T6.
 
-### M1-T6: CalendarContract integration (FT-1.4)
-- commit c402101
-- features/capture/CalendarGate.kt: buildEventData (pure JVM) + toIntent (Android-only)
-- CaptureViewModel.calendarIntents: Flow<CalendarEventData>
-- AndroidManifest: WRITE_CALENDAR with maxSdkVersion=32
-- 38/38 unit tests pass (8 new CalendarGateTest + 3 new VM tests)
-- Live e2e: deferred (LLM 404 blocks confirmation card; full calendar flow unblocked on a real device with the model)
+### Finding test status (M2)
 
-### M1-T7: Share-target ingest (FT-1.5)
-- commit 9b16b2a
-- AndroidManifest: <activity-alias> for ACTION_SEND + text/plain
-- features/capture/{ShareIntake, ShareReceiverActivity}
-- MainActivity + RootViewModel + HomeScreen wire shared text → pre-filled capture sheet
-- 46/46 unit tests pass (8 new ShareIntakeTest under Robolectric)
-- Live e2e: Baton appears in system share sheet as "Save to Baton", tap dispatches ACTION_SEND, capture sheet opens with shared text pre-filled
-
-### M1-T8: Model URL + SHA fix, release APK, m1-capture tag
-- commit acf8c2e
-- Fixed model_url.txt: enacimie/Qwen3-1.7B-Q4_K_M-GGUF (was a 404 placeholder)
-- Computed real SHA-256: 54e0d3dbd2388f3c414bf31fb3e22e4954c8edcf4ab83e315d44995bea764eb9
-- build.gradle.kts: lint.disable RemoveWorkManagerInitializer for release
-- app-release-unsigned.apk built (25 MB)
-- git tag -a m1-capture pushed
-
-### Finding test status (FT-1.x)
-
-| Test | Path | Status |
-|---|---|---|
-| FT-1.1 | Real LLM extraction on emulator | Blocked: 1.1 GB model download + emulator CPU too slow for <30s inference. Unblocked on a real device. |
-| FT-1.2 | Save → instruction + person rows | Wire format verified live via direct POST; full UI flow blocked on FT-1.1 |
-| FT-1.3 | Cross-restart read of new instruction | Verified: M0 read path picks up M1-T5 test data (Inspector Ramu) |
-| FT-1.4 | Calendar event created from confirmation card | Code path covered by 3 VM tests + 8 CalendarGateTest; live e2e blocked on FT-1.1 |
-| FT-1.5 | Share text → capture sheet pre-fill | Verified live on emulator-5554 (chooser → Baton → sheet with pre-filled text) |
+| Test | Status |
+|---|---|
+| FT-2.1 photo capture → confirmation card | Code path ready; real-device run gated on a JPEG fixture in cacheDir + a real device (the emulator camera can take a picture but the OCR'd text depends on the lighting + the printed sample). |
+| FT-2.2 voice capture → confirmation card | Deferred with M2-T3. |
+| FT-2.3 image share → confirmation card | Code path ready; same gated-on-real-device caveat. |
+| FT-2.4 multi-device sync | Deferred with M2-T7. |
+| FT-2.5 offline → online | Deferred with M2-T6. |
 
 ### Live e2e verified on emulator-5554
 
-- App installs and launches without crash
-- Sign-in against real Supabase returns valid JWT, app routes to Home
-- Home shows 3 persons (Inspector Demo, DSP Srinagar, Inspector Ramu) — proves the M0 read path picks up M1-T5 writes
-- NoteBar at bottom opens the capture sheet
-- Sheet re-opens cleanly after BACK-dismiss (the M1-T1 fix)
-- Type + Extract round-trips a row to the `captures` table (M1-T2 wire confirmed)
-- Direct POST to /rest/v1/instructions with the app's shape returns 201 (M1-T5 wire confirmed)
-- "Save to Baton" appears in the system share sheet; tap opens capture sheet with shared text pre-filled (M1-T7)
+- App installs and launches with the M2-T1+T2 APK without crash
+- NoteBar shows the enabled camera + mic icons (previously 0.4 alpha)
+- Sign-in flow intact; Home shows existing persons
 
 ### What's deployed / ready
 
-- **APKs**:
-  - `app/build/outputs/apk/debug/app-debug.apk` (~36 MB, installed on emulator-5554)
-  - `app/build/outputs/apk/release/app-release-unsigned.apk` (25 MB)
+- **APK**: `app/build/outputs/apk/debug/app-debug.apk` (rebuilt with M2 photo path)
 - **Supabase project**: cfnmpqwfvhlnbblxqesm (South Asia / Mumbai)
-- **Schema**: 12 migrations (0001 init + 0002 user_id default)
-- **Edge functions**: mcp-server, admin-bootstrap
+- **Schema**: 12 migrations, 11 tables, 42 RLS policies
 - **Test users**: baton.m0+demo@baton.app, baton.m0+userb@baton.app
 - **Branch**: m0/skeleton
 - **Tags**: m0-skeleton, m0-final, m1-capture
 
-### Carry-forward to M2
+### Carry-forward to M2.1 / M3
 
-- Voice (Whisper.cpp) + photo (ML Kit OCR) on the note bar
-- Image MIME type on the share intent (text only in M1)
-- WorkManager on-demand init (the lint-disabled provider)
-- 5-shot prompt could grow to 8-shot for better accuracy
-- The M1 "title" is `action + ' — ' + person`; M2 prompt should return a proper `title` field
-- Room mirror + sync (M3) — current code reads Supabase directly
-- Sign-out UI (M5)
+1. **Whisper JNI (M2-T3)**: vendor whisper.cpp, write `whisper_jni.cpp`,
+   add `ggml-tiny.en.bin` model. ~4 hours focused work.
+2. **Voice foreground service (M2-T4)**: pipe AudioRecord PCM
+   into WhisperBridge; one-shot service. ~2 hours.
+3. **Quick-settings tile + lock-screen widget (M2-T5)**: TileService
+   + AppWidget. ~1 hour.
+4. **Room mirror + Postgrest writer (M2-T6 / M3)**: rewrite
+   repositories to write-through to Room, add sync queue, drain
+   via WorkManager. ~6 hours.
+5. **Realtime subscription (M2-T7)**: per-table postgres_changes
+   subscription that triggers a re-fetch. ~2 hours. Can ship
+   before the Room mirror; the Home tab just needs a small
+   refactor.
+6. **Conflict resolution (M2-T8)**: last-write-wins on
+   `updated_at`, audit in `sync_conflicts`. ~2 hours.
+
+### Carry-forward to M3 (from M1 progress)
+
+- People list (Home tab) already wired (M0). M3 adds the badge
+  + person detail timeline.
+- Full MCP server (all 7 resources + 4 tools) at the cloud
+  Edge Function.
+- The "is_sensitive" flag is set on the schema but never read.
+  M3 hooks it into the sync engine.
+- Voice (Whisper.cpp) + photo (ML Kit OCR) on the note bar —
+  **photo is DONE in M2-T2; voice still pending M2-T3**.
+- WorkManager on-demand init (the lint-disabled provider).
+- 5-shot prompt could grow to 8-shot for better accuracy.
+- The M1 "title" is `action + ' — ' + person`; M2 prompt should
+  return a proper `title` field.
+- Sign-out UI (M5).
