@@ -24,4 +24,10 @@
     <string name="capture_sheet_text_placeholder">Type a free-form note. We\'ll extract the instruction.</string>
     <string name="capture_sheet_extract">Extract</string>
     <string name="capture_sheet_confirm">Save</string>
+
+    <!-- M1-T4: confirmation card -->
+    <string name="confirmation_person">Person</string>
+    <string name="confirmation_action">Action</string>
+    <string name="confirmation_instruction_text">Instruction</string>
+    <string name="confirmation_add_to_calendar">Add to calendar (coming in M1-T6)</string>
 </resources>

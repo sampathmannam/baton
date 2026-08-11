@@ -71,14 +71,24 @@ google-services.json
 .env.local
 
 # Ad-hoc emulator debug artifacts (left behind by adb shell input + uiautomator
-# dump during live e2e testing). Real verification screenshots live in
-# docs/verification/ and ARE checked in.
-ui-*.xml
-ui.xml
-.gradle-build.log
-m0-*.png
-m0-*.xml
-baton-*.png
+# dump during live e2e testing). The leading slash anchors the pattern to
+# the repo root, so the same filename in docs/verification/ is NOT
+# ignored. Real verification screenshots live in docs/verification/ and
+# ARE checked in.
+/ui-*.xml
+/ui.xml
+/.gradle-build.log
+/m[0-9]-*.png
+/m[0-9]-*.xml
+/baton-*.png
 
-# But keep the curated evidence set
-!docs/verification/
+# Subagent implementation artifacts (briefs, reports, reviews, diffs)
+# These document the build process but are not part of the deliverable.
+.sdd/review-*.diff
+.sdd/task-*-brief.md
+.sdd/task-*-report.md
+.sdd/task-*-review.md
+.sdd/task-*-re-review.md
+.sdd/task-*-fix-report.md
+.sdd/task-*-todos.md
+.sdd/task-*-sqlcipher-fix.md

@@ -42,6 +42,27 @@ class CaptureViewModel @Inject constructor(
         _state.update { it.copy(addToCalendar = checked) }
     }
 
+    fun onProposalPersonChange(value: String) {
+        _state.update {
+            val proposal = it.proposal ?: return@update it
+            it.copy(proposal = proposal.copy(person = value.ifBlank { null }))
+        }
+    }
+
+    fun onProposalActionChange(value: String) {
+        _state.update {
+            val proposal = it.proposal ?: return@update it
+            it.copy(proposal = proposal.copy(action = value))
+        }
+    }
+
+    fun onProposalTextChange(value: String) {
+        _state.update {
+            val proposal = it.proposal ?: return@update it
+            it.copy(proposal = proposal.copy(instructionText = value))
+        }
+    }
+
     /**
      * Run the LLM extraction on the current [CaptureUiState.text].
      *

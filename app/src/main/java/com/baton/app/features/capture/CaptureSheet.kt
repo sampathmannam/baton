@@ -69,6 +69,10 @@ fun CaptureSheet(
             onClose = {
                 viewModel.dismissSheet()
             },
+            onAddToCalendarChange = viewModel::onAddToCalendarChanged,
+            onProposalPersonChange = viewModel::onProposalPersonChange,
+            onProposalActionChange = viewModel::onProposalActionChange,
+            onProposalTextChange = viewModel::onProposalTextChange,
         )
     }
 }
@@ -80,6 +84,10 @@ private fun CaptureSheetContent(
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
     onClose: () -> Unit,
+    onAddToCalendarChange: (Boolean) -> Unit = { },
+    onProposalPersonChange: (String) -> Unit = { },
+    onProposalActionChange: (String) -> Unit = { },
+    onProposalTextChange: (String) -> Unit = { },
 ) {
     Column(
         modifier = Modifier
@@ -103,12 +111,12 @@ private fun CaptureSheetContent(
             )
         }
         if (state.proposal != null) {
-            // M1-T4 lands the ConfirmationCard here. M1 just confirms the
-            // proposal exists; the empty card placeholder keeps the layout
-            // stable.
-            Text(
-                text = "Proposal: ${state.proposal!!.action}",
-                style = MaterialTheme.typography.bodyMedium,
+            ConfirmationCard(
+                proposal = state.proposal!!,
+                onPersonChange = onProposalPersonChange,
+                onActionChange = onProposalActionChange,
+                onInstructionTextChange = onProposalTextChange,
+                onAddToCalendarChange = onAddToCalendarChange,
             )
         }
         PrimaryAction(
