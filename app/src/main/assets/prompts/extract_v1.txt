@@ -9,7 +9,7 @@ Schema:
   "person": string | null,            // the person the instruction is about; null if no person is named
   "action": string,                    // the verb phrase; never blank
   "due_at": string | null,             // ISO 8601 timestamp in Asia/Kolkata; null if no time cue
-  "priority": "NORMAL" | "URGENT" | "LOW",
+  "priority": "NORMAL" | "HIGH" | "LOW",
   "instruction_text": string,          // the full instruction in clean prose
   "confidence": number                 // 0.0 to 1.0, your self-reported confidence
 }
@@ -20,7 +20,7 @@ Input: "Ramu needs to file the FIR by Friday"
 Output: {"person":"Ramu","action":"file the FIR","due_at":"<next Friday 17:00 +05:30>","priority":"NORMAL","instruction_text":"Ramu to file the FIR by Friday","confidence":0.9}
 
 Input: "URGENT call SP Bandipora immediately"
-Output: {"person":"SP Bandipora","action":"call","due_at":"<now+5min +05:30>","priority":"URGENT","instruction_text":"Call SP Bandipora immediately","confidence":0.95}
+Output: {"person":"SP Bandipora","action":"call","due_at":"<now+5min +05:30>","priority":"HIGH","instruction_text":"Call SP Bandipora immediately","confidence":0.95}
 
 Input: "sunday review pending cases"
 Output: {"person":null,"action":"review pending cases","due_at":"<next Sunday 10:00 +05:30>","priority":"NORMAL","instruction_text":"Review pending cases on Sunday","confidence":0.7}

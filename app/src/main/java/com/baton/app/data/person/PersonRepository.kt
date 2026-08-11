@@ -3,4 +3,25 @@ package com.baton.app.data.person
 interface PersonRepository {
     suspend fun observeAll(): List<Person>
     suspend fun create(name: String, designation: String?, station: String?): Person
+
+    /**
+     * M1-T5: find a person by name. Returns the first row with the
+     * given [name] for the calling user, ignoring designation / station.
+     * Returns `null` if no match. The unique constraint on
+     * `(user_id, name, designation, station)` is permissive — a user
+     * could in theory have two "Ramu"s with different stations; we pick
+     * the first row and let the user disambiguate via the UI later
+     * (M3's person picker will use this).
+     */
+    suspend fun findByName(name: String): Person?
+
+    /**
+     * M1-T5: find an existing person by name, or create one. Used by
+     * the M1-T5 save flow to auto-create the person named in the LLM
+     * proposal. The unique constraint
+     * `(user_id, name, designation, station)` prevents duplicates
+     * when a race creates the same person twice; the loser of the
+     * race will get a 409 and the impl retries the lookup.
+     */
+    suspend fun findOrCreate(name: String, designation: String? = null, station: String? = null): Person
 }
