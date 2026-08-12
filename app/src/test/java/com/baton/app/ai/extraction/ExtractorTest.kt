@@ -21,6 +21,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.ByteArrayInputStream
 import java.io.File
 
@@ -32,6 +35,8 @@ import java.io.File
  * `ensureModelLoaded` is a no-op.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class ExtractorTest {
 
     private val testDispatcher = StandardTestDispatcher()
@@ -136,5 +141,63 @@ class ExtractorTest {
             llama = llama,
         )
         assertNull(extractor.process("x"))
+    }
+
+    // ----- M3-T3: 8-shot prompt coverage -----
+
+    @Test
+    fun `DSP rank is preserved in the extracted person field`() = runTest(testDispatcher) {
+        val canned = """
+            {"person":"DSP Priya","action":"send the case diary","due_at":"2026-08-18T18:00:00+05:30",
+             "priority":"NORMAL","instruction_text":"DSP Priya to send the case diary by Monday EOD",
+             "confidence":0.92}
+        """.trimIndent()
+        val (extractor, _, _) = makeExtractor(canned)
+        val proposal = extractor.process("DSP Priya should send the case diary by Monday EOD")
+        advanceUntilIdle()
+        assertNotNull(proposal)
+        assertEquals("DSP Priya", proposal!!.person)
+    }
+
+    @Test
+    fun `same-day time cue is preserved as a today ISO timestamp`() = runTest(testDispatcher) {
+        val canned = """
+            {"person":"SHO Triveni","action":"sign the seizure memo","due_at":"2026-08-12T17:00:00+05:30",
+             "priority":"NORMAL","instruction_text":"Get SHO Triveni to sign the seizure memo before 5 PM",
+             "confidence":0.9}
+        """.trimIndent()
+        val (extractor, _, _) = makeExtractor(canned)
+        val proposal = extractor.process("Get SHO Triveni to sign the seizure memo before she leaves at 5")
+        advanceUntilIdle()
+        assertNotNull(proposal)
+        assertEquals("SHO Triveni", proposal!!.person)
+        assertNotNull("due_at must be set for a same-day cue", proposal.dueAt)
+    }
+
+    @Test
+    fun `8th shot example with no instruction returns null`() = runTest(testDispatcher) {
+        // Mirrors the 8th example: a meeting note, not an instruction.
+        // The Extractor drops anything with confidence < 0.5.
+        val (extractor, _, _) = makeExtractor(
+            """{"person":null,"action":null,"due_at":null,"priority":"NORMAL","instruction_text":null,"confidence":0.2}"""
+        )
+        assertNull(extractor.process("meeting notes from bandobast review at 3pm"))
+    }
+
+    @Test
+    fun `prompt is read from assets_prompts_extract_v1`() {
+        // Sanity: the on-disk prompt must contain 8 examples (the
+        // M3-T3 contract). This catches accidental regressions to
+        // the 5-shot M1 prompt if a future change edits the file.
+        // We read from the project source path (not via the
+        // Application's assets/) so the test doesn't depend on
+        // Robolectric bundling main-classpath resources (which
+        // drags in security-crypto + its missing AndroidKeyStore).
+        // user.dir is the module dir (app/) so the prompt is at
+        // src/main/assets/prompts/extract_v1.txt.
+        val src = java.io.File("src/main/assets/prompts/extract_v1.txt")
+        val text = src.readText()
+        val exampleCount = Regex("^Input:", RegexOption.MULTILINE).findAll(text).count()
+        assertEquals("prompt must have 8 examples (M3-T3 contract)", 8, exampleCount)
     }
 }

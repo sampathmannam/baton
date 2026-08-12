@@ -16,8 +16,8 @@ Schema:
 
 Examples:
 
-Input: "Ramu needs to file the FIR by Friday"
-Output: {"person":"Ramu","action":"file the FIR","due_at":"<next Friday 17:00 +05:30>","priority":"NORMAL","instruction_text":"Ramu to file the FIR by Friday","confidence":0.9}
+Input: "Tell SHO Ramu to send FIR 47 by Friday"
+Output: {"person":"SHO Ramu","action":"send FIR 47","due_at":"<next Friday 17:00 +05:30>","priority":"NORMAL","instruction_text":"Tell SHO Ramu to send FIR 47 by Friday","confidence":0.9}
 
 Input: "URGENT call SP Bandipora immediately"
 Output: {"person":"SP Bandipora","action":"call","due_at":"<now+5min +05:30>","priority":"HIGH","instruction_text":"Call SP Bandipora immediately","confidence":0.95}
@@ -25,11 +25,20 @@ Output: {"person":"SP Bandipora","action":"call","due_at":"<now+5min +05:30>","p
 Input: "sunday review pending cases"
 Output: {"person":null,"action":"review pending cases","due_at":"<next Sunday 10:00 +05:30>","priority":"NORMAL","instruction_text":"Review pending cases on Sunday","confidence":0.7}
 
-Input: "Tell SHO Ramu to send FIR 47 by Friday"
-Output: {"person":"SHO Ramu","action":"send FIR 47","due_at":"<next Friday 17:00 +05:30>","priority":"NORMAL","instruction_text":"Tell SHO Ramu to send FIR 47 by Friday","confidence":0.9}
+Input: "Ramu needs to file the FIR by Friday"
+Output: {"person":"Ramu","action":"file the FIR","due_at":"<next Friday 17:00 +05:30>","priority":"NORMAL","instruction_text":"Ramu to file the FIR by Friday","confidence":0.9}
 
 Input: "low priority: remind the clerk about the file"
 Output: {"person":"the clerk","action":"remind about the file","due_at":null,"priority":"LOW","instruction_text":"Remind the clerk about the file","confidence":0.7}
+
+Input: "DSP Priya should send the case diary by Monday EOD"
+Output: {"person":"DSP Priya","action":"send the case diary","due_at":"<next Monday 18:00 +05:30>","priority":"NORMAL","instruction_text":"DSP Priya to send the case diary by Monday EOD","confidence":0.92}
+
+Input: "Get SHO Triveni to sign the seizure memo before she leaves at 5"
+Output: {"person":"SHO Triveni","action":"sign the seizure memo","due_at":"<today 17:00 +05:30>","priority":"NORMAL","instruction_text":"Get SHO Triveni to sign the seizure memo before 5 PM","confidence":0.9}
+
+Input: "meeting notes from bandobast review at 3pm"
+Output: {"person":null,"action":null,"due_at":null,"priority":"NORMAL","instruction_text":null,"confidence":0.2}
 
 Now extract from this note:
 {raw_text}
