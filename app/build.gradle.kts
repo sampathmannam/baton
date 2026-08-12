@@ -140,6 +140,42 @@ val vendorLlamaCpp = tasks.register("vendorLlamaCpp") {
 tasks.matching { it.name.startsWith("externalNativeBuild") || it.name.startsWith("configureCMake") }
     .configureEach { dependsOn(vendorLlamaCpp) }
 
+// M2-T3: vendor whisper.cpp alongside llama.cpp. The model is the
+// ggml-tiny.en.bin file (~75 MB) and is downloaded at runtime by
+// WhisperModelManager (not vendored here — the model is large and
+// changes more often than the C++ source). The C++ source tree
+// vendors at the same b4600 tag used for llama.cpp.
+val vendorWhisperCpp = tasks.register("vendorWhisperCpp") {
+    val tag = "b4600"
+    val url = "https://github.com/ggerganov/whisper.cpp/archive/refs/tags/$tag.tar.gz"
+    val cppDir = layout.projectDirectory.dir("src/main/cpp/whisper-cpp")
+    val marker = layout.buildDirectory.file("whisper-cpp/$tag.vendored")
+    outputs.file(marker)
+    doLast {
+        if (cppDir.asFile.exists() && cppDir.asFile.listFiles()?.isNotEmpty() == true) {
+            logger.lifecycle("whisper-cpp already present, skipping vendor")
+            marker.get().asFile.parentFile.mkdirs()
+            marker.get().asFile.writeText("present\n")
+            return@doLast
+        }
+        val tarball = layout.buildDirectory.file("whisper-cpp/$tag.tar.gz").get().asFile
+        tarball.parentFile.mkdirs()
+        logger.lifecycle("Downloading $url -> ${tarball.absolutePath}")
+        ant.invokeMethod("get", mapOf("src" to url, "dest" to tarball.absolutePath, "verbose" to true))
+        logger.lifecycle("Extracting ${tarball.absolutePath}")
+        ant.invokeMethod("untar", mapOf("src" to tarball.absolutePath, "dest" to cppDir.asFile.parentFile.absolutePath, "compression" to "gzip"))
+        // The tarball extracts into whisper.cpp-<tag>/; rename to whisper-cpp/.
+        val extracted = cppDir.asFile.parentFile.resolve("whisper.cpp-$tag")
+        if (extracted.exists()) {
+            extracted.renameTo(cppDir.asFile)
+        }
+        marker.get().asFile.parentFile.mkdirs()
+        marker.get().asFile.writeText("present\n")
+    }
+}
+tasks.matching { it.name.startsWith("externalNativeBuild") || it.name.startsWith("configureCMake") }
+    .configureEach { dependsOn(vendorWhisperCpp) }
+
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.compose)
