@@ -76,6 +76,7 @@ class RoomPersonRepositoryTest {
             personDao = personDao,
             captureDao = captureDao,
             instructionDao = instructionDao,
+            syncConflictDao = db.syncConflictDao(),
             personRemote = remote,
             captureRemote = captureRemote,
             instructionRemote = instructionRemote,

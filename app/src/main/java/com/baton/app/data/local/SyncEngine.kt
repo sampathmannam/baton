@@ -1,7 +1,9 @@
 package com.baton.app.data.local
 
+import com.baton.app.data.local.entities.SyncConflictEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
 import com.baton.app.data.local.entities.SyncStatus
+import com.baton.app.data.person.PersonConflictPayload
 import com.baton.app.data.person.PersonInsert
 import com.baton.app.data.person.SupabasePersonRepository
 import com.baton.app.data.person.toEntity
@@ -34,6 +36,16 @@ import javax.inject.Singleton
  * incremented and `lastError` is recorded. The entry stays in
  * the queue and the engine moves on to the next entry. The next
  * drain (next write or next app start) will retry it.
+ *
+ * **M2-T8 conflict resolution:** on an `OP_UPDATE`, the engine
+ * reads the server's `updated_at` (via [SupabasePersonRepository.findById])
+ * and compares it to the local row's `updated_at`. If the server
+ * is newer, the local change is dropped and a row is logged in
+ * [SyncConflictDao] so the user can review what was lost. The
+ * server's newer state is then mirrored into Room (so the UI shows
+ * the authoritative value). LWW is by string comparison because
+ * `updated_at` is ISO-8601 (lexicographic == chronological for
+ * fixed-width ISO strings).
  */
 @Singleton
 class SyncEngine @Inject constructor(
@@ -41,6 +53,7 @@ class SyncEngine @Inject constructor(
     private val personDao: PersonDao,
     private val captureDao: CaptureDao,
     private val instructionDao: InstructionDao,
+    private val syncConflictDao: SyncConflictDao,
     private val personRemote: SupabasePersonRepository,
     private val captureRemote: com.baton.app.data.captures.SupabaseCaptureRepository,
     private val instructionRemote: com.baton.app.data.instructions.SupabaseInstructionRepository,
@@ -113,19 +126,55 @@ class SyncEngine @Inject constructor(
                 )
             }
             SyncQueueEntity.OP_UPDATE -> {
-                // T6.1: last-write-wins via `updated_at`. For now the
-                // payload is the full row.
+                // M2-T8: LWW via updated_at. Before pushing the local
+                // change, ask the server for the current row. If the
+                // server is newer, drop the local write, log the
+                // conflict for the user to review, and mirror the
+                // server's state into Room. The caller (e.g. a UI
+                // "Edit person" flow) will see the authoritative
+                // value the next time it reads.
                 val row = json.decodeFromString(PersonInsert.serializer(), entry.payloadJson)
-                // The remote Supabase repo doesn't expose `update` yet;
-                // until then the create path handles both (it does
-                // upsert via the unique constraint and RLS).
+                val localRow = personDao.getById(entry.rowId)
+                val serverRow = personRemote.findById(entry.rowId)
+
+                if (localRow != null && serverRow != null &&
+                    isServerNewer(serverRow.updatedAt, localRow.updatedAt)
+                ) {
+                    // Conflict: server is newer. Drop local, log audit, mirror server.
+                    syncConflictDao.insert(
+                        SyncConflictEntity(
+                            tableName = "persons",
+                            rowId = entry.rowId,
+                            localPayload = json.encodeToString(
+                                PersonConflictPayload.serializer(),
+                                localRow.toConflictPayload(),
+                            ),
+                            serverPayload = json.encodeToString(
+                                PersonConflictPayload.serializer(),
+                                serverRow.toConflictPayload(),
+                            ),
+                            reason = REASON_SERVER_NEWER,
+                            detectedAt = System.currentTimeMillis(),
+                        )
+                    )
+                    personDao.upsert(
+                        serverRow.toEntity().copy(syncStatus = SyncStatus.SYNCED)
+                    )
+                    return
+                }
+
+                // No conflict: push the local change to the server.
                 personRemote.create(
                     name = row.name,
                     designation = row.designation,
                     station = row.station,
                     clientId = row.id,
                 )
-                personDao.setSyncStatus(entry.rowId, SyncStatus.SYNCED, row.name)
+                personDao.setSyncStatus(
+                    entry.rowId,
+                    SyncStatus.SYNCED,
+                    localRow?.updatedAt ?: nowIso(),
+                )
             }
             SyncQueueEntity.OP_DELETE -> {
                 // T6.1: server-side delete via Postgrest.filter(eq("id", ...)).
@@ -149,6 +198,47 @@ class SyncEngine @Inject constructor(
         // the previous create call (the SupabaseInstructionRepository
         // already round-trips in `create`).
         instructionDao.setSyncStatus(entry.rowId, SyncStatus.SYNCED)
+    }
+
+    /**
+     * Lexicographic compare of two ISO-8601 strings. Both are
+     * server-supplied or Room-supplied in the same format
+     * (`Instant.toString()`), so the comparison is also
+     * chronological. `null` server timestamp is treated as
+     * "not newer" (we don't have data to compare).
+     */
+    private fun isServerNewer(serverUpdatedAt: String?, localUpdatedAt: String?): Boolean {
+        if (serverUpdatedAt == null) return false
+        if (localUpdatedAt == null) return true
+        return serverUpdatedAt > localUpdatedAt
+    }
+
+    private fun nowIso(): String = java.time.Instant.now().toString()
+
+    private fun com.baton.app.data.local.entities.PersonEntity.toConflictPayload(): PersonConflictPayload =
+        PersonConflictPayload(
+            id = id,
+            name = name,
+            designation = designation,
+            station = station,
+            phone = phone,
+            userId = userId,
+            updatedAt = updatedAt,
+        )
+
+    private fun com.baton.app.data.person.Person.toConflictPayload(): PersonConflictPayload =
+        PersonConflictPayload(
+            id = id,
+            name = name,
+            designation = designation,
+            station = station,
+            phone = phone,
+            userId = "",  // Server's user_id isn't in the Person domain
+            updatedAt = updatedAt,
+        )
+
+    companion object {
+        const val REASON_SERVER_NEWER = "server_newer"
     }
 }
 
