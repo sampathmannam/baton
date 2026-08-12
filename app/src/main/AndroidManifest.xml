@@ -19,6 +19,18 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- M2-T4: voice capture. RECORD_AUDIO is the runtime mic
+         permission; FOREGROUND_SERVICE_MICROPHONE is required on
+         API 34+ for any foreground service that uses the
+         microphone. The service uses foregroundServiceType=microphone
+         (declared below) so the system can revoke it when the user
+         doesn't expect it. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".BatonApplication"
         android:allowBackup="false"
@@ -99,5 +111,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
+
+        <!-- M2-T4: voice capture foreground service. The user
+             taps the mic icon in the NoteBar; the service starts
+             recording, transcribes via WhisperBridge, and emits
+             the transcript back to the activity via a ResultReceiver
+             (an Intent extra) so the capture sheet can pre-fill.
+             foregroundServiceType=microphone is required on API 34+. -->
+        <service
+            android:name=".features.capture.VoiceCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
 </manifest>

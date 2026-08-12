@@ -39,4 +39,12 @@
     <string name="widget_mic_button_desc">Quick-capture</string>
     <string name="widget_description">Tap the mic to capture a note to Baton.</string>
     <string name="tile_label">Baton quick-capture</string>
+
+    <!-- M2-T4: voice capture -->
+    <string name="voice_capture_channel">Voice capture</string>
+    <string name="voice_capture_title">Listening</string>
+    <string name="voice_capture_text">Recording your instruction. Tap Stop when done.</string>
+    <string name="voice_capture_stop">Stop</string>
+    <string name="voice_capture_permission_denied">Microphone permission is required for voice capture.</string>
+    <string name="voice_capture_error">Voice capture failed: %1$s</string>
 </resources>

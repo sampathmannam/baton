@@ -42,9 +42,15 @@ import com.baton.app.features.capture.CaptureSheet
 import com.baton.app.features.capture.CaptureViewModel
 import com.baton.app.features.capture.NoteBar
 import com.baton.app.features.capture.PhotoCapture
+import com.baton.app.features.capture.VoiceCaptureService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +114,19 @@ fun HomeScreen(
         pendingUri.value = null
     }
 
+    // M2-T4: voice capture. The user taps the mic icon; we check
+    // for RECORD_AUDIO permission first, request it if missing,
+    // then start the foreground service.
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            captureViewModel.onVoiceStart(context)
+        } else {
+            captureViewModel.onVoiceError("Microphone permission denied")
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
@@ -143,9 +162,19 @@ fun HomeScreen(
                     cameraLauncher.launch(uri)
                 },
                 onMicClick = {
-                    // M2-T4 will wire this to the voice capture service.
-                    // For now, just open the sheet so the user can type.
-                    captureViewModel.openSheet()
+                    // M2-T4: tap the mic to start voice capture.
+                    // Check the permission first; the system
+                    // permission dialog appears only on the first
+                    // ask. After granted, the service starts.
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        captureViewModel.onVoiceStart(context)
+                    } else {
+                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
                 },
             )
         }

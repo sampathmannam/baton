@@ -1,6 +1,9 @@
 package com.baton.app.features.capture
 
+import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import android.os.ResultReceiver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.captures.CaptureMode
@@ -104,6 +107,61 @@ class CaptureViewModel @Inject constructor(
         if (!_state.value.isVisible) {
             _state.update { it.copy(isVisible = true) }
         }
+    }
+
+    /**
+     * M2-T4: start the voice-capture service. The caller must hold
+     * `RECORD_AUDIO` already. The service is responsible for
+     * AudioRecord + WhisperBridge; this VM just hands the
+     * [ResultReceiver] over and waits for the transcript (delivered
+     * via [onVoiceTranscript]) or an error ([onVoiceError]).
+     *
+     * The receiver must be `Parcelable` because it crosses the
+     * Intent extra boundary. The Activity creates the receiver and
+     * passes it in; the VM owns the actual `send()` call.
+     */
+    fun onVoiceStart(context: Context) {
+        val receiver = object : ResultReceiver(android.os.Handler(android.os.Looper.getMainLooper())) {
+            override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
+                when (resultCode) {
+                    VoiceCaptureService.RESULT_OK -> {
+                        val text = resultData?.getString(VoiceCaptureService.KEY_TEXT) ?: ""
+                        onVoiceTranscript(text)
+                    }
+                    VoiceCaptureService.RESULT_ERROR -> {
+                        val err = resultData?.getString(VoiceCaptureService.KEY_ERROR) ?: "Unknown"
+                        onVoiceError(err)
+                    }
+                }
+            }
+        }
+        VoiceCaptureService.start(context, receiver)
+    }
+
+    /**
+     * M2-T4: stop the service early. The user can also let it
+     * complete naturally; this is the cancel path.
+     */
+    fun onVoiceStop(context: Context) {
+        VoiceCaptureService.stop(context)
+    }
+
+    /**
+     * M2-T4: a transcript came back from the service. Pre-fill the
+     * capture sheet's text and open it. The user then taps Extract
+     * (or edits) and the regular flow takes over.
+     */
+    fun onVoiceTranscript(text: String) {
+        if (text.isBlank()) return
+        _state.update { it.copy(text = text, error = null, isVisible = true) }
+    }
+
+    /**
+     * M2-T4: an error came back from the service. Surface it
+     * inline on the capture sheet.
+     */
+    fun onVoiceError(message: String) {
+        _state.update { it.copy(error = "Voice capture failed: $message") }
     }
 
     /**
