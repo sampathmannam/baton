@@ -1,10 +1,11 @@
 package com.baton.app.ui.home
 
 import app.cash.turbine.test
+import com.baton.app.data.local.InstructionDao
+import com.baton.app.data.local.PersonOpenCount
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.person.Person
 import com.baton.app.data.sync.RealtimeSync
-import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -27,19 +28,18 @@ import org.junit.Test
 class HomeViewModelTest {
 
     private val repo: RoomPersonRepository = mockk(relaxed = true)
+    private val instructionDao: InstructionDao = mockk(relaxed = true)
     private val realtime: RealtimeSync = mockk(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
+    private val countsFlow = MutableStateFlow<List<PersonOpenCount>>(emptyList())
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        // Default: empty persons list. Individual tests push values
-        // into the flow directly.
         every { repo.observeAll() } returns personsFlow.asStateFlow()
-        // Default: no Realtime events. Individual tests override
-        // to emit a value.
+        every { instructionDao.observeOpenCountByPerson() } returns countsFlow.asStateFlow()
         every { realtime.changes } returns MutableSharedFlow()
     }
 
@@ -48,11 +48,13 @@ class HomeViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun makeVm() = HomeViewModel(repo, instructionDao, realtime)
+
     @Test
     fun `empty state shown when repository returns no persons`() = runTest(testDispatcher) {
         personsFlow.value = emptyList()
 
-        val vm = HomeViewModel(repo, realtime)
+        val vm = makeVm()
         advanceUntilIdle()
 
         vm.state.test {
@@ -69,14 +71,59 @@ class HomeViewModelTest {
         )
         personsFlow.value = persons
 
-        val vm = HomeViewModel(repo, realtime)
+        val vm = makeVm()
         advanceUntilIdle()
 
         vm.state.test {
             val state = awaitItem()
-            assertEquals(HomeUiState.Loaded(persons), state)
+            // M3-T5: open count defaults to 0 for every person who
+            // doesn't appear in the count Flow. The PersonRow uses
+            // this to hide the badge entirely.
+            assertEquals(HomeUiState.Loaded(persons, openCountByPersonId = mapOf("p1" to 0, "p2" to 0)), state)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `M3-T5 loaded state includes the open count per person`() = runTest(testDispatcher) {
+        val persons = listOf(
+            Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
+            Person(id = "p2", name = "Priya", designation = "DSP", station = "Srinagar", phone = null),
+        )
+        personsFlow.value = persons
+        countsFlow.value = listOf(
+            PersonOpenCount(personId = "p1", cnt = 3),
+            PersonOpenCount(personId = "p2", cnt = 0),
+        )
+
+        val vm = makeVm()
+        advanceUntilIdle()
+
+        val state = vm.state.value
+        assertEquals(HomeUiState.Loaded::class, state::class)
+        val loaded = state as HomeUiState.Loaded
+        assertEquals(persons, loaded.persons)
+        assertEquals(3, loaded.openCountByPersonId["p1"])
+        assertEquals(0, loaded.openCountByPersonId["p2"])
+    }
+
+    @Test
+    fun `M3-T5 person with no count row defaults to 0 (badge hidden)`() = runTest(testDispatcher) {
+        // The DAO only emits a row for persons with at least one
+        // open instruction. A person who has no open work doesn't
+        // show up in the count Flow. The VM should default to 0 so
+        // the PersonRow composable can hide the badge entirely.
+        val persons = listOf(
+            Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
+        )
+        personsFlow.value = persons
+        countsFlow.value = emptyList()  // no rows — p1 has no open instructions
+
+        val vm = makeVm()
+        advanceUntilIdle()
+
+        val loaded = vm.state.value as HomeUiState.Loaded
+        assertEquals(0, loaded.openCountByPersonId["p1"])
     }
 
     @Test
@@ -86,21 +133,14 @@ class HomeViewModelTest {
         )
         personsFlow.value = initial
 
-        // A hot flow that the test can emit to.
         val changes = MutableSharedFlow<RealtimeSync.Change>(replay = 0, extraBufferCapacity = 4)
         every { realtime.changes } returns changes
 
-        val vm = HomeViewModel(repo, realtime)
+        val vm = makeVm()
         advanceUntilIdle()
 
-        // After init, state should be Loaded(initial). The init block
-        // also fires refreshFromNetwork once (best-effort, ignored
-        // in this test).
-        assertEquals(HomeUiState.Loaded(initial), vm.state.value)
+        assertEquals(HomeUiState.Loaded(initial, openCountByPersonId = mapOf("p1" to 0)), vm.state.value)
 
-        // Now emit a Persons change. The VM should call
-        // refreshFromNetwork (which fetches from Supabase, not
-        // observed here, but the call itself is what we verify).
         changes.tryEmit(RealtimeSync.Change.Persons)
         advanceUntilIdle()
 
