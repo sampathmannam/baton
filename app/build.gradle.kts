@@ -144,10 +144,14 @@ tasks.matching { it.name.startsWith("externalNativeBuild") || it.name.startsWith
 // ggml-tiny.en.bin file (~75 MB) and is downloaded at runtime by
 // WhisperModelManager (not vendored here — the model is large and
 // changes more often than the C++ source). The C++ source tree
-// vendors at the same b4600 tag used for llama.cpp.
+// vendors at v1.6.0 — the last whisper.cpp release that's API-
+// compatible with the b4600-era ggml that llama.cpp uses. v1.7+
+// added GGML_BACKEND_DEVICE_TYPE_IGPU which doesn't exist in the
+// b4600 ggml headers; aligning the two would require bumping
+// llama.cpp, which is out of scope for M2.
 val vendorWhisperCpp = tasks.register("vendorWhisperCpp") {
-    val tag = "b4600"
-    val url = "https://github.com/ggerganov/whisper.cpp/archive/refs/tags/$tag.tar.gz"
+    val tag = "v1.6.0"
+    val url = "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/$tag.tar.gz"
     val cppDir = layout.projectDirectory.dir("src/main/cpp/whisper-cpp")
     val marker = layout.buildDirectory.file("whisper-cpp/$tag.vendored")
     outputs.file(marker)

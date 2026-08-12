@@ -47,7 +47,7 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/whisper-cpp/CMakeLists.txt")
     add_library(baton-whisper SHARED whisper_jni.cpp)
     target_include_directories(baton-whisper PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
-        whisper-cpp/include
+        whisper-cpp
     )
     target_link_libraries(baton-whisper PRIVATE
         whisper
