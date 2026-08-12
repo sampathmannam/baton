@@ -47,6 +47,11 @@ class RealtimeSync(
     sealed class Change {
         data object Persons : Change()
         data object Instructions : Change()
+        // M3-T7: tags table is in the supabase_realtime publication
+        // (it was added at table creation by migration 0001). When any
+        // tag row changes, HomeViewModel pulls the full list and
+        // re-renders the tag picker.
+        data object Tags : Change()
     }
 
     private val _changes = MutableSharedFlow<Change>(
@@ -69,6 +74,12 @@ class RealtimeSync(
             subscribeTable(
                 table = "instructions",
                 onChange = { _changes.tryEmit(Change.Instructions) },
+            )
+            // M3-T7: also subscribe to tags so the picker refreshes
+            // when the user creates a tag on another device.
+            subscribeTable(
+                table = "tags",
+                onChange = { _changes.tryEmit(Change.Tags) },
             )
         }
     }

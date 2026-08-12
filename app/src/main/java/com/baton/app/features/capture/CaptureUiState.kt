@@ -1,5 +1,7 @@
 package com.baton.app.features.capture
 
+import com.baton.app.data.tags.Tag
+
 /**
  * State of the note bar / capture sheet.
  *
@@ -13,6 +15,13 @@ package com.baton.app.features.capture
  *             showing; user can edit fields and confirm.
  *   Failed  -> isVisible=true, error!=null. The LLM returned null or threw.
  *             The sheet stays open with a retry hint.
+ *
+ * M3-T7: `availableTags` are the user's existing tags (the picker shows
+ * them as chips). `selectedTagIds` is the set the user has tapped on
+ * before confirming. The flow: sheet opens -> available tags load ->
+ * user toggles -> on confirm the instruction row is created, the tag
+ * rows are created if free-form `#tag` is missing, and the join rows
+ * land in `instruction_tags`.
  */
 data class CaptureUiState(
     val isVisible: Boolean = false,
@@ -22,6 +31,8 @@ data class CaptureUiState(
     val proposal: ExtractedInstruction? = null,
     val addToCalendar: Boolean = false,
     val error: String? = null,
+    val availableTags: List<Tag> = emptyList(),
+    val selectedTagIds: Set<String> = emptySet(),
 ) {
     val canExtract: Boolean
         get() = isVisible && text.isNotBlank() && !isExtracting && !isSaving

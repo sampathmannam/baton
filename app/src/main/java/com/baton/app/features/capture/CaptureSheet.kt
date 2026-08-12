@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
+import com.baton.app.features.tags.TagPicker
 
 /**
  * Modal bottom sheet shown when the user taps the note bar. Hosts the
@@ -84,6 +85,8 @@ fun CaptureSheet(
             onProposalPersonChange = viewModel::onProposalPersonChange,
             onProposalActionChange = viewModel::onProposalActionChange,
             onProposalTextChange = viewModel::onProposalTextChange,
+            onTagToggled = viewModel::onTagToggled,
+            onAddFreeTag = viewModel::onAddFreeTag,
         )
     }
 }
@@ -99,6 +102,8 @@ private fun CaptureSheetContent(
     onProposalPersonChange: (String) -> Unit = { },
     onProposalActionChange: (String) -> Unit = { },
     onProposalTextChange: (String) -> Unit = { },
+    onTagToggled: (String) -> Unit = { },
+    onAddFreeTag: (String) -> Unit = { },
 ) {
     Column(
         modifier = Modifier
@@ -131,6 +136,17 @@ private fun CaptureSheetContent(
                 onAddToCalendarChange = onAddToCalendarChange,
             )
         }
+        // M3-T7: tag picker sits below the confirmation card. The
+        // user picks from the existing taxonomy or authors a free-
+        // form `#tag` on the fly. The state `availableTags` is
+        // observed from the VM's collect; `selectedTagIds` is the
+        // user's pre-save selection.
+        TagPicker(
+            available = state.availableTags,
+            selected = state.selectedTagIds,
+            onToggle = onTagToggled,
+            onAddFree = onAddFreeTag,
+        )
         PrimaryAction(
             isExtracting = state.isExtracting,
             canExtract = state.canExtract,

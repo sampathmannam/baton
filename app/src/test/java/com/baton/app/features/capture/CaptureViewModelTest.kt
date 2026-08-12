@@ -12,6 +12,9 @@ import com.baton.app.data.instructions.Source
 import com.baton.app.data.instructions.Status
 import com.baton.app.data.person.Person
 import com.baton.app.data.person.PersonRepository
+import com.baton.app.data.tags.RoomTagRepository
+import com.baton.app.data.tags.Tag
+import com.baton.app.data.tags.TagKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -111,6 +114,34 @@ class CaptureViewModelTest {
         ): Person = findByName(name) ?: create(name, designation, station)
     }
 
+    private fun fakeTagRepo(): RoomTagRepository {
+        val tags: MutableList<Tag> = mutableListOf()
+        val attachedPairs: MutableList<Pair<String, String>> = mutableListOf()
+        val mock = io.mockk.mockk<RoomTagRepository>(relaxed = true)
+        io.mockk.every { mock.observeAll() } returns MutableStateFlow(tags.toList()).asStateFlow()
+        io.mockk.coEvery { mock.attachToInstruction(any(), any()) } coAnswers {
+            val insId = firstArg<String>()
+            val tagIds = secondArg<List<String>>()
+            tagIds.forEach { attachedPairs += insId to it }
+        }
+        io.mockk.coEvery { mock.findOrCreateFree(any()) } coAnswers {
+            val name = firstArg<String>()
+            val existing = tags.find { it.name == name && it.kind == TagKind.FREE }
+            if (existing != null) existing else {
+                val tag = Tag(
+                    id = "tag-${tags.size + 1}",
+                    name = name,
+                    kind = TagKind.FREE,
+                    createdAt = "2026-08-12T00:00:00+00:00",
+                    updatedAt = "2026-08-12T00:00:00+00:00",
+                )
+                tags += tag
+                tag
+            }
+        }
+        return mock
+    }
+
     private class FakeInstructionRepository : InstructionRepository {
         var nextId = 0
         val created = mutableListOf<CreatedInstruction>()
@@ -165,25 +196,29 @@ class CaptureViewModelTest {
         val dueAt: String?,
     )
 
-    private fun fakes(): Triple<FakeCaptureRepository, FakePersonRepository, FakeInstructionRepository> {
-        return Triple(FakeCaptureRepository(), FakePersonRepository(), FakeInstructionRepository())
+    private fun fakes(): Quadruple<FakeCaptureRepository, FakePersonRepository, FakeInstructionRepository, RoomTagRepository> {
+        return Quadruple(FakeCaptureRepository(), FakePersonRepository(), FakeInstructionRepository(), fakeTagRepo())
     }
+
+    private data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
 
     private fun makeVm(
         processor: CaptureProcessor,
         repo: FakeCaptureRepository,
         person: FakePersonRepository,
         ins: FakeInstructionRepository,
+        tags: RoomTagRepository = fakeTagRepo(),
     ): CaptureViewModel = CaptureViewModel(
         processor = processor,
         captureRepository = repo,
         personRepository = person,
         instructionRepository = ins,
+        tagRepository = tags,
     )
 
     @Test
     fun `openSheet makes the sheet visible`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         vm.state.test {
             assertEquals(CaptureUiState(), awaitItem())
@@ -194,7 +229,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `dismissSheet resets to idle`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged("hello")
@@ -204,7 +239,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `onTextChanged updates text and clears any prior error`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged("first")
@@ -214,7 +249,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `canExtract is false when text is blank`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         vm.openSheet()
         assertFalse(vm.state.value.canExtract)
@@ -226,7 +261,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `onExtract with no-op processor surfaces error and leaves sheet open`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged("Tell SHO Ramu to file FIR 47 by Friday")
@@ -253,7 +288,7 @@ class CaptureViewModelTest {
             instructionText = "Tell SHO Ramu to file FIR 47 by Friday",
             confidence = 0.92,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged(proposal.instructionText)
@@ -278,7 +313,7 @@ class CaptureViewModelTest {
             instructionText = "Tell SHO Ramu to send FIR 47 by Friday",
             confidence = 0.92,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged(proposal.instructionText)
@@ -319,7 +354,7 @@ class CaptureViewModelTest {
             instructionText = "Review pending cases on Sunday",
             confidence = 0.7,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged(proposal.instructionText)
@@ -338,7 +373,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `onConfirm without a proposal is a no-op`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged("hello")
@@ -355,7 +390,7 @@ class CaptureViewModelTest {
             instructionText = "DSP Srinagar to send pending cases list",
             confidence = 0.9,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         // Pre-seed the person repo as if the user had added DSP Srinagar
         // earlier in the session.
         person.existing["DSP Srinagar"] = Person(
@@ -388,7 +423,7 @@ class CaptureViewModelTest {
             instructionText = "Call SP Bandipora immediately",
             confidence = 0.95,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged(proposal.instructionText)
@@ -411,7 +446,7 @@ class CaptureViewModelTest {
             instructionText = "Tell SHO Ramu to send FIR 47 by Friday",
             confidence = 0.92,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged(proposal.instructionText)
@@ -440,7 +475,7 @@ class CaptureViewModelTest {
             instructionText = "Review pending cases on Sunday",
             confidence = 0.7,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged(proposal.instructionText)
@@ -464,7 +499,7 @@ class CaptureViewModelTest {
             instructionText = "Tell SHO Ramu to send FIR 47 by Friday",
             confidence = 0.92,
         )
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { proposal }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged(proposal.instructionText)
@@ -482,7 +517,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `onVoiceTranscript pre-fills text and opens the sheet`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
 
         assertFalse(vm.state.value.isVisible)
@@ -497,7 +532,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `onVoiceTranscript with blank text is a no-op`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
 
         vm.onVoiceTranscript("")
@@ -511,7 +546,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `onVoiceError surfaces the message as an error`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
 
         vm.onVoiceError("mic unplugged")
@@ -524,7 +559,7 @@ class CaptureViewModelTest {
 
     @Test
     fun `onVoiceStart with a context creates a receiver and starts the service`() = runTest(testDispatcher) {
-        val (repo, person, ins) = fakes()
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         val ctx = io.mockk.mockk<android.content.Context>(relaxed = true)
 
