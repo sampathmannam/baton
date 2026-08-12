@@ -36,8 +36,8 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
@@ -63,6 +63,20 @@ android {
         }
     }
 
+    signingConfigs {
+        // M5: debug keystore signs the release APK so a tester
+        // can install without a Play upload. The keystore file
+        // is gitignored; only this script regenerates it. For
+        // a real Play release, replace with a proper keystore
+        // managed outside the repo.
+        create("batonDebug") {
+            storeFile = file("baton-debug.keystore")
+            storePassword = "baton123"
+            keyAlias = "baton"
+            keyPassword = "baton123"
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -71,9 +85,10 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // M3-T2: WorkManager on-demand init is the right shape; the
-            // auto-init ContentProvider is removed in the manifest.
-            // No lint suppression needed.
+            // M5: sign the release APK with the debug keystore so
+            // the artifact installs without "untrusted source" on
+            // the device. Not for Play Store distribution.
+            signingConfig = signingConfigs.getByName("batonDebug")
         }
     }
 

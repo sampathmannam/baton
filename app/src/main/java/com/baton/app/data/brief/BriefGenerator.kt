@@ -27,7 +27,7 @@ import javax.inject.Singleton
  * the labels, not "3 things waiting on you".
  */
 @Singleton
-class BriefGenerator @Inject constructor(
+open class BriefGenerator @Inject constructor(
     private val instructionDao: InstructionDao,
 ) {
 
