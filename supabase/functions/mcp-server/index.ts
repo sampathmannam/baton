@@ -21,8 +21,8 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { z } from "@modelcontextprotocol/sdk/types.js";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { z } from "zod";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 
 /**
@@ -549,8 +549,13 @@ Deno.serve(async (req) => {
     },
   );
 
-  // Streamable HTTP transport
-  const transport = new StreamableHTTPServerTransport({
+  // Web-standard Streamable HTTP transport (Deno / Supabase Edge / Cloudflare).
+  // The non-web `StreamableHTTPServerTransport` from `server/streamableHttp.js`
+  // is built around `http.IncomingMessage` + `http.ServerResponse` and crashes
+  // on the Deno runtime with `Cannot read properties of undefined (reading 'on')`.
+  // `WebStandardStreamableHTTPServerTransport` accepts the native
+  // `Request` / `Response` objects we already have.
+  const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
   await server.connect(transport);
