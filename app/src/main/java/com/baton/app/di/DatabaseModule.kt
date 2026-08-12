@@ -2,6 +2,7 @@ package com.baton.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.InstructionDao
@@ -13,18 +14,32 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import javax.inject.Singleton
 
 /**
- * Hilt providers for the local Room database. M2-T6.
+ * Hilt providers for the local Room database. M2-T6 + M3-T1.
  *
- * **Encryption:** the M2-T6 build opens a plain (unencrypted) Room
- * DB. The `sqlcipher-android` dep is already in the project
- * (`app/build.gradle.kts`) and the encryption story is staged for
- * the privacy audit after the pilot; the key derivation will live
- * in [com.baton.app.data.auth.SecurePreferences] once that lands.
- * For the pilot the local DB is wiped on logout (see
- * `SecurePreferences.clearOnLogout`).
+ * **Encryption (M3-T1).** The DB is now opened through SQLCipher
+ * with a 32-byte passphrase generated on first launch by
+ * [SecurePreferences.databasePassphrase] and persisted in
+ * EncryptedSharedPreferences. The on-disk `baton.db` file is
+ * unreadable without that passphrase. The M2 unencrypted DB is
+ * wiped on the M2 -> M3 transition (handled by
+ * [com.baton.app.data.local.AppInitializer] on first run).
+ *
+ * **Sign-out (M3-T4).** When the user signs out,
+ * [SecurePreferences.clearDatabasePassphrase] deletes the key. The
+ * next DB read fails (SQLCipher: "file is not a database"); the
+ * AppInitializer then deletes the file and opens a fresh DB. On
+ * the next sign-in the user pulls from Supabase.
+ *
+ * **Migration.** The M2 -> M3 schema bump (no schema changes, just
+ * `version = 3` to trigger the AppInitializer wipe) is intentional.
+ * The old plain DB is destroyed; the new encrypted DB starts empty
+ * and is filled from Supabase on the first
+ * [com.baton.app.data.local.RoomPersonRepository.refreshFromNetwork]
+ * call after sign-in.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -32,14 +47,24 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        securePreferences: SecurePreferences,
+    ): AppDatabase {
+        val passphrase = securePreferences.databasePassphrase()
+        val factory = SupportOpenHelperFactory(passphrase)
+        // Zero the passphrase bytes after handing them to SQLCipher.
+        // SQLCipher has already copied what it needs internally.
+        passphrase.fill(0)
+        return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
+            .openHelperFactory(factory)
             // M2-T6: destructive migration is fine because the local
             // cache is reconstructible from Supabase on the next
-            // refresh. Replace with real Migrations in M3 once the
-            // schema stabilises.
+            // refresh. Replace with real Migrations once the schema
+            // stabilises beyond M3.
             .fallbackToDestructiveMigration()
             .build()
+    }
 
     @Provides
     fun providePersonDao(db: AppDatabase): PersonDao = db.personDao()
