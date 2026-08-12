@@ -61,6 +61,21 @@ class SupabaseInstructionRepository(
             .decodeSingle()
         return inserted.toDomain()
     }
+
+    /**
+     * M3-T5: read all instructions visible to the calling user.
+     * Used on app launch to populate the local Room mirror so the
+     * People-list open-instruction badge reflects the user's full
+     * dataset, not just the rows they created on this device. RLS
+     * filters server-side to `auth.uid()`.
+     */
+    override suspend fun fetchAll(): List<Instruction> {
+        val rows: List<InstructionRow> = client.postgrest
+            .from("instructions")
+            .select()
+            .decodeList()
+        return rows.map { it.toDomain() }
+    }
 }
 
 @Serializable
