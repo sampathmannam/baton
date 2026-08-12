@@ -1,10 +1,12 @@
-package com.baton.app.ui.settings
+﻿package com.baton.app.ui.settings
 
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.tags.RoomTagRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +49,7 @@ class SettingsViewModelTest {
     fun `signOut wipes local DB then signs out of Supabase`() = runTest(testDispatcher) {
         val init = mockk<AppInitializer>(relaxed = true)
         val auth = mockk<AuthRepository>(relaxed = true)
-        val vm = SettingsViewModel(auth, init)
+        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
 
         vm.signOut()
         advanceUntilIdle()
@@ -62,13 +64,13 @@ class SettingsViewModelTest {
     fun `signOut flipping the signing-out flag is observable`() = runTest(testDispatcher) {
         val init = mockk<AppInitializer>(relaxed = true)
         val auth = mockk<AuthRepository>(relaxed = true)
-        val vm = SettingsViewModel(auth, init)
+        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
 
         assertFalse(vm.signingOut.value)
         vm.signOut()
         advanceUntilIdle()
         // After the work completes, the flag flips back to false so
-        // the button is re-enabled — but the activity has already
+        // the button is re-enabled â€” but the activity has already
         // swapped to the AuthScreen by then.
         assertFalse(vm.signingOut.value)
         coVerify(exactly = 1) { init.runOnSignOut() }
@@ -79,7 +81,7 @@ class SettingsViewModelTest {
     fun `second signOut while in flight is a no-op`() = runTest(testDispatcher) {
         val init = mockk<AppInitializer>(relaxed = true)
         val auth = mockk<AuthRepository>(relaxed = true)
-        val vm = SettingsViewModel(auth, init)
+        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
 
         // Fire twice in a row before the first one completes.
         vm.signOut()
@@ -98,7 +100,7 @@ class SettingsViewModelTest {
         // call auth.signOut even if the wipe throws (e.g. the file
         // is already gone). The user can still sign out.
         coEvery { init.runOnSignOut() } throws RuntimeException("file not found")
-        val vm = SettingsViewModel(auth, init)
+        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
 
         vm.signOut()
         advanceUntilIdle()
@@ -111,7 +113,7 @@ class SettingsViewModelTest {
         val init = mockk<AppInitializer>(relaxed = true)
         val auth = mockk<AuthRepository>(relaxed = true)
         coEvery { auth.signOut() } throws RuntimeException("network down")
-        val vm = SettingsViewModel(auth, init)
+        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
 
         vm.signOut()
         advanceUntilIdle()

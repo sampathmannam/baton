@@ -3,6 +3,7 @@ package com.baton.app.di
 import android.content.Context
 import androidx.room.Room
 import com.baton.app.data.auth.SecurePreferences
+import com.baton.app.data.local.AppDao
 import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.InstructionDao
@@ -88,4 +89,7 @@ object DatabaseModule {
 
     @Provides
     fun provideInstructionTagDao(db: AppDatabase): InstructionTagDao = db.instructionTagDao()
+
+    @Provides
+    fun provideAppDao(db: AppDatabase): AppDao = db.appDao()
 }
