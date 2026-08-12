@@ -1,5 +1,6 @@
 package com.baton.app.features.capture
 
+import com.baton.app.data.captures.CaptureMode
 import com.baton.app.data.tags.Tag
 
 /**
@@ -22,10 +23,17 @@ import com.baton.app.data.tags.Tag
  * user toggles -> on confirm the instruction row is created, the tag
  * rows are created if free-form `#tag` is missing, and the join rows
  * land in `instruction_tags`.
+ *
+ * v1.1: `mode` is the capture source (TEXT / VOICE / PHOTO) and is
+ * carried all the way through to the instruction row so the audit
+ * trail reflects how the user actually captured the thought. v1.0
+ * always saved `Source.TEXT` regardless of input — a data integrity
+ * gap.
  */
 data class CaptureUiState(
     val isVisible: Boolean = false,
     val text: String = "",
+    val mode: CaptureMode = CaptureMode.TEXT,
     val isExtracting: Boolean = false,
     val isSaving: Boolean = false,
     val proposal: ExtractedInstruction? = null,
@@ -39,4 +47,13 @@ data class CaptureUiState(
 
     val canConfirm: Boolean
         get() = isVisible && proposal != null && !isSaving
+
+    /**
+     * v1.1: a "Save as raw text" affordance is shown when the
+     * proposal is null after extraction (LLM returned nothing
+     * useful) or when the user explicitly wants to skip extraction.
+     * Always available when there's text in the box.
+     */
+    val canSaveRaw: Boolean
+        get() = isVisible && text.isNotBlank() && !isExtracting && !isSaving
 }

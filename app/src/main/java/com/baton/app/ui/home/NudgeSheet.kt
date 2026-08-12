@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -61,9 +62,10 @@ fun NudgeSheet(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
+    var currentTone by remember { mutableStateOf(com.baton.app.data.nudge.Tone.POLITE) }
 
     LaunchedEffect(instruction.id) {
-        viewModel.ensureDraft(instruction, person?.name)
+        viewModel.ensureDraft(instruction, person, currentTone)
     }
 
     ModalBottomSheet(
@@ -82,6 +84,40 @@ fun NudgeSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // v1.1: tone selector. v1.0 had one fixed template;
+            // the user wanted to switch to a more urgent tone for
+            // a stalling OUTGOING. Three tones mirror the cloud
+            // MCP `draft_nudge` tool.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                com.baton.app.data.nudge.Tone.entries.forEach { tone ->
+                    FilterChip(
+                        selected = currentTone == tone,
+                        onClick = {
+                            if (currentTone != tone) {
+                                currentTone = tone
+                                val cur = draft
+                                if (cur != null) {
+                                    scope.launch {
+                                        viewModel.regenerate(instruction, person, tone)
+                                    }
+                                }
+                            }
+                        },
+                        label = {
+                            Text(
+                                when (tone) {
+                                    com.baton.app.data.nudge.Tone.POLITE -> "Polite"
+                                    com.baton.app.data.nudge.Tone.URGENT -> "Urgent"
+                                    com.baton.app.data.nudge.Tone.CASUAL -> "Casual"
+                                },
+                            )
+                        },
+                    )
+                }
+            }
             val current = draft
             if (current != null) {
                 var text by remember(current.id) { mutableStateOf(current.draftText) }
@@ -116,7 +152,10 @@ fun NudgeSheet(
                             context.startActivity(
                                 android.content.Intent.createChooser(intent, "Send nudge")
                             )
-                            scope.launch { viewModel.markSent(current.id, "WHATSAPP") }
+                            // v1.1: "WHATSAPP" is misleading because
+                            // the share intent can route to any
+                            // app. Use a generic "SHARE" tag.
+                            scope.launch { viewModel.markSent(current.id, "SHARE") }
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f),
@@ -141,13 +180,30 @@ class NudgeSheetViewModel @Inject constructor(
     private val _draft = MutableStateFlow<NudgeDraft?>(null)
     val draft: StateFlow<NudgeDraft?> = _draft.asStateFlow()
 
-    fun ensureDraft(instruction: Instruction, personName: String?) {
+    fun ensureDraft(
+        instruction: Instruction,
+        person: Person?,
+        tone: com.baton.app.data.nudge.Tone = com.baton.app.data.nudge.Tone.POLITE,
+    ) {
         viewModelScope.launch {
             // Reuse the most recent live draft for this instruction
             // if one exists, otherwise generate a new one.
             val existing = generator.observeFor(instruction.id).first()
                 .firstOrNull { it.status == "DRAFT" || it.status == "EDITED" }
-            _draft.value = existing ?: generator.generate(instruction, personName)
+            _draft.value = existing ?: generator.generate(instruction, person, tone)
+        }
+    }
+
+    fun regenerate(
+        instruction: Instruction,
+        person: Person?,
+        tone: com.baton.app.data.nudge.Tone,
+    ) {
+        viewModelScope.launch {
+            val cur = _draft.value ?: run {
+                ensureDraft(instruction, person, tone); return@launch
+            }
+            _draft.value = generator.regenerate(cur.id, instruction, person, tone)
         }
     }
 

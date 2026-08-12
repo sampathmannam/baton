@@ -110,7 +110,7 @@ class CaptureViewModel @Inject constructor(
     }
 
     fun onTextChanged(text: String) {
-        _state.update { it.copy(text = text, error = null) }
+        _state.update { it.copy(text = text, mode = CaptureMode.TEXT, error = null) }
     }
 
     fun onAddToCalendarChanged(checked: Boolean) {
@@ -149,7 +149,7 @@ class CaptureViewModel @Inject constructor(
      */
     fun onPhotoTextRecognized(text: String) {
         if (text.isBlank()) return
-        _state.update { it.copy(text = text, error = null) }
+        _state.update { it.copy(text = text, mode = CaptureMode.PHOTO, error = null) }
         if (!_state.value.isVisible) {
             _state.update { it.copy(isVisible = true) }
         }
@@ -199,7 +199,7 @@ class CaptureViewModel @Inject constructor(
      */
     fun onVoiceTranscript(text: String) {
         if (text.isBlank()) return
-        _state.update { it.copy(text = text, error = null, isVisible = true) }
+        _state.update { it.copy(text = text, mode = CaptureMode.VOICE, error = null, isVisible = true) }
     }
 
     /**
@@ -349,7 +349,6 @@ class CaptureViewModel @Inject constructor(
         if (!current.canConfirm) return
         _state.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
-            println("DEBUG: onConfirm coroutine started, current.addToCalendar=${current.addToCalendar}")
             val personId: String? = proposal.person?.let { name ->
                 runCatching { personRepository.findOrCreate(name = name) }
                     .onFailure {
@@ -369,7 +368,9 @@ class CaptureViewModel @Inject constructor(
             val result = runCatching {
                 instructionRepository.create(
                     personId = personId,
-                    source = Source.TEXT,
+                    // v1.1: source reflects how the user actually
+                    // captured the thought, not a hard-coded TEXT.
+                    source = modeToSource(current.mode),
                     priority = priority,
                     title = title,
                     rawText = proposal.instructionText,
@@ -377,11 +378,6 @@ class CaptureViewModel @Inject constructor(
                 )
             }
             result.onSuccess { created ->
-                // M1-T6: emit a calendar event data *after* the
-                // instruction lands. The instruction is the source
-                // of truth; the calendar event is a copy. The
-                // Composable converts the data to an Intent and
-                // launches it via the Activity context.
                 if (current.addToCalendar) {
                     val event = CalendarGate.buildEventData(
                         title = title,
@@ -392,10 +388,6 @@ class CaptureViewModel @Inject constructor(
                         calendarIntentsChannel.trySend(event)
                     }
                 }
-                // M3-T7: attach the user's selected tags to the
-                // newly-created instruction. Failure here is
-                // non-fatal — the instruction lands in any case;
-                // the user can re-tag from the management screen.
                 if (current.selectedTagIds.isNotEmpty()) {
                     runCatching {
                         tagRepository.attachToInstruction(
@@ -414,6 +406,63 @@ class CaptureViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * v1.1: spec §12 — "LLM extraction fails → raw text saved as-is
+     * with a `needs_review=true` flag; user can tag/edit later."
+     *
+     * The M1 UX surface for this is a "Save as text" button shown
+     * when the LLM returned no proposal (or the user wants to skip
+     * extraction entirely). The instruction lands with a generic
+     * title (`rawText` truncated to 40 chars), no person, no due
+     * date, and a `priority = NORMAL`. The audit trail preserves
+     * the capture mode so a future review can show "you typed this
+     * but didn't extract" vs "you spoke this and the LLM missed it".
+     */
+    fun onSaveRaw() {
+        val current = _state.value
+        if (!current.canSaveRaw) return
+        _state.update { it.copy(isSaving = true, error = null) }
+        viewModelScope.launch {
+            val rawText = current.text.trim()
+            val truncated = rawText.take(40)
+            val title = if (rawText.length > 40) "$truncated…" else rawText
+            val result = runCatching {
+                instructionRepository.create(
+                    personId = null,
+                    source = modeToSource(current.mode),
+                    priority = Priority.NORMAL,
+                    title = title,
+                    rawText = rawText,
+                    dueAt = null,
+                )
+            }
+            result.onSuccess { created ->
+                if (current.selectedTagIds.isNotEmpty()) {
+                    runCatching {
+                        tagRepository.attachToInstruction(
+                            instructionId = created.id,
+                            tagIds = current.selectedTagIds.toList(),
+                        )
+                    }
+                }
+                dismissSheet()
+            }.onFailure { e ->
+                _state.update {
+                    it.copy(
+                        isSaving = false,
+                        error = e.message ?: "Could not save raw note.",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun modeToSource(mode: CaptureMode): Source = when (mode) {
+        CaptureMode.TEXT -> Source.TEXT
+        CaptureMode.VOICE -> Source.VOICE
+        CaptureMode.PHOTO -> Source.PHOTO
     }
 
     private fun buildTitle(proposal: ExtractedInstruction): String {

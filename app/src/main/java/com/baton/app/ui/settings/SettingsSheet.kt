@@ -199,9 +199,7 @@ private fun TagsSection(
             }
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 200.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 groups.forEach { (kind, list) ->
                     item {

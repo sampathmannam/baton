@@ -112,6 +112,9 @@ class CaptureViewModelTest {
             designation: String?,
             station: String?,
         ): Person = findByName(name) ?: create(name, designation, station)
+        override suspend fun setSensitive(id: String, sensitive: Boolean) {
+            // no-op in tests
+        }
     }
 
     private fun fakeTagRepo(): RoomTagRepository {
@@ -184,6 +187,23 @@ class CaptureViewModelTest {
         // M3-T5: tests don't exercise the launch-time refresh path, but
         // the new abstract method needs an implementation.
         override suspend fun fetchAll(): List<Instruction> = allRows
+
+        // v1.1: mark-done / mark-dropped / re-open / update wire
+        // methods. Tests don't exercise the wire path directly, so
+        // the fakes are no-ops.
+        override suspend fun update(
+            id: String,
+            status: Status,
+            completedAt: String?,
+            droppedReason: String?,
+            isSensitive: Boolean,
+        ): Instruction = error("not used in tests")
+        override suspend fun markDone(id: String, completedAt: String) {
+            // no-op
+        }
+        override suspend fun markDropped(id: String, reason: String?, at: String) {
+            // no-op
+        }
     }
 
     private data class CreatedInstruction(

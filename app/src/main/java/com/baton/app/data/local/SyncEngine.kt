@@ -164,12 +164,19 @@ class SyncEngine @Inject constructor(
                 }
 
                 // No conflict: push the local change to the server.
-                personRemote.create(
-                    name = row.name,
-                    designation = row.designation,
-                    station = row.station,
-                    clientId = row.id,
-                )
+                // v1.1: if the local row is now sensitive, the
+                // server should drop the row (spec §13). The wire
+                // side's setSensitive does the PATCH.
+                if (localRow?.isSensitive == true) {
+                    personRemote.setSensitive(entry.rowId, true)
+                } else {
+                    personRemote.create(
+                        name = row.name,
+                        designation = row.designation,
+                        station = row.station,
+                        clientId = row.id,
+                    )
+                }
                 personDao.setSyncStatus(
                     entry.rowId,
                     SyncStatus.SYNCED,
@@ -192,12 +199,43 @@ class SyncEngine @Inject constructor(
     }
 
     private suspend fun processInstructionEntry(entry: SyncQueueEntity) {
-        // M2-T6: instructions are written by the capture flow after
-        // the LLM extracts a proposal. The drain confirms the row
-        // is on the server. For now we mark SYNCED on success of
-        // the previous create call (the SupabaseInstructionRepository
-        // already round-trips in `create`).
-        instructionDao.setSyncStatus(entry.rowId, SyncStatus.SYNCED)
+        // M2-T6 + v1.1: handle INSERT (capture flow), UPDATE (mark-
+        // done / mark-dropped / re-open / set-sensitive), and
+        // DELETE (TBD).
+        when (entry.op) {
+            SyncQueueEntity.OP_INSERT -> {
+                // M2-T6: the create path is already round-tripped in
+                // SupabaseInstructionRepository.create(). The drain
+                // just confirms sync status.
+                instructionDao.setSyncStatus(entry.rowId, SyncStatus.SYNCED)
+            }
+            SyncQueueEntity.OP_UPDATE -> {
+                // v1.1: read the local row's current state and PATCH
+                // it on the server. The payload is the row's
+                // lifecycle fields (status, completedAt, droppedReason,
+                // isSensitive) — the server already knows the rest.
+                val row = instructionDao.getById(entry.rowId)
+                    ?: run {
+                        // Row was deleted before the drain ran. Drop the
+                        // entry quietly; nothing to push.
+                        return
+                    }
+                instructionRemote.update(
+                    id = row.id,
+                    status = com.baton.app.data.instructions.Status.valueOf(row.status),
+                    completedAt = row.completedAt,
+                    droppedReason = row.droppedReason,
+                    isSensitive = row.isSensitive,
+                )
+                instructionDao.setSyncStatus(row.id, SyncStatus.SYNCED)
+            }
+            SyncQueueEntity.OP_DELETE -> {
+                // TBD: server-side DELETE. v1.1 doesn't expose a delete
+                // instruction path; the row stays in Room and the
+                // server copy until the user does an explicit action.
+                // Mark the row as PENDING_DELETE for now.
+            }
+        }
     }
 
     /**

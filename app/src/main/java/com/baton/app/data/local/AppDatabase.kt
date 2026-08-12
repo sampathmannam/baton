@@ -49,7 +49,7 @@ import com.baton.app.data.local.entities.TagEntity
         AppStateEntity::class,
         NudgeDraftEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

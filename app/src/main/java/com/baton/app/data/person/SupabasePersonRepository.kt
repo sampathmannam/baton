@@ -128,13 +128,33 @@ class SupabasePersonRepository(
      * M2-T6: pull all rows for the user. Used by the initial Room
      * seed and by the Realtime-triggered refresh. Returns the rows
      * as [Person] (no Room mapping — the caller does that).
+     *
+     * v1.1: filters out any `is_sensitive = true` rows. Sensitive
+     * rows should never have been on the server (spec §13) but
+     * defensive filtering keeps the local mirror clean.
      */
     suspend fun fetchAll(): List<Person> {
         val rows: List<PersonRow> = client.postgrest
             .from("persons")
             .select()
             .decodeList()
-        return rows.map { it.toDomain() }
+        return rows
+            .filter { !it.isSensitive }
+            .map { it.toDomain() }
+    }
+
+    /**
+     * v1.1: PATCH the `is_sensitive` flag. Used by the sync engine
+     * when draining a person-update entry that flipped the flag.
+     * The server-side row is updated in place; the local mirror
+     * stays the source of truth for the UI.
+     */
+    suspend fun setSensitive(id: String, sensitive: Boolean) {
+        client.postgrest
+            .from("persons")
+            .update(mapOf("is_sensitive" to sensitive)) {
+                filter { eq("id", id) }
+            }
     }
 }
 

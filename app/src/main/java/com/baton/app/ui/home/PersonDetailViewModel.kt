@@ -4,14 +4,16 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.instructions.Instruction
+import com.baton.app.data.instructions.RoomInstructionRepository
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
 import com.baton.app.data.local.entities.PersonEntity
+import com.baton.app.data.person.PersonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -42,6 +44,8 @@ class PersonDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     personDao: PersonDao,
     private val instructionDao: InstructionDao,
+    private val roomInstructionRepository: RoomInstructionRepository,
+    private val personRepository: PersonRepository,
 ) : ViewModel() {
 
     /**
@@ -117,7 +121,45 @@ class PersonDetailViewModel @Inject constructor(
             createdAt = createdAt,
             updatedAt = updatedAt,
             isSensitive = isSensitive,
+            completedAt = completedAt,
+            droppedReason = droppedReason,
         )
+
+    /**
+     * v1.1: state-transition handlers. Each one writes through the
+     * Room repository (which also enqueues a PENDING_UPDATE for the
+     * sync outbox) and Room re-emits the timeline Flow, so the UI
+     * sees the change synchronously.
+     */
+    fun markDone(instructionId: String) {
+        viewModelScope.launch {
+            runCatching { roomInstructionRepository.markDone(instructionId) }
+        }
+    }
+
+    fun markDropped(instructionId: String, reason: String?) {
+        viewModelScope.launch {
+            runCatching { roomInstructionRepository.markDropped(instructionId, reason) }
+        }
+    }
+
+    fun reopen(instructionId: String) {
+        viewModelScope.launch {
+            runCatching { roomInstructionRepository.reopen(instructionId) }
+        }
+    }
+
+    fun setInstructionSensitive(instructionId: String, sensitive: Boolean) {
+        viewModelScope.launch {
+            runCatching { roomInstructionRepository.setSensitive(instructionId, sensitive) }
+        }
+    }
+
+    fun setPersonSensitive(personId: String, sensitive: Boolean) {
+        viewModelScope.launch {
+            runCatching { personRepository.setSensitive(personId, sensitive) }
+        }
+    }
 
     companion object {
         const val ARG_PERSON_ID = "personId"

@@ -8,6 +8,12 @@ import androidx.room.PrimaryKey
  * Room mirror of the `instructions` table. Mirrors
  * [com.baton.app.data.instructions.Instruction]; the `syncStatus`
  * column follows the same state machine as [PersonEntity].
+ *
+ * v1.1: added `completedAt` and `droppedReason` columns for the
+ * mark-done / mark-drop flow (Room v8). The Postgres schema already
+ * had these columns from M0; the Room mirror only just learned to
+ * read/write them. The repository sets `completedAt = now()` on
+ * markDone and `droppedReason` on markDropped.
  */
 @Entity(
     tableName = "instructions",
@@ -37,4 +43,7 @@ data class InstructionEntity(
     // network read/write.
     val isSensitive: Boolean = false,
     val syncStatus: String = SyncStatus.SYNCED,
+    // v1.1: lifecycle fields. Set by mark-done / mark-drop.
+    val completedAt: String? = null,
+    val droppedReason: String? = null,
 )
