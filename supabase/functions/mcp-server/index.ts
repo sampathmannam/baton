@@ -1,11 +1,42 @@
 // Supabase Edge Function: Baton MCP server
-// Speaks MCP over Streamable HTTP. Auth via Supabase JWT in Authorization header.
-// M0 scope: read-only. Exposes one resource: baton://persons.
+//
+// Speaks MCP over Streamable HTTP. Auth via Supabase JWT in Authorization
+// header (verified by Supabase gateway before the handler runs).
+//
+// **M3 scope:** 7 resources + 4 tools. The resources are read-only
+// views of the user's own data (RLS scopes everything to
+// `auth.uid()`). The tools are write actions that go through the
+// same RLS policies; Claude / Cursor / etc. can use them to add
+// or update entries on the user's behalf.
+//
+// **Schema** mirrors the M0-M2 migrations:
+//   - persons (id, user_id, name, designation, station, phone, ...)
+//   - instructions (id, user_id, person_id, status, direction, source,
+//     priority, title, raw_text, due_at, captured_at, ...)
+//   - captures (id, user_id, mode, raw_text, processed, ...)
+//   - events (id, user_id, instruction_id, kind, payload, ...)
+//
+// The handler is the M3 contract; new resources/tools are added
+// to the same McpServer instance below.
 
 import { createClient } from "@supabase/supabase-js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { z } from "@modelcontextprotocol/sdk/types.js";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
+
+/**
+ * M3: helper that turns a Supabase query error into a structured
+ * MCP error response. The MCP spec says tools return `isError: true`
+ * with a content array carrying a human-readable message; the
+ * client surfaces that as a tool error in the chat.
+ */
+function mcpError(message: string) {
+  return {
+    isError: true,
+    content: [{ type: "text" as const, text: message }],
+  };
+}
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
@@ -33,20 +64,25 @@ Deno.serve(async (req) => {
     },
   );
 
-  // Build the MCP server with one resource: baton://persons.
   const server = new McpServer({
     name: "baton-mcp",
-    version: "0.1.0",
+    version: "0.3.0",
   });
 
+  // ===========================================================================
+  // RESOURCES (read-only views)
+  // ===========================================================================
+
+  // 1. baton://persons — all persons for the calling user.
   server.resource(
     "persons",
     "baton://persons",
     async (uri) => {
       const { data, error } = await supabase
         .from("persons")
-        .select("id, name, designation, station, phone")
-        .is("deleted_at", null);
+        .select("id, name, designation, station, phone, created_at")
+        .is("deleted_at", null)
+        .order("name", { ascending: true });
       if (error) {
         return {
           contents: [
@@ -60,6 +96,453 @@ Deno.serve(async (req) => {
             uri: uri.href,
             text: JSON.stringify(data, null, 2),
             mimeType: "application/json",
+          },
+        ],
+      };
+    },
+  );
+
+  // 2. baton://person/{id} — one person with their full instruction
+  // timeline. The MCP `resource` API is static per URI; we use a
+  // template pattern with a regex so any personId resolves.
+  server.resource(
+    "person-detail",
+    "baton://person/{personId}",
+    async (uri, params) => {
+      const personId = (params as { personId?: string })?.personId;
+      if (!personId) {
+        return {
+          contents: [{ uri: uri.href, text: "Missing personId", mimeType: "text/plain" }],
+        };
+      }
+      const { data: person, error: personErr } = await supabase
+        .from("persons")
+        .select("id, name, designation, station, phone, created_at")
+        .eq("id", personId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (personErr) {
+        return {
+          contents: [
+            { uri: uri.href, text: `Error: ${personErr.message}`, mimeType: "text/plain" },
+          ],
+        };
+      }
+      if (!person) {
+        return {
+          contents: [{ uri: uri.href, text: "Not found", mimeType: "text/plain" }],
+        };
+      }
+      const { data: instructions, error: insErr } = await supabase
+        .from("instructions")
+        .select(
+          "id, title, raw_text, status, priority, direction, due_at, captured_at",
+        )
+        .eq("person_id", personId)
+        .is("deleted_at", null)
+        .order("captured_at", { ascending: false })
+        .limit(100);
+      if (insErr) {
+        return {
+          contents: [
+            { uri: uri.href, text: `Error: ${insErr.message}`, mimeType: "text/plain" },
+          ],
+        };
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: JSON.stringify({ person, instructions }, null, 2),
+            mimeType: "application/json",
+          },
+        ],
+      };
+    },
+  );
+
+  // 3. baton://instructions — all instructions, capped at 200.
+  server.resource(
+    "instructions",
+    "baton://instructions",
+    async (uri) => {
+      const { data, error } = await supabase
+        .from("instructions")
+        .select(
+          "id, person_id, title, raw_text, status, priority, direction, due_at, captured_at",
+        )
+        .is("deleted_at", null)
+        .order("captured_at", { ascending: false })
+        .limit(200);
+      if (error) {
+        return {
+          contents: [
+            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
+          ],
+        };
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: JSON.stringify(data, null, 2),
+            mimeType: "application/json",
+          },
+        ],
+      };
+    },
+  );
+
+  // 4. baton://instruction/{id} — one instruction.
+  server.resource(
+    "instruction-detail",
+    "baton://instruction/{instructionId}",
+    async (uri, params) => {
+      const id = (params as { instructionId?: string })?.instructionId;
+      if (!id) {
+        return {
+          contents: [{ uri: uri.href, text: "Missing instructionId", mimeType: "text/plain" }],
+        };
+      }
+      const { data, error } = await supabase
+        .from("instructions")
+        .select("*")
+        .eq("id", id)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (error) {
+        return {
+          contents: [
+            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
+          ],
+        };
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: data ? JSON.stringify(data, null, 2) : "Not found",
+            mimeType: "application/json",
+          },
+        ],
+      };
+    },
+  );
+
+  // 5. baton://instructions/open — open + in-progress instructions
+  // (status NOT IN (DONE, CARRIED_OVER, DROPPED)). The "what needs
+  // you today" surface for the Today screen.
+  server.resource(
+    "instructions-open",
+    "baton://instructions/open",
+    async (uri) => {
+      const { data, error } = await supabase
+        .from("instructions")
+        .select(
+          "id, person_id, title, raw_text, status, priority, direction, due_at, captured_at",
+        )
+        .not("status", "in", "(DONE,CARRIED_OVER,DROPPED)")
+        .is("deleted_at", null)
+        .order("priority", { ascending: false })
+        .order("due_at", { ascending: true, nullsFirst: false })
+        .limit(100);
+      if (error) {
+        return {
+          contents: [
+            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
+          ],
+        };
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: JSON.stringify(data, null, 2),
+            mimeType: "application/json",
+          },
+        ],
+      };
+    },
+  );
+
+  // 6. baton://instructions/due-today — open instructions whose
+  // due_at is between today 00:00 and tomorrow 00:00 (Asia/Kolkata).
+  // Supabase stores `due_at` as timestamptz, so we filter in UTC.
+  server.resource(
+    "instructions-due-today",
+    "baton://instructions/due-today",
+    async (uri) => {
+      // Compute the IST day boundaries in UTC. The server's TZ
+      // is set to Asia/Kolkata in supabase/config.toml; this
+      // expression uses the same convention.
+      const now = new Date();
+      const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+      const istDate = new Date(istString);
+      const startUtc = new Date(istDate);
+      startUtc.setHours(0, 0, 0, 0);
+      const endUtc = new Date(startUtc);
+      endUtc.setDate(endUtc.getDate() + 1);
+      const { data, error } = await supabase
+        .from("instructions")
+        .select(
+          "id, person_id, title, raw_text, status, priority, direction, due_at, captured_at",
+        )
+        .not("status", "in", "(DONE,CARRIED_OVER,DROPPED)")
+        .gte("due_at", startUtc.toISOString())
+        .lt("due_at", endUtc.toISOString())
+        .is("deleted_at", null)
+        .order("due_at", { ascending: true });
+      if (error) {
+        return {
+          contents: [
+            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
+          ],
+        };
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: JSON.stringify(data, null, 2),
+            mimeType: "application/json",
+          },
+        ],
+      };
+    },
+  );
+
+  // 7. baton://stats — aggregate counts grouped by status. Useful
+  // for the brief and for ad-hoc LLMs that want a one-shot snapshot.
+  server.resource(
+    "stats",
+    "baton://stats",
+    async (uri) => {
+      // Single round-trip: fetch minimal columns for active
+      // instructions, then aggregate in-process. The M3 row
+      // counts are small (hundreds) so the in-process aggregation
+      // is fast and avoids a Postgres RPC.
+      const { data, error } = await supabase
+        .from("instructions")
+        .select("status, priority, captured_at, due_at")
+        .is("deleted_at", null);
+      if (error) {
+        return {
+          contents: [
+            { uri: uri.href, text: `Error: ${error.message}`, mimeType: "text/plain" },
+          ],
+        };
+      }
+      const byStatus: Record<string, number> = {};
+      const byPriority: Record<string, number> = {};
+      const todayIso = new Date().toISOString().slice(0, 10);
+      let dueToday = 0;
+      let overdue = 0;
+      for (const row of data ?? []) {
+        byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
+        byPriority[row.priority] = (byPriority[row.priority] ?? 0) + 1;
+        if (row.due_at && row.due_at.slice(0, 10) === todayIso) dueToday += 1;
+        if (
+          row.due_at &&
+          row.due_at < new Date().toISOString() &&
+          !["DONE", "CARRIED_OVER", "DROPPED"].includes(row.status)
+        ) overdue += 1;
+      }
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            text: JSON.stringify(
+              { byStatus, byPriority, dueToday, overdue, total: data?.length ?? 0 },
+              null,
+              2,
+            ),
+            mimeType: "application/json",
+          },
+        ],
+      };
+    },
+  );
+
+  // ===========================================================================
+  // TOOLS (write actions)
+  // ===========================================================================
+
+  // T1. create_person — adds a new person. The unique constraint
+  // (user_id, name, designation, station) is enforced by Supabase;
+  // a duplicate insert returns a Postgres 23505 which we surface
+  // as a tool error.
+  server.tool(
+    "create_person",
+    "Create a new person in the user's Baton address book. Returns the new person id.",
+    {
+      name: z.string().min(1).describe("The person's full name, e.g. 'SHO Ramu'"),
+      designation: z.string().optional().describe("Rank or post, e.g. 'SHO', 'DSP', 'SP'"),
+      station: z.string().optional().describe("Police station, e.g. 'Bandipora'"),
+      phone: z.string().optional().describe("Phone number, e.g. '+91 98765 43210'"),
+    },
+    async ({ name, designation, station, phone }) => {
+      const { data, error } = await supabase
+        .from("persons")
+        .insert({
+          name,
+          designation: designation ?? null,
+          station: station ?? null,
+          phone: phone ?? null,
+        })
+        .select("id")
+        .single();
+      if (error) {
+        return mcpError(`create_person failed: ${error.message}`);
+      }
+      return {
+        content: [
+          { type: "text" as const, text: `Created person id=${data.id}` },
+        ],
+      };
+    },
+  );
+
+  // T2. create_instruction — adds a new instruction. The M3 client
+  // already does the on-device LLM extraction; this tool is the
+  // path Claude / Cursor use to add a row from a chat message.
+  server.tool(
+    "create_instruction",
+    "Create a new instruction. Returns the new instruction id.",
+    {
+      title: z.string().min(1).describe("5-7 word human-readable label"),
+      raw_text: z.string().min(1).describe("The full instruction verbatim"),
+      person_name: z.string().optional().describe(
+        "Person the instruction is about. If a person with this exact name exists for the user, the instruction is linked. Otherwise a new person is auto-created.",
+      ),
+      due_at: z.string().optional().describe("ISO 8601 timestamp, e.g. '2026-08-15T17:00:00+05:30'"),
+      priority: z.enum(["LOW", "NORMAL", "HIGH"]).optional().default("NORMAL"),
+      direction: z.enum(["INCOMING", "OUTGOING", "SELF"]).optional().default("OUTGOING"),
+    },
+    async ({ title, raw_text, person_name, due_at, priority, direction }) => {
+      // Resolve the person. If a name is given and a row exists
+      // with the same name, link to that; otherwise create the
+      // person on-the-fly. This matches the M1-T5 capture flow
+      // and keeps the tool useful for ad-hoc "Tell SHO Ramu..."
+      // calls from the user's chat assistant.
+      let personId: string | null = null;
+      if (person_name) {
+        const { data: existing } = await supabase
+          .from("persons")
+          .select("id")
+          .eq("name", person_name)
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        if (existing) {
+          personId = existing.id;
+        } else {
+          const { data: created, error: personErr } = await supabase
+            .from("persons")
+            .insert({ name: person_name })
+            .select("id")
+            .single();
+          if (personErr) {
+            return mcpError(`create_instruction: person insert failed: ${personErr.message}`);
+          }
+          personId = created.id;
+        }
+      }
+      const { data, error } = await supabase
+        .from("instructions")
+        .insert({
+          person_id: personId,
+          title,
+          raw_text,
+          due_at: due_at ?? null,
+          priority: priority ?? "NORMAL",
+          direction: direction ?? "OUTGOING",
+          source: "MCP",
+          status: "OPEN",
+          captured_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (error) {
+        return mcpError(`create_instruction failed: ${error.message}`);
+      }
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: personId
+              ? `Created instruction id=${data.id} for person_id=${personId}`
+              : `Created instruction id=${data.id} (no person linked)`,
+          },
+        ],
+      };
+    },
+  );
+
+  // T3. update_instruction_status — moves a row through the
+  // status enum (OPEN -> IN_PROGRESS -> DONE etc.). The M4
+  // nudge flow will do this automatically; this tool is the
+  // manual override path.
+  server.tool(
+    "update_instruction_status",
+    "Update an instruction's status. Use the standard Baton statuses.",
+    {
+      id: z.string().uuid().describe("The instruction's UUID"),
+      status: z.enum([
+        "OPEN",
+        "ACK_PENDING",
+        "IN_PROGRESS",
+        "WAITING_ON_OTHER",
+        "DONE",
+        "CARRIED_OVER",
+        "DROPPED",
+      ]).describe("The new status"),
+    },
+    async ({ id, status }) => {
+      const update: Record<string, unknown> = { status };
+      if (status === "DONE") update.completed_at = new Date().toISOString();
+      const { error } = await supabase
+        .from("instructions")
+        .update(update)
+        .eq("id", id);
+      if (error) {
+        return mcpError(`update_instruction_status failed: ${error.message}`);
+      }
+      return {
+        content: [
+          { type: "text" as const, text: `Updated instruction id=${id} status=${status}` },
+        ],
+      };
+    },
+  );
+
+  // T4. search_instructions — substring match on title / raw_text.
+  // Postgres `ilike` is fine for the v1 row counts (hundreds); a
+  // tsvector + GIN index lands in v1.1 when the dataset grows.
+  server.tool(
+    "search_instructions",
+    "Search the user's instructions by free-text query. Returns up to 50 matches.",
+    {
+      query: z.string().min(1).describe("Free-text query, matched against title and raw_text"),
+    },
+    async ({ query }) => {
+      const like = `%${query}%`;
+      const { data, error } = await supabase
+        .from("instructions")
+        .select(
+          "id, person_id, title, raw_text, status, priority, direction, due_at, captured_at",
+        )
+        .or(`title.ilike.${like},raw_text.ilike.${like}`)
+        .is("deleted_at", null)
+        .order("captured_at", { ascending: false })
+        .limit(50);
+      if (error) {
+        return mcpError(`search_instructions failed: ${error.message}`);
+      }
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(data, null, 2),
           },
         ],
       };
