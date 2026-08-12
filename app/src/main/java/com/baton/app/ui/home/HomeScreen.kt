@@ -1,5 +1,6 @@
 package com.baton.app.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,6 +71,9 @@ fun HomeScreen(
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    // M3-T6: when the user taps a row, set the id; the PersonDetailScreen
+    // composable below is rendered conditionally. Tapping back clears it.
+    var selectedPersonId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     // M1-T7: when a shared text arrives, pre-fill the capture sheet
@@ -165,6 +169,7 @@ fun HomeScreen(
                     persons = s.persons,
                     openCountByPersonId = s.openCountByPersonId,
                     padding = padding,
+                    onPersonClick = { personId -> selectedPersonId = personId },
                 )
                 is HomeUiState.Error -> ErrorState(s.message, padding)
             }
@@ -232,6 +237,77 @@ fun HomeScreen(
             onDismiss = { showSettings = false },
         )
     }
+
+    // M3-T6: when a person row is tapped, render the detail
+    // screen on top. `selectedPersonId` lives in this composable
+    // so back-navigation just clears it. The detail screen's
+    // ViewModel reads the id from SavedStateHandle; we use a
+    // custom factory so the same Hilt-injected DAOs land in the
+    // VM without a real nav graph.
+    val personId = selectedPersonId
+    if (personId != null) {
+        PersonDetailScreenEntry(
+            personId = personId,
+            onBack = { selectedPersonId = null },
+        )
+    }
+}
+
+/**
+ * M3-T6: a thin wrapper that resolves the [PersonDetailViewModel]
+ * via Hilt's [PersonDetailViewModelFactoryEntryPoint] and hands
+ * it to the standard [PersonDetailScreen] composable. The
+ * `personId` is injected into the VM's [SavedStateHandle] so
+ * the VM's `savedStateHandle.get<String>("personId")` returns
+ * the right value.
+ *
+ * **No nav graph yet.** M3 ships in-place routing: the Home
+ * tab flips `selectedPersonId` and this composable takes over.
+ * When M3.5 lands a real `NavHost` (Today tab + deep links)
+ * the wiring moves into `composable("person/{personId}")` and
+ * this entry wrapper is removed. The VM contract is unchanged.
+ */
+@androidx.compose.runtime.Composable
+private fun PersonDetailScreenEntry(
+    personId: String,
+    onBack: () -> Unit,
+) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+        ctx,
+        PersonDetailViewModelFactoryEntryPoint::class.java,
+    )
+    val vm = androidx.lifecycle.viewmodel.compose.viewModel<PersonDetailViewModel>(
+        key = "person-detail-$personId",
+        factory = androidx.lifecycle.viewmodel.viewModelFactory {
+            addInitializer(PersonDetailViewModel::class) {
+                PersonDetailViewModel(
+                    savedStateHandle = androidx.lifecycle.SavedStateHandle(
+                        mapOf(PersonDetailViewModel.ARG_PERSON_ID to personId),
+                    ),
+                    personDao = entryPoint.personDao(),
+                    instructionDao = entryPoint.instructionDao(),
+                )
+            }
+        },
+    )
+    PersonDetailScreen(
+        personId = personId,
+        onBack = onBack,
+        viewModel = vm,
+    )
+}
+
+/**
+ * Hilt entry point that exposes the singletons the
+ * [PersonDetailScreenEntry] factory needs. Lives at the
+ * [BatonApplication] scope.
+ */
+@dagger.hilt.EntryPoint
+@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
+interface PersonDetailViewModelFactoryEntryPoint {
+    fun personDao(): com.baton.app.data.local.PersonDao
+    fun instructionDao(): com.baton.app.data.local.InstructionDao
 }
 
 @Composable
@@ -266,6 +342,7 @@ private fun PersonList(
     persons: List<Person>,
     openCountByPersonId: Map<String, Int>,
     padding: PaddingValues,
+    onPersonClick: (String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -276,6 +353,7 @@ private fun PersonList(
             PersonRow(
                 person = person,
                 openCount = openCountByPersonId[person.id] ?: 0,
+                onClick = { onPersonClick(person.id) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
@@ -284,7 +362,7 @@ private fun PersonList(
 }
 
 @Composable
-private fun PersonRow(person: Person, openCount: Int) {
+private fun PersonRow(person: Person, openCount: Int, onClick: () -> Unit) {
     // M3-T5: the row is now a `Row` (name + designation on the
     // left, open-count badge on the right). When `openCount == 0`
     // we hide the badge entirely — the spec says "no shame
@@ -292,9 +370,14 @@ private fun PersonRow(person: Person, openCount: Int) {
     // something to look at. The badge uses the `tertiary` color
     // (a calm blue) rather than red; "carried over, not overdue"
     // is the design rule (spec §3.3).
+    //
+    // M3-T6: tapping the row navigates to the PersonDetailScreen
+    // (the timeline). The click is on the whole row, not just
+    // the badge.
     androidx.compose.foundation.layout.Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,

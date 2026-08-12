@@ -53,4 +53,10 @@
     <string name="settings_subtitle">Sign out of Baton on this device. Your local data and on-device model files are wiped; your Supabase data stays.</string>
     <string name="settings_sign_out">Sign out</string>
     <string name="settings_signing_out">Signing out…</string>
+
+    <!-- M3-T6: person detail screen -->
+    <string name="person_detail_title">Person</string>
+    <string name="person_detail_back">Back</string>
+    <string name="person_detail_timeline_count">%1$d instructions</string>
+    <string name="person_detail_empty">No instructions yet. Tap the note bar to start.</string>
 </resources>
