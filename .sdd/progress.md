@@ -1,6 +1,53 @@
 # Baton progress ledger
 Branch: m0/skeleton
-Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, v1.0-final, **v1.1-audit**
+Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, v1.0-final, v1.1-audit, **v1.1.1**
+
+## v1.1.1 status: COMPLETE — 2 real root-cause bugs found in v1.1 emulator pass, both fixed at the source, end-to-end wire flow verified on emulator (server's is_sensitive flips on both ON and OFF), 158/158 unit tests green + 6 ignored, debug + signed release APKs rebuilt (v0.5.1)
+
+### v1.1.1 bugs (root-cause fix, not namesake)
+
+- **Wire push missing on person sensitive toggle** (`RoomPersonRepository.setSensitive`):
+  v1.1 updated local Room but never enqueued a sync-queue entry or fired a drain.
+  The `if (!sensitive) { ... }` block was comments only. v1.1.1 always enqueues
+  an `OP_UPDATE` (PersonInsert payload from the current row) and fire-and-forget
+  drains. Mirrors `RoomInstructionRepository.enqueueUpdate`.
+
+- **`SyncEngine.processPersonEntry` OP_UPDATE else-branch bug**: v1.1 only
+  PATCHed the server when `localRow.isSensitive == true`; the `false` case
+  fell through to `personRemote.create(...)` which would re-INSERT the row.
+  v1.1.1 always calls `personRemote.setSensitive(entry.rowId, localRow.isSensitive)`
+  for the no-conflict path, regardless of true/false. The LWW conflict
+  check is preserved (server-newer still drops local and mirrors the
+  server). `localRow == null` (deleted before drain) is now an early-return
+  no-op so the entry drains cleanly without a wire call.
+
+- **UI staleness on person detail**: `PersonDetailViewModel` was caching
+  the person in a `MutableStateFlow` populated by a one-shot `getById`
+  in `init`. The local Room update on `setSensitive` never re-emitted,
+  so the "Mark as sensitive" button stayed stale after a tap. v1.1.1
+  adds `PersonDao.observeById(id): Flow<PersonEntity?>` and the VM
+  uses it as the source of truth. Re-enter-vs-stay-in-place is now
+  identical — the toggle updates the UI in real time.
+
+### v1.1.1 verification
+
+- **End-to-end on emulator (MindAnchorTest, v0.5.1)**:
+  - Tap "Mark as sensitive" on Inspector Ramu → confirm dialog
+  - Local Room row flips to `is_sensitive=true` (UI shows "Local-only. Stays on this device...")
+  - Server's `is_sensitive` flips to `True` (verified via REST API)
+  - All other persons stay `False` (no cross-row contamination)
+  - Tap "Remove sensitive flag" → confirm dialog
+  - Local Room row flips back to `is_sensitive=false` (UI shows "Syncs to Supabase...")
+  - Server's `is_sensitive` flips back to `False`
+- **Screenshots**: `docs/verification/baton-v111-sensitive-on.png` (mid-ON state),
+  `docs/verification/baton-v111-final.png` (after OFF reset)
+- **Test counts**: was 151/151 + 6 ignored, now 158/158 + 6 ignored.
+  - `RoomPersonRepositoryTest`: 5 → 9 (+4: setSensitive ON, OFF, failure, ghost)
+  - `SyncEngineTest`: 10 → 13 (+3: PATCH true, PATCH false, deleted-row no-op;
+    also fixed the existing 3 "no-conflict" cases which had been asserting
+    the v1.1 bug's `create()` call)
+  - All 7 new tests are regression guards for the wire flow
+- **APKs**: debug 53MB, signed release 41MB, versionName 0.5.1, versionCode 4
 
 ## v1.1 status: COMPLETE — 15-day audit ran end-to-end, 1 real bug + 6 feature gaps fixed at root cause, 151/151 unit tests green + 6 ignored, debug + signed release APKs rebuilt (v0.5.0)
 

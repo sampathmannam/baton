@@ -146,31 +146,56 @@ class RoomPersonRepository @Inject constructor(
     }
 
     /**
-     * v1.1: spec §13 — flip the local-only flag. The row stays in
-     * Room (the user is still tracking the person) but the sync
-     * engine stops pushing it to the server on the next change.
-     * Toggling on for an already-synced row also PATCHes the
-     * server so the server copy is removed.
+     * v1.1.1: spec §13 — flip the local-only flag and push the
+     * change to the server. The row stays in Room (the user is
+     * still tracking the person) but the server's `is_sensitive`
+     * column must reflect the new value so the row is filtered
+     * on the way out.
+     *
+     * **v1.1.1 root-cause fix:** v1.1 only updated local Room and
+     * never enqueued a sync-queue entry, so the server's
+     * `is_sensitive` stayed `false` after a toggle. We now enqueue
+     * an `OP_UPDATE` (the same op the instruction-set uses) and
+     * fire-and-forget drain. The drain's `processPersonEntry`
+     * PATCHes the server's `is_sensitive` to match the local row.
+     * On failure the entry stays in the outbox and is retried on
+     * the next drain / app start.
+     *
+     * Both ON and OFF flips are enqueued; the SyncEngine
+     * `processPersonEntry` PATCHes the column to the local value
+     * regardless of direction.
      */
     override suspend fun setSensitive(id: String, sensitive: Boolean) {
         val now = java.time.Instant.now().toString()
-        val status = if (sensitive) SyncStatus.PENDING_UPDATE else SyncStatus.SYNCED
-        dao.setSensitive(id, sensitive, now, status)
-        // Fire-and-forget PATCH to the server. If it fails, the
-        // sync_queue entry stays and retries on the next drain.
-        if (!sensitive) {
-            // Toggling OFF: we want the row back on the server, so
-            // re-INSERT (the network path is create-only for
-            // persons; an UPDATE on a deleted-on-server row is the
-            // same as a no-op). For now we just enqueue an INSERT
-            // which will fail the unique constraint if the server
-            // still has the row — but that's fine, the row is
-            // already correct on the server.
-            // Toggling ON: the server row should be deleted
-            // (spec §13 says sensitive rows never live on the
-            // server). v1.1 ships the local flip and trusts the
-            // server's RLS / trigger policy to drop the row; the
-            // sync engine doesn't need to actively DELETE.
+        // Always PENDING_UPDATE until the wire side confirms.
+        // The drain flips it to SYNCED on success. We don't try
+        // to be clever with "the row was already SYNCED so skip
+        // the wire call" — toggling is_sensitive is a wire-level
+        // change and must reach the server.
+        dao.setSensitive(id, sensitive, now, SyncStatus.PENDING_UPDATE)
+        // Read the row back so the payload carries the canonical
+        // name/designation/station (the SyncEngine decodes it as
+        // a PersonInsert to keep the LWW conflict check happy).
+        val row = dao.getById(id) ?: return
+        syncQueueDao.enqueue(
+            SyncQueueEntity(
+                table = "persons",
+                rowId = id,
+                op = SyncQueueEntity.OP_UPDATE,
+                payloadJson = json.encodeToString(
+                    PersonInsert.serializer(),
+                    PersonInsert(
+                        id = row.id,
+                        name = row.name,
+                        designation = row.designation,
+                        station = row.station,
+                    ),
+                ),
+                createdAt = now(),
+            )
+        )
+        appScope.launch {
+            syncEngine.drainOne(id, "persons", SyncQueueEntity.OP_UPDATE)
         }
     }
 

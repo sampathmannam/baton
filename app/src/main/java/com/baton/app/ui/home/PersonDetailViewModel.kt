@@ -27,16 +27,18 @@ import javax.inject.Inject
  * `personId` from the nav arg (`SavedStateHandle`) and combines
  * the person row with the per-person instruction timeline.
  *
- * **Reactive.** The timeline updates on every local write AND on
- * every Realtime-driven refresh; the screen never has to call a
- * `refresh()` itself. The same Room-mirror contract as the
- * HomeScreen applies.
+ * **Reactive.** Both the person row and the instructions are
+ * observed as Flows so the screen updates on every local write
+ * (e.g. `setSensitive`) AND on every Realtime-driven refresh.
+ * The screen never has to call a `refresh()` itself. The same
+ * Room-mirror contract as the HomeScreen applies.
  *
- * **One-shot load.** The person entity is loaded once via
- * [PersonDao.getById] (a `suspend fun`, not a Flow — the person
- * row only changes via the existing Persons Flow, and a reload
- * here would re-trigger the same animation on every edit). The
- * instructions are observed as a Flow.
+ * **v1.1.1 root-cause fix:** the person row was previously a
+ * one-shot `getById` read in `init` — the `MutableStateFlow`
+ * never re-emitted when the local row changed, so the detail
+ * screen's "Mark as sensitive" button stayed stale after a
+ * tap. We now use [PersonDao.observeById] which emits on every
+ * Room update to the row.
  */
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,14 +59,7 @@ class PersonDetailViewModel @Inject constructor(
     private val personId: String = savedStateHandle.get<String>(ARG_PERSON_ID)
         ?: error("$ARG_PERSON_ID missing from nav args")
 
-    private val _person = MutableStateFlow<PersonEntity?>(null)
-    private val _personState = _person.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            _person.value = personDao.getById(personId)
-        }
-    }
+    private val _personState = personDao.observeById(personId)
 
     /**
      * M3-T6: when the person is loaded, observe their instruction

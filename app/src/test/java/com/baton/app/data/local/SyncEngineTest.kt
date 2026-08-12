@@ -251,6 +251,10 @@ class SyncEngineTest {
     @Test
     fun `OP_UPDATE proceeds when local is newer than server`() = runTest {
         // Local is Aug 12, server is Aug 10. Local wins; no conflict.
+        // v1.1.1: the wire call is now `setSensitive(id, local.isSensitive)`
+        // — v1.1's `personRemote.create(...)` for the non-conflict path
+        // was a root-cause bug. The default `isSensitive = false` in
+        // PersonEntity means the call should be `setSensitive(id, false)`.
         val newerLocal = "2026-08-12T00:00:00Z"
         val olderServer = "2026-08-10T00:00:00Z"
         enqueuePerson(
@@ -267,15 +271,17 @@ class SyncEngineTest {
             phone = null,
             updatedAt = olderServer,
         )
-        stubRemoteEcho()
+        // No-op: setSensitive succeeds, no conflict path.
+        coEvery { personRemote.setSensitive(any(), any()) } returns Unit
 
         engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
         advanceUntilIdle()
 
         // No conflict was logged.
         assertEquals(0, syncConflictDao.count())
-        // The create call was made.
-        coVerify(exactly = 1) { personRemote.create(any(), any(), any(), any()) }
+        // The PATCH was made (and only the PATCH — never create()).
+        coVerify(exactly = 1) { personRemote.setSensitive("client-1", false) }
+        coVerify(exactly = 0) { personRemote.create(any(), any(), any(), any()) }
         // The local row is SYNCED.
         val local = personDao.getById("client-1")
         assertEquals(SyncStatus.SYNCED, local!!.syncStatus)
@@ -284,22 +290,26 @@ class SyncEngineTest {
     @Test
     fun `OP_UPDATE proceeds when server has no row yet`() = runTest {
         // Server returns null (e.g. the row was deleted elsewhere).
-        // The local change is pushed as a fresh create.
+        // v1.1.1: we still PATCH `is_sensitive` rather than re-INSERTing.
+        // The server's RLS / trigger policy decides what to do with the
+        // PATCH on a non-existent row (typically a no-op). The local row
+        // is the source of truth.
         enqueuePerson(
             id = "client-1",
             name = "Ramu",
             op = SyncQueueEntity.OP_UPDATE,
         )
         coEvery { personRemote.findById("client-1") } returns null
-        stubRemoteEcho()
+        coEvery { personRemote.setSensitive(any(), any()) } returns Unit
 
         engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
         advanceUntilIdle()
 
         // No conflict was logged.
         assertEquals(0, syncConflictDao.count())
-        // The create call was made.
-        coVerify(exactly = 1) { personRemote.create(any(), any(), any(), any()) }
+        // PATCH was made (and never create()).
+        coVerify(exactly = 1) { personRemote.setSensitive("client-1", false) }
+        coVerify(exactly = 0) { personRemote.create(any(), any(), any(), any()) }
     }
 
     @Test
@@ -332,19 +342,108 @@ class SyncEngineTest {
     @Test
     fun `no conflict when updated_at equal`() = runTest {
         // Same timestamp — no LWW loser; we don't log a conflict.
+        // v1.1.1: the wire call is `setSensitive`, not `create`.
         val same = "2026-08-12T00:00:00Z"
         enqueuePerson(id = "client-1", name = "Ramu", op = SyncQueueEntity.OP_UPDATE, localUpdatedAt = same)
         coEvery { personRemote.findById("client-1") } returns Person(
             id = "client-1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null,
             updatedAt = same,
         )
-        stubRemoteEcho()
+        coEvery { personRemote.setSensitive(any(), any()) } returns Unit
 
         engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
         advanceUntilIdle()
 
         assertEquals(0, syncConflictDao.count())
-        coVerify(exactly = 1) { personRemote.create(any(), any(), any(), any()) }
+        coVerify(exactly = 1) { personRemote.setSensitive("client-1", false) }
+        coVerify(exactly = 0) { personRemote.create(any(), any(), any(), any()) }
+    }
+
+    // ----- v1.1.1 root-cause: OP_UPDATE always PATCHes is_sensitive -----
+
+    @Test
+    fun `OP_UPDATE PATCHes is_sensitive=true when local row is sensitive`() = runTest {
+        // v1.1.1 fix: toggling ON must PATCH the server. The previous
+        // (correct) branch did this; the test guards against future
+        // regressions.
+        enqueuePerson(
+            id = "client-1",
+            name = "Ramu",
+            op = SyncQueueEntity.OP_UPDATE,
+        )
+        // Flip the local row to sensitive.
+        personDao.setSensitive(
+            id = "client-1",
+            sensitive = true,
+            updatedAt = "2026-08-12T01:00:00Z",
+            status = SyncStatus.PENDING_UPDATE,
+        )
+        coEvery { personRemote.findById("client-1") } returns null
+        coEvery { personRemote.setSensitive(any(), any()) } returns Unit
+
+        engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { personRemote.setSensitive("client-1", true) }
+        coVerify(exactly = 0) { personRemote.create(any(), any(), any(), any()) }
+        assertEquals(SyncStatus.SYNCED, personDao.getById("client-1")!!.syncStatus)
+    }
+
+    @Test
+    fun `OP_UPDATE PATCHes is_sensitive=false when local row is not sensitive (v1_1_1 regression guard)`() = runTest {
+        // v1.1.1 fix: toggling OFF must PATCH the server with
+        // `is_sensitive = false`. v1.1's else-branch incorrectly
+        // called `personRemote.create(...)` which would re-INSERT
+        // the row. This test guards against that regression.
+        enqueuePerson(
+            id = "client-1",
+            name = "Ramu",
+            op = SyncQueueEntity.OP_UPDATE,
+        )
+        // Local row stays `isSensitive = false` (the default).
+        coEvery { personRemote.findById("client-1") } returns null
+        coEvery { personRemote.setSensitive(any(), any()) } returns Unit
+        // If the bug regresses, create() will be called and the
+        // AssertionError will fail the test.
+        coEvery { personRemote.create(any(), any(), any(), any()) } throws
+            AssertionError("v1.1.1 fix: OP_UPDATE for persons must NOT call create()")
+
+        engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { personRemote.setSensitive("client-1", false) }
+        assertEquals(SyncStatus.SYNCED, personDao.getById("client-1")!!.syncStatus)
+    }
+
+    @Test
+    fun `OP_UPDATE is a no-op when local row was deleted before drain`() = runTest {
+        // v1.1.1 fix: the `localRow == null` early-return guards against
+        // a stale queue entry after a local delete. No network call.
+        syncQueueDao.enqueue(
+            SyncQueueEntity(
+                table = "persons",
+                rowId = "ghost",
+                op = SyncQueueEntity.OP_UPDATE,
+                payloadJson = json.encodeToString(
+                    PersonInsert.serializer(),
+                    PersonInsert(id = "ghost", name = "Ghost", designation = null, station = null),
+                ),
+                createdAt = 1L,
+            )
+        )
+        coEvery { personRemote.setSensitive(any(), any()) } throws
+            AssertionError("must not call setSensitive when the local row is gone")
+        coEvery { personRemote.create(any(), any(), any(), any()) } throws
+            AssertionError("must not call create when the local row is gone")
+        coEvery { personRemote.findById(any()) } throws
+            AssertionError("must not call findById when the local row is gone")
+
+        engine.drainOne(rowId = "ghost", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        // Queue entry was deleted (no failure recorded because the
+        // early-return is before any network call).
+        assertEquals(0, syncQueueDao.snapshot().size)
     }
 
     @Test
