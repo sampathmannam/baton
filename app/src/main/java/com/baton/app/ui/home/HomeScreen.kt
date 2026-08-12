@@ -14,14 +14,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -47,7 +46,6 @@ import com.baton.app.features.capture.CaptureViewModel
 import com.baton.app.features.capture.NoteBar
 import com.baton.app.features.capture.PhotoCapture
 import com.baton.app.features.capture.VoiceCaptureService
-import com.baton.app.ui.settings.SettingsSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,9 +55,22 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
+/**
+ * M3.5: Home tab. M3-T6 in-place routing is replaced with a real
+ * `composable("person/{personId}")` entry in the parent
+ * [com.baton.app.MainActivity]'s NavHost. The HomeScreen no longer
+ * owns the [selectedPersonId] state; it calls [onOpenPerson] to
+ * trigger the nav.
+ *
+ * M3-T4: the settings gear in the top bar is removed (M4-T2
+ * promotes Settings to a bottom-nav tab). The sheet is owned by
+ * MainScaffold and is opened via [onOpenSettings].
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    onOpenSettings: () -> Unit = {},
+    onOpenPerson: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
     captureViewModel: CaptureViewModel = hiltViewModel(),
     rootViewModel: RootViewModel = hiltViewModel(),
@@ -70,16 +81,8 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
-    // M3-T6: when the user taps a row, set the id; the PersonDetailScreen
-    // composable below is rendered conditionally. Tapping back clears it.
-    var selectedPersonId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    // M1-T7: when a shared text arrives, pre-fill the capture sheet
-    // and open it. The user can then tap Extract (or edit) and the
-    // usual capture flow takes over. We consume the value once the
-    // sheet is open so the next share lands fresh.
     LaunchedEffect(sharedText) {
         val text = sharedText
         if (text != null) {
@@ -88,12 +91,6 @@ fun HomeScreen(
             rootViewModel.consumeSharedText()
         }
     }
-
-    // M2-T5: when the user taps the quick-settings tile or the
-    // home-screen widget, the deep link fires ACTION_QUICK_CAPTURE
-    // and MainActivity signals via [RootViewModel.quickCapture].
-    // We open the capture sheet (empty, focused on the text input)
-    // and consume the signal so a config change does not re-open.
     LaunchedEffect(quickCapture) {
         if (quickCapture) {
             captureViewModel.openSheet()
@@ -101,19 +98,15 @@ fun HomeScreen(
         }
     }
 
-    // M2-T2: camera launcher. The launch returns `success=true`
-    // when the user took a picture; we OCR the file at the
-    // pending URI and feed the result to the capture VM.
     val pendingUri = remember { mutableStateOf<android.net.Uri?>(null) }
-    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicture(),
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
     ) { success ->
         val uri = pendingUri.value
         if (success && uri != null) {
             scope.launch {
                 val text = withContext(Dispatchers.IO) {
-                    runCatching { PhotoCapture.recognize(context, uri) }
-                        .getOrElse { "" }
+                    runCatching { PhotoCapture.recognize(context, uri) }.getOrElse { "" }
                 }
                 if (text.isNotBlank()) {
                     captureViewModel.onPhotoTextRecognized(text)
@@ -123,9 +116,6 @@ fun HomeScreen(
         pendingUri.value = null
     }
 
-    // M2-T4: voice capture. The user taps the mic icon; we check
-    // for RECORD_AUDIO permission first, request it if missing,
-    // then start the foreground service.
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -141,19 +131,6 @@ fun HomeScreen(
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.home_title)) },
-                    actions = {
-                        // M3-T4: settings entry point. The icon is
-                        // placed in the top-app-bar actions slot so
-                        // the people list still owns the bulk of the
-                        // header. The bottom-sheet handles the actual
-                        // sign-out flow.
-                        IconButton(onClick = { showSettings = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = stringResource(R.string.settings_title),
-                            )
-                        }
-                    },
                 )
             },
             floatingActionButton = {
@@ -169,15 +146,12 @@ fun HomeScreen(
                     persons = s.persons,
                     openCountByPersonId = s.openCountByPersonId,
                     padding = padding,
-                    onPersonClick = { personId -> selectedPersonId = personId },
+                    onPersonClick = onOpenPerson,
                 )
                 is HomeUiState.Error -> ErrorState(s.message, padding)
             }
         }
 
-        // The single note bar floats at the bottom on top of every screen.
-        // In M1 it sits on Home only; in M4 it moves to MainActivity so it
-        // floats above Home, Today, and Settings.
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -191,10 +165,6 @@ fun HomeScreen(
                     cameraLauncher.launch(uri)
                 },
                 onMicClick = {
-                    // M2-T4: tap the mic to start voice capture.
-                    // Check the permission first; the system
-                    // permission dialog appears only on the first
-                    // ask. After granted, the service starts.
                     val granted = ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.RECORD_AUDIO,
@@ -224,90 +194,9 @@ fun HomeScreen(
     if (captureState.isVisible) {
         CaptureSheet(
             viewModel = captureViewModel,
-            onDismiss = { /* sheet is closed via VM dismissSheet(); nothing to do */ },
+            onDismiss = { /* sheet closed via VM */ },
         )
     }
-
-    // M3-T4: Settings bottom-sheet. Tapping the gear in the top bar
-    // flips `showSettings`; the sheet handles sign-out + closing
-    // itself. The session observer in MainActivity picks up the
-    // post-sign-out state and re-renders the AuthScreen.
-    if (showSettings) {
-        SettingsSheet(
-            onDismiss = { showSettings = false },
-        )
-    }
-
-    // M3-T6: when a person row is tapped, render the detail
-    // screen on top. `selectedPersonId` lives in this composable
-    // so back-navigation just clears it. The detail screen's
-    // ViewModel reads the id from SavedStateHandle; we use a
-    // custom factory so the same Hilt-injected DAOs land in the
-    // VM without a real nav graph.
-    val personId = selectedPersonId
-    if (personId != null) {
-        PersonDetailScreenEntry(
-            personId = personId,
-            onBack = { selectedPersonId = null },
-        )
-    }
-}
-
-/**
- * M3-T6: a thin wrapper that resolves the [PersonDetailViewModel]
- * via Hilt's [PersonDetailViewModelFactoryEntryPoint] and hands
- * it to the standard [PersonDetailScreen] composable. The
- * `personId` is injected into the VM's [SavedStateHandle] so
- * the VM's `savedStateHandle.get<String>("personId")` returns
- * the right value.
- *
- * **No nav graph yet.** M3 ships in-place routing: the Home
- * tab flips `selectedPersonId` and this composable takes over.
- * When M3.5 lands a real `NavHost` (Today tab + deep links)
- * the wiring moves into `composable("person/{personId}")` and
- * this entry wrapper is removed. The VM contract is unchanged.
- */
-@androidx.compose.runtime.Composable
-private fun PersonDetailScreenEntry(
-    personId: String,
-    onBack: () -> Unit,
-) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current.applicationContext
-    val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
-        ctx,
-        PersonDetailViewModelFactoryEntryPoint::class.java,
-    )
-    val vm = androidx.lifecycle.viewmodel.compose.viewModel<PersonDetailViewModel>(
-        key = "person-detail-$personId",
-        factory = androidx.lifecycle.viewmodel.viewModelFactory {
-            addInitializer(PersonDetailViewModel::class) {
-                PersonDetailViewModel(
-                    savedStateHandle = androidx.lifecycle.SavedStateHandle(
-                        mapOf(PersonDetailViewModel.ARG_PERSON_ID to personId),
-                    ),
-                    personDao = entryPoint.personDao(),
-                    instructionDao = entryPoint.instructionDao(),
-                )
-            }
-        },
-    )
-    PersonDetailScreen(
-        personId = personId,
-        onBack = onBack,
-        viewModel = vm,
-    )
-}
-
-/**
- * Hilt entry point that exposes the singletons the
- * [PersonDetailScreenEntry] factory needs. Lives at the
- * [BatonApplication] scope.
- */
-@dagger.hilt.EntryPoint
-@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
-interface PersonDetailViewModelFactoryEntryPoint {
-    fun personDao(): com.baton.app.data.local.PersonDao
-    fun instructionDao(): com.baton.app.data.local.InstructionDao
 }
 
 @Composable
@@ -332,7 +221,7 @@ private fun EmptyState(padding: PaddingValues) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(80.dp))  // leave room for the NoteBar
+            Spacer(Modifier.height(80.dp))
         }
     }
 }
@@ -357,23 +246,12 @@ private fun PersonList(
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
-        item { Spacer(Modifier.height(80.dp)) }  // leave room for the NoteBar
+        item { Spacer(Modifier.height(80.dp)) }
     }
 }
 
 @Composable
 private fun PersonRow(person: Person, openCount: Int, onClick: () -> Unit) {
-    // M3-T5: the row is now a `Row` (name + designation on the
-    // left, open-count badge on the right). When `openCount == 0`
-    // we hide the badge entirely — the spec says "no shame
-    // language", so the count is only shown when there's
-    // something to look at. The badge uses the `tertiary` color
-    // (a calm blue) rather than red; "carried over, not overdue"
-    // is the design rule (spec §3.3).
-    //
-    // M3-T6: tapping the row navigates to the PersonDetailScreen
-    // (the timeline). The click is on the whole row, not just
-    // the badge.
     androidx.compose.foundation.layout.Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -384,8 +262,7 @@ private fun PersonRow(person: Person, openCount: Int, onClick: () -> Unit) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(person.name, style = MaterialTheme.typography.titleMedium)
-            val sub = listOfNotNull(person.designation, person.station)
-                .joinToString(" • ")
+            val sub = listOfNotNull(person.designation, person.station).joinToString(" • ")
             if (sub.isNotEmpty()) {
                 Text(
                     sub,
@@ -395,7 +272,7 @@ private fun PersonRow(person: Person, openCount: Int, onClick: () -> Unit) {
             }
         }
         if (openCount > 0) {
-            androidx.compose.material3.Surface(
+            Surface(
                 color = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 shape = androidx.compose.foundation.shape.CircleShape,

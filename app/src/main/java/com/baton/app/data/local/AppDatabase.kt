@@ -2,6 +2,7 @@ package com.baton.app.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.baton.app.data.local.entities.AppStateEntity
 import com.baton.app.data.local.entities.CaptureEntity
 import com.baton.app.data.local.entities.InstructionEntity
 import com.baton.app.data.local.entities.InstructionTagCrossRef
@@ -23,6 +24,7 @@ import com.baton.app.data.local.entities.TagEntity
  *  - v3 M3-T1 SQLCipher encryption (no schema change, just bump so
  *    the M2 plain DB is wiped on the M2 -> M3 transition)
  *  - v4 M3-T7 added tags + instruction_tags
+ *  - v5 M4-T6 added app_state
  *
  * The M3 -> M4 transition is the same as every previous transition:
  * `fallbackToDestructiveMigration` keeps the upgrade simple because
@@ -43,8 +45,9 @@ import com.baton.app.data.local.entities.TagEntity
         SyncConflictEntity::class,
         TagEntity::class,
         InstructionTagCrossRef::class,
+        AppStateEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,6 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncConflictDao(): SyncConflictDao
     abstract fun tagDao(): TagDao
     abstract fun instructionTagDao(): InstructionTagDao
+    abstract fun appDao(): AppDao
 
     companion object {
         const val NAME = "baton.db"
