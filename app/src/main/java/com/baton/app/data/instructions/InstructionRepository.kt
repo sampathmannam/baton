@@ -1,10 +1,9 @@
 package com.baton.app.data.instructions
 
 /**
- * M1 repository for the `instructions` table. M1 only writes (no reads
- * — the Today tab + Today brief are M4). The single method backs the
- * M1-T5 save flow: confirm a capture's proposal, persist the
- * instruction, link it to the (auto-created) person.
+ * Repository for the `instructions` table. M1 only writes (no reads —
+ * the Today tab + Today brief are M4). M3 added [fetchAll] for the
+ * initial sync-on-launch used by the M3-T5 open-instruction badge.
  */
 interface InstructionRepository {
     /**
@@ -25,4 +24,13 @@ interface InstructionRepository {
         rawText: String,
         dueAt: String?,
     ): Instruction
+
+    /**
+     * M3-T5: pull every instruction row the calling user is allowed
+     * to see (RLS scopes to `auth.uid()`). Used by the
+     * `RoomInstructionRepository.refreshFromNetwork` initial sync so
+     * the People-list badge reflects the user's real open-instruction
+     * count, including rows captured on other devices.
+     */
+    suspend fun fetchAll(): List<Instruction>
 }

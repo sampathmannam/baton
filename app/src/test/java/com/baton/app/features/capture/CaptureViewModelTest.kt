@@ -114,6 +114,7 @@ class CaptureViewModelTest {
     private class FakeInstructionRepository : InstructionRepository {
         var nextId = 0
         val created = mutableListOf<CreatedInstruction>()
+        var allRows: List<Instruction> = emptyList()
         override suspend fun create(
             personId: String?,
             source: Source,
@@ -148,6 +149,10 @@ class CaptureViewModelTest {
                 updatedAt = "2026-08-11T00:00:00+00:00",
             )
         }
+
+        // M3-T5: tests don't exercise the launch-time refresh path, but
+        // the new abstract method needs an implementation.
+        override suspend fun fetchAll(): List<Instruction> = allRows
     }
 
     private data class CreatedInstruction(

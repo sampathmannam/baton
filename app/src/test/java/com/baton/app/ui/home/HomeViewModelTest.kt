@@ -1,11 +1,14 @@
 package com.baton.app.ui.home
 
 import app.cash.turbine.test
+import com.baton.app.data.instructions.RoomInstructionRepository
+import com.baton.app.data.instructions.SupabaseInstructionRepository
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonOpenCount
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.person.Person
 import com.baton.app.data.sync.RealtimeSync
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -29,6 +32,8 @@ class HomeViewModelTest {
 
     private val repo: RoomPersonRepository = mockk(relaxed = true)
     private val instructionDao: InstructionDao = mockk(relaxed = true)
+    private val roomInstructionRepository: RoomInstructionRepository = mockk(relaxed = true)
+    private val supabaseInstructionRepository: SupabaseInstructionRepository = mockk(relaxed = true)
     private val realtime: RealtimeSync = mockk(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -41,6 +46,9 @@ class HomeViewModelTest {
         every { repo.observeAll() } returns personsFlow.asStateFlow()
         every { instructionDao.observeOpenCountByPerson() } returns countsFlow.asStateFlow()
         every { realtime.changes } returns MutableSharedFlow()
+        // M3-T5: launch-time instruction refresh is wired but not
+        // relevant to the badge-count assertions. Empty list is fine.
+        coEvery { roomInstructionRepository.refreshFromNetwork(supabaseInstructionRepository) } returns Unit
     }
 
     @After
@@ -48,7 +56,13 @@ class HomeViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun makeVm() = HomeViewModel(repo, instructionDao, realtime)
+    private fun makeVm() = HomeViewModel(
+        personRepository = repo,
+        instructionDao = instructionDao,
+        roomInstructionRepository = roomInstructionRepository,
+        supabaseInstructionRepository = supabaseInstructionRepository,
+        realtimeSync = realtime,
+    )
 
     @Test
     fun `empty state shown when repository returns no persons`() = runTest(testDispatcher) {

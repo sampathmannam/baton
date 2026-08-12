@@ -2,6 +2,8 @@ package com.baton.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.baton.app.data.instructions.RoomInstructionRepository
+import com.baton.app.data.instructions.SupabaseInstructionRepository
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.sync.RealtimeSync
@@ -18,6 +20,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val personRepository: RoomPersonRepository,
     private val instructionDao: InstructionDao,
+    private val roomInstructionRepository: RoomInstructionRepository,
+    private val supabaseInstructionRepository: SupabaseInstructionRepository,
     realtimeSync: RealtimeSync,
 ) : ViewModel() {
 
@@ -58,6 +62,13 @@ class HomeViewModel @Inject constructor(
         // already warm; the refresh is a no-op (upsertAll replaces
         // with the same rows).
         refreshFromNetwork()
+        // M3-T5: also pull the user's instructions on launch so the
+        // People-list badge reflects their real open-instruction
+        // count, including rows that were captured on other devices.
+        // Without this, the local Room mirror is empty on a fresh
+        // install and the badge never appears until the user adds a
+        // person via the NoteBar on this same device.
+        refreshInstructionsFromNetwork()
         // M2-T7: still subscribe to Realtime changes. When another
         // device (or this device, before the sync queue drains)
         // writes a row, the realtime event triggers a pull from
@@ -100,18 +111,23 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * M3-T5: when an instructions change arrives via Realtime,
-     * pull the latest instructions and upsert into Room. The
-     * `observeOpenCountByPerson` Flow re-emits and the UI's
-     * badge count updates.
+     * M3-T5: pull the user's instructions from Supabase and upsert
+     * into Room. Triggers the `observeOpenCountByPerson` Flow to
+     * re-emit; the People-list badge re-renders with the new counts.
+     *
+     * Failure is logged but not surfaced: the local Room copy stays
+     * empty, the badge stays at 0, the rest of the app still works.
      */
     private fun refreshInstructionsFromNetwork() {
-        // TODO: when M2-T6 adds an InstructionRepository.refreshFromNetwork,
-        // call it here. For M3-T5 the count comes from the
-        // local Room mirror; instructions are only added on save
-        // so the badge updates on the same device automatically.
-        // Other devices' instructions arrive via the SyncEngine
-        // outbox, which writes to Room and re-emits the Flow.
+        viewModelScope.launch {
+            runCatching { roomInstructionRepository.refreshFromNetwork(supabaseInstructionRepository) }
+                .onFailure { e ->
+                    // Non-fatal: badge will undercount, no crash.
+                    _state.value = HomeUiState.Error(
+                        e.message ?: "Could not refresh instructions from network",
+                    )
+                }
+        }
     }
 }
 

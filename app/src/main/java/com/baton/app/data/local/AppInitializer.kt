@@ -44,6 +44,22 @@ class AppInitializer @Inject constructor(
 ) {
 
     fun runOnAppStart() {
+        // M3-T1 fix: `net.zetetic:sqlcipher-android:4.6.1` ships the
+        // native `libsqlcipher.so` inside the AAR but does NOT
+        // auto-load it. Without this call the first Room read fails
+        // with `No implementation found for nativeOpen (is the library
+        // loaded, e.g. System.loadLibrary?)`. The old `SQLiteDatabase
+        // .loadLibs(context)` from 4.5.x is gone in 4.6+. We just do
+        // it ourselves here, once, before anything touches the DB.
+        // Idempotent: loadLibrary is a no-op if the lib is already
+        // loaded in this process.
+        try {
+            System.loadLibrary("sqlcipher")
+        } catch (e: UnsatisfiedLinkError) {
+            Log.e(TAG, "loadLibrary(sqlcipher) failed: ${e.message}")
+            throw e
+        }
+
         val dbFile = context.getDatabasePath(AppDatabase.NAME)
         val hasPassphrase = securePreferences.hasDatabasePassphrase()
         if (dbFile.exists() && !hasPassphrase) {
