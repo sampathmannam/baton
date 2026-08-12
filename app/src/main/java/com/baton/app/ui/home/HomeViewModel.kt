@@ -2,6 +2,7 @@ package com.baton.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.sync.RealtimeSync
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -9,12 +10,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val personRepository: RoomPersonRepository,
+    private val instructionDao: InstructionDao,
     realtimeSync: RealtimeSync,
 ) : ViewModel() {
 
@@ -22,20 +25,31 @@ class HomeViewModel @Inject constructor(
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
-        // M2-T6: Room is the source of truth. The Flow re-emits on
-        // every local write AND on every Realtime-driven refresh
-        // (see [refreshFromNetwork] below). The Home tab never has
-        // to call `observeAll()` itself.
+        // M3-T5: combine persons + open-instruction counts in a
+        // single Flow so the UI sees a consistent snapshot. The
+        // `combine` operator re-emits on either side's change, so
+        // an instruction save or a person add both trigger a
+        // re-render with the updated badge count.
         viewModelScope.launch {
-            personRepository.observeAll()
-                .catch { e -> _state.value = HomeUiState.Error(e.message ?: "Unknown error") }
-                .collect { persons ->
-                    _state.value = if (persons.isEmpty()) {
-                        HomeUiState.Empty
-                    } else {
-                        HomeUiState.Loaded(persons)
-                    }
+            combine(
+                personRepository.observeAll(),
+                instructionDao.observeOpenCountByPerson(),
+            ) { persons, counts ->
+                // M3-T5: build a map of personId -> open count, defaulting
+                // missing persons to 0. The DAO only emits rows for
+                // persons with at least one open instruction; persons
+                // with no open work don't show up in the count Flow.
+                // Defaulting here means the PersonRow composable can
+                // always call `map[id]` and never see null.
+                val map = persons.associate { it.id to 0 } + counts.associate { it.personId to it.cnt }
+                if (persons.isEmpty()) {
+                    HomeUiState.Empty
+                } else {
+                    HomeUiState.Loaded(persons = persons, openCountByPersonId = map)
                 }
+            }
+                .catch { e -> _state.value = HomeUiState.Error(e.message ?: "Unknown error") }
+                .collect { _state.value = it }
         }
         // M2-T6: kick off an initial pull on first VM creation.
         // On a cold start with an empty Room, the Flow above emits
@@ -52,7 +66,7 @@ class HomeViewModel @Inject constructor(
             realtimeSync.changes.collect { change ->
                 when (change) {
                     is RealtimeSync.Change.Persons -> refreshFromNetwork()
-                    is RealtimeSync.Change.Instructions -> { /* TBD: instructions list lands in M3 */ }
+                    is RealtimeSync.Change.Instructions -> refreshInstructionsFromNetwork()
                 }
             }
         }
@@ -83,6 +97,21 @@ class HomeViewModel @Inject constructor(
                     _state.value = HomeUiState.Error(e.message ?: "Could not refresh from network")
                 }
         }
+    }
+
+    /**
+     * M3-T5: when an instructions change arrives via Realtime,
+     * pull the latest instructions and upsert into Room. The
+     * `observeOpenCountByPerson` Flow re-emits and the UI's
+     * badge count updates.
+     */
+    private fun refreshInstructionsFromNetwork() {
+        // TODO: when M2-T6 adds an InstructionRepository.refreshFromNetwork,
+        // call it here. For M3-T5 the count comes from the
+        // local Room mirror; instructions are only added on save
+        // so the badge updates on the same device automatically.
+        // Other devices' instructions arrive via the SyncEngine
+        // outbox, which writes to Room and re-emits the Flow.
     }
 }
 

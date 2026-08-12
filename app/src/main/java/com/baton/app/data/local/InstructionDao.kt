@@ -33,4 +33,22 @@ interface InstructionDao {
 
     @Query("DELETE FROM instructions WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    // M3-T5: open-instruction count per person. Used to show the
+    // badge on the People list. "Open" = status NOT IN (DONE,
+    // CARRIED_OVER, DROPPED). Indexed on (status, personId) via
+    // the existing indices on the columns; the planner uses the
+    // (status) index to filter, then aggregates in memory.
+    @Query("SELECT personId, COUNT(*) as cnt FROM instructions WHERE status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') AND personId IS NOT NULL GROUP BY personId")
+    fun observeOpenCountByPerson(): Flow<List<PersonOpenCount>>
 }
+
+/**
+ * M3-T5: a single (personId -> open count) row for the badge on
+ * the People list. The HomeScreen maps this onto the
+ * `Person` rows in the `PersonList` composable.
+ */
+data class PersonOpenCount(
+    val personId: String,
+    val cnt: Int,
+)

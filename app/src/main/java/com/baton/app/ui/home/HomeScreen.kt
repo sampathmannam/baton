@@ -161,7 +161,11 @@ fun HomeScreen(
             when (val s = state) {
                 HomeUiState.Empty -> EmptyState(padding)
                 HomeUiState.Loading -> Box(modifier = Modifier.fillMaxSize().padding(padding))
-                is HomeUiState.Loaded -> PersonList(s.persons, padding)
+                is HomeUiState.Loaded -> PersonList(
+                    persons = s.persons,
+                    openCountByPersonId = s.openCountByPersonId,
+                    padding = padding,
+                )
                 is HomeUiState.Error -> ErrorState(s.message, padding)
             }
         }
@@ -258,14 +262,21 @@ private fun EmptyState(padding: PaddingValues) {
 }
 
 @Composable
-private fun PersonList(persons: List<Person>, padding: PaddingValues) {
+private fun PersonList(
+    persons: List<Person>,
+    openCountByPersonId: Map<String, Int>,
+    padding: PaddingValues,
+) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
     ) {
         items(items = persons, key = { it.id }) { person ->
-            PersonRow(person)
+            PersonRow(
+                person = person,
+                openCount = openCountByPersonId[person.id] ?: 0,
+            )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         item { Spacer(Modifier.height(80.dp)) }  // leave room for the NoteBar
@@ -273,17 +284,46 @@ private fun PersonList(persons: List<Person>, padding: PaddingValues) {
 }
 
 @Composable
-private fun PersonRow(person: Person) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(person.name, style = MaterialTheme.typography.titleMedium)
-        val sub = listOfNotNull(person.designation, person.station)
-            .joinToString(" • ")
-        if (sub.isNotEmpty()) {
-            Text(
-                sub,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+private fun PersonRow(person: Person, openCount: Int) {
+    // M3-T5: the row is now a `Row` (name + designation on the
+    // left, open-count badge on the right). When `openCount == 0`
+    // we hide the badge entirely — the spec says "no shame
+    // language", so the count is only shown when there's
+    // something to look at. The badge uses the `tertiary` color
+    // (a calm blue) rather than red; "carried over, not overdue"
+    // is the design rule (spec §3.3).
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(person.name, style = MaterialTheme.typography.titleMedium)
+            val sub = listOfNotNull(person.designation, person.station)
+                .joinToString(" • ")
+            if (sub.isNotEmpty()) {
+                Text(
+                    sub,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (openCount > 0) {
+            androidx.compose.material3.Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                shape = androidx.compose.foundation.shape.CircleShape,
+                modifier = Modifier.padding(start = 8.dp),
+            ) {
+                Text(
+                    text = openCount.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                )
+            }
         }
     }
 }
