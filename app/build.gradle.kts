@@ -71,13 +71,9 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // The auto-injected WorkManagerInitializer ContentProvider is
-            // expected when on-demand init is wired in M3. Disable the
-            // lint check so the M1 release APK can build without the
-            // M3 plumbing.
-            lint {
-                disable += "RemoveWorkManagerInitializer"
-            }
+            // M3-T2: WorkManager on-demand init is the right shape; the
+            // auto-init ContentProvider is removed in the manifest.
+            // No lint suppression needed.
         }
     }
 
