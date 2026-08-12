@@ -20,6 +20,13 @@ import javax.inject.Singleton
  * consumer (not bound here) to keep Hilt's KSP processor from trying to
  * resolve a KMP AAR type at binding-analysis time. See
  * `data/supabase/SupabaseModule.kt` for the full rationale.
+ *
+ * **M2-T6:** the [PersonRepository] binding is the Room-backed
+ * `RoomPersonRepository` (see `data/local/RoomPersonRepository.kt`).
+ * The [SupabasePersonRepository] is a constructor dep of the Room
+ * repo, not a Hilt binding. Any consumer that wants the
+ * Supabase-only path (e.g. the sync queue drain) can inject
+ * [SupabasePersonRepository] directly.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -27,18 +34,32 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providePersonRepository(httpClient: HttpClient): PersonRepository =
+    fun provideSupabasePersonRepository(httpClient: HttpClient): SupabasePersonRepository =
         SupabasePersonRepository(httpClient)
 
     @Provides
     @Singleton
-    fun provideCaptureRepository(httpClient: HttpClient): CaptureRepository =
+    fun provideSupabaseCaptureRepository(httpClient: HttpClient): SupabaseCaptureRepository =
         SupabaseCaptureRepository(httpClient)
 
     @Provides
     @Singleton
-    fun provideInstructionRepository(httpClient: HttpClient): InstructionRepository =
+    fun provideSupabaseInstructionRepository(httpClient: HttpClient): SupabaseInstructionRepository =
         SupabaseInstructionRepository(httpClient)
+
+    @Provides
+    @Singleton
+    fun providePersonRepository(
+        impl: com.baton.app.data.local.RoomPersonRepository,
+    ): PersonRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideCaptureRepository(impl: SupabaseCaptureRepository): CaptureRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideInstructionRepository(impl: SupabaseInstructionRepository): InstructionRepository = impl
 
     @Provides
     @Singleton
@@ -50,3 +71,4 @@ object AppModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient = OkHttpClient()
 }
+

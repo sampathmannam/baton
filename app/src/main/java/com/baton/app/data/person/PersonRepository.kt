@@ -1,8 +1,22 @@
 package com.baton.app.data.person
 
+import kotlinx.coroutines.flow.Flow
+
 interface PersonRepository {
-    suspend fun observeAll(): List<Person>
-    suspend fun create(name: String, designation: String?, station: String?): Person
+    /**
+     * M2-T6: the read path is a Flow from Room. The UI collects
+     * this; Room emits a new list on every local write. The
+     * M2-T7 Realtime subscription calls [com.baton.app.data.local.RoomPersonRepository.refreshFromNetwork]
+     * on every server change, which feeds Room, which re-emits.
+     */
+    fun observeAll(): Flow<List<Person>>
+
+    suspend fun create(
+        name: String,
+        designation: String?,
+        station: String?,
+        clientId: String? = null,
+    ): Person
 
     /**
      * M1-T5: find a person by name. Returns the first row with the
@@ -25,3 +39,5 @@ interface PersonRepository {
      */
     suspend fun findOrCreate(name: String, designation: String? = null, station: String? = null): Person
 }
+
+
