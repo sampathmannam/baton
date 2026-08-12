@@ -12,15 +12,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -76,6 +81,9 @@ fun PersonDetailScreen(
     // `state` as a Flow that the composable collects.
     val state by viewModel.state.collectAsStateWithLifecycle()
     var nudgeTarget by remember { mutableStateOf<Instruction?>(null) }
+    var dropTarget by remember { mutableStateOf<Instruction?>(null) }
+    var sensitiveToggleId by remember { mutableStateOf<String?>(null) }
+    var showPersonSensitive by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -104,11 +112,15 @@ fun PersonDetailScreen(
                     .padding(padding),
             )
             is PersonDetailUiState.Loaded -> PersonTimeline(
-                personName = s.person.name,
-                subtitle = listOfNotNull(s.person.designation, s.person.station).joinToString(" • "),
+                person = s.person,
                 instructions = s.instructions,
                 padding = padding,
                 onNudge = { ins -> nudgeTarget = ins },
+                onMarkDone = { ins -> viewModel.markDone(ins.id) },
+                onReopen = { ins -> viewModel.reopen(ins.id) },
+                onRequestDrop = { ins -> dropTarget = ins },
+                onRequestInstructionSensitive = { ins -> sensitiveToggleId = ins.id },
+                onOpenPersonSensitive = { showPersonSensitive = true },
             )
         }
     }
@@ -122,15 +134,55 @@ fun PersonDetailScreen(
             onDismiss = { nudgeTarget = null },
         )
     }
+
+    val dropIns = dropTarget
+    if (dropIns != null) {
+        DropDialog(
+            instructionTitle = dropIns.title,
+            onConfirm = { reason ->
+                viewModel.markDropped(dropIns.id, reason)
+                dropTarget = null
+            },
+            onDismiss = { dropTarget = null },
+        )
+    }
+
+    val insId = sensitiveToggleId
+    val insForSensitive = loaded?.instructions?.firstOrNull { it.id == insId }
+    if (insForSensitive != null) {
+        InstructionSensitiveDialog(
+            instruction = insForSensitive,
+            onConfirm = { newValue ->
+                viewModel.setInstructionSensitive(insForSensitive.id, newValue)
+                sensitiveToggleId = null
+            },
+            onDismiss = { sensitiveToggleId = null },
+        )
+    }
+
+    if (showPersonSensitive && loaded != null) {
+        PersonSensitiveDialog(
+            person = loaded.person,
+            onConfirm = { newValue ->
+                viewModel.setPersonSensitive(loaded.person.id, newValue)
+                showPersonSensitive = false
+            },
+            onDismiss = { showPersonSensitive = false },
+        )
+    }
 }
 
 @Composable
 private fun PersonTimeline(
-    personName: String,
-    subtitle: String,
+    person: com.baton.app.data.person.Person,
     instructions: List<Instruction>,
     padding: PaddingValues,
     onNudge: (Instruction) -> Unit = {},
+    onMarkDone: (Instruction) -> Unit = {},
+    onReopen: (Instruction) -> Unit = {},
+    onRequestDrop: (Instruction) -> Unit = {},
+    onRequestInstructionSensitive: (Instruction) -> Unit = {},
+    onOpenPersonSensitive: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier
@@ -140,33 +192,10 @@ private fun PersonTimeline(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    text = personName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (subtitle.isNotEmpty()) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(
-                        R.string.person_detail_timeline_count,
-                        instructions.size,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            PersonHeader(
+                person = person,
+                onOpenSensitive = onOpenPersonSensitive,
+            )
         }
         if (instructions.isEmpty()) {
             item {
@@ -185,7 +214,14 @@ private fun PersonTimeline(
             }
         } else {
             items(items = instructions, key = { it.id }) { ins ->
-                InstructionRow(ins, onNudge = onNudge)
+                InstructionRow(
+                    instruction = ins,
+                    onNudge = onNudge,
+                    onMarkDone = { onMarkDone(ins) },
+                    onReopen = { onReopen(ins) },
+                    onRequestDrop = { onRequestDrop(ins) },
+                    onRequestSensitive = { onRequestInstructionSensitive(ins) },
+                )
             }
         }
         // Leave room for the NoteBar (carried over from M2).
@@ -193,8 +229,67 @@ private fun PersonTimeline(
     }
 }
 
+/**
+ * v1.1: the person header now includes a single "Sensitive" toggle
+ * (spec §13). The row underneath is a quiet `TextButton` (not a
+ * `Switch` — switches are too prominent for an ADHD-friendly design
+ * and would suggest the row is currently editable). The button label
+ * is "Mark as sensitive" / "Keep on this device" depending on state.
+ */
 @Composable
-private fun InstructionRow(instruction: Instruction, onNudge: (Instruction) -> Unit = {}) {
+private fun PersonHeader(
+    person: com.baton.app.data.person.Person,
+    onOpenSensitive: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = person.name,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        val subtitle = listOfNotNull(person.designation, person.station).joinToString(" • ")
+        if (subtitle.isNotEmpty()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = if (person.isSensitive) {
+                "Local-only. Stays on this device, doesn't sync to Supabase."
+            } else {
+                "Syncs to Supabase so other devices see this person."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onOpenSensitive) {
+            Text(if (person.isSensitive) "Remove sensitive flag" else "Mark as sensitive")
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.person_detail_timeline_count, /* placeholder */ 0),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun InstructionRow(
+    instruction: Instruction,
+    onNudge: (Instruction) -> Unit = {},
+    onMarkDone: () -> Unit = {},
+    onReopen: () -> Unit = {},
+    onRequestDrop: () -> Unit = {},
+    onRequestSensitive: () -> Unit = {},
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -227,16 +322,176 @@ private fun InstructionRow(instruction: Instruction, onNudge: (Instruction) -> U
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (instruction.direction == com.baton.app.data.instructions.Direction.OUTGOING &&
-                instruction.status == com.baton.app.data.instructions.Status.OPEN
-            ) {
-                androidx.compose.material3.TextButton(
-                    onClick = { onNudge(instruction) },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Draft nudge") }
+            if (instruction.completedAt != null) {
+                Text(
+                    text = "Done " + formatCapturedAt(instruction.completedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
+            if (instruction.droppedReason != null) {
+                Text(
+                    text = "Dropped: ${instruction.droppedReason}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            InstructionActions(
+                instruction = instruction,
+                onNudge = { onNudge(instruction) },
+                onMarkDone = onMarkDone,
+                onReopen = onReopen,
+                onRequestDrop = onRequestDrop,
+                onRequestSensitive = onRequestSensitive,
+            )
         }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun InstructionActions(
+    instruction: Instruction,
+    onNudge: () -> Unit,
+    onMarkDone: () -> Unit,
+    onReopen: () -> Unit,
+    onRequestDrop: () -> Unit,
+    onRequestSensitive: () -> Unit,
+) {
+    val isClosed = instruction.status == Status.DONE || instruction.status == Status.DROPPED
+    androidx.compose.foundation.layout.FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        if (isClosed) {
+            TextButton(onClick = onReopen) { Text("Re-open") }
+        } else {
+            if (instruction.direction == com.baton.app.data.instructions.Direction.OUTGOING) {
+                TextButton(onClick = onNudge) { Text("Draft nudge") }
+            }
+            TextButton(onClick = onMarkDone) { Text("Mark done") }
+            TextButton(onClick = onRequestDrop) { Text("Drop") }
+        }
+        TextButton(onClick = onRequestSensitive) {
+            Text(if (instruction.isSensitive) "Make syncable" else "Mark sensitive")
+        }
+    }
+}
+
+/**
+ * v1.1: drop dialog. Captures an optional `reason` and confirms
+ * before calling the VM. Reason is preserved on the row (server-side
+ * too) so the user can review what was dropped in a future conflict
+ * UI.
+ */
+@Composable
+private fun DropDialog(
+    instructionTitle: String,
+    onConfirm: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var reason by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Drop instruction") },
+        text = {
+            Column {
+                Text("\"$instructionTitle\"")
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it.take(200) },
+                    label = { Text("Reason (optional)") },
+                    singleLine = false,
+                    maxLines = 3,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(reason.ifBlank { null }) }) { Text("Drop") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+/**
+ * v1.1: confirm dialog before flipping the row's `is_sensitive`
+ * flag. Toggling on is the more impactful action (the row never
+ * reaches the server again) so it gets a confirmation; toggling
+ * off is fine to do in one tap.
+ */
+@Composable
+private fun InstructionSensitiveDialog(
+    instruction: Instruction,
+    onConfirm: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val newValue = !instruction.isSensitive
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (newValue) "Mark sensitive" else "Make syncable") },
+        text = {
+            Text(
+                if (newValue) {
+                    "This instruction will stay on this device only. " +
+                        "It won't sync to Supabase, and other devices won't see it."
+                } else {
+                    "This instruction will start syncing to Supabase " +
+                        "again and will be visible to your other devices."
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(newValue) }) {
+                Text(if (newValue) "Mark sensitive" else "Make syncable")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+/**
+ * v1.1: confirm dialog before flipping the person's `is_sensitive`
+ * flag. Same semantics as [InstructionSensitiveDialog] but for the
+ * whole person (which also affects all of their instructions on
+ * the next sync).
+ */
+@Composable
+private fun PersonSensitiveDialog(
+    person: com.baton.app.data.person.Person,
+    onConfirm: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val newValue = !person.isSensitive
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (newValue) "Mark sensitive" else "Remove sensitive flag") },
+        text = {
+            Text(
+                if (newValue) {
+                    "${person.name} and their instructions will stay on this " +
+                        "device only. They won't sync to Supabase, and " +
+                        "other devices won't see this person."
+                } else {
+                    "${person.name} will start syncing to Supabase again " +
+                        "and will be visible to your other devices."
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(newValue) }) {
+                Text(if (newValue) "Mark sensitive" else "Remove flag")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable

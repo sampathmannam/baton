@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.baton.app.data.local.entities.InstructionEntity
+import com.baton.app.data.local.entities.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -34,6 +35,31 @@ interface InstructionDao {
     @Query("DELETE FROM instructions WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    // v1.1: state transitions. The repository sets `completedAt = now()`
+    // when status = DONE, and `droppedReason` when status = DROPPED.
+    // All transitions touch `updatedAt` so the brief's 7-day window
+    // starts fresh (a user can't "carry over" a row by never touching
+    // it; reopening/marking-done both reset the clock).
+    @Query(
+        """
+        UPDATE instructions
+        SET status = :status,
+            updatedAt = :updatedAt,
+            completedAt = :completedAt,
+            droppedReason = :droppedReason,
+            syncStatus = :syncStatus
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateStatus(
+        id: String,
+        status: String,
+        updatedAt: String,
+        completedAt: String?,
+        droppedReason: String?,
+        syncStatus: String = SyncStatus.PENDING_UPDATE,
+    )
+
     // M3-T5: open-instruction count per person. Used to show the
     // badge on the People list. "Open" = status NOT IN (DONE,
     // CARRIED_OVER, DROPPED). Indexed on (status, personId) via
@@ -47,10 +73,17 @@ interface InstructionDao {
      * OUTGOING instruction (sent to a subordinate) that hasn't
      * been moved to a closed state in 3+ days (spec §8.2). Used to
      * render the soft amber dot on the People-list row.
+     *
+     * **Fix (15-day audit):** use `MAX(daysQuiet)`, not `MIN`. With
+     * MIN, a single fresh OUTGOING (0d) for a person who also has a
+     * 5d OUTGOING would yield 0 and the HAVING `>= 3` filter would
+     * drop the row. MAX correctly returns the age of the oldest
+     * open OUTGOING, so the dot fires the moment ANY OUTGOING goes
+     * 3+ days without an update.
      */
     @Query(
         """
-        SELECT personId, MIN(julianday('now') - julianday(updatedAt)) AS daysQuiet
+        SELECT personId, MAX(julianday('now') - julianday(updatedAt)) AS daysQuiet
         FROM instructions
         WHERE direction = 'OUTGOING'
           AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED')

@@ -37,6 +37,9 @@ data class Instruction(
     @SerialName("updated_at") val updatedAt: String,
     // v1.0: spec §13. When true, this row never syncs to Supabase.
     @SerialName("is_sensitive") val isSensitive: Boolean = false,
+    // v1.1: lifecycle fields. Set by markDone / markDropped.
+    @SerialName("completed_at") val completedAt: String? = null,
+    @SerialName("dropped_reason") val droppedReason: String? = null,
 )
 
 /** Wire values match the `instruction_direction` Postgres enum. */

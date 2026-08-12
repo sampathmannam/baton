@@ -38,6 +38,15 @@ interface PersonRepository {
      * race will get a 409 and the impl retries the lookup.
      */
     suspend fun findOrCreate(name: String, designation: String? = null, station: String? = null): Person
+
+    /**
+     * v1.1: spec §13 — flip the `is_sensitive` flag. The row stays
+     * in Room (the user is still tracking the person) but the sync
+     * engine stops pushing it to the server on the next change.
+     * Toggling on for an already-synced row also PATCHes the
+     * server so the server copy is removed.
+     */
+    suspend fun setSensitive(id: String, sensitive: Boolean)
 }
 
 

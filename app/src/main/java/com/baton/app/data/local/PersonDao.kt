@@ -51,6 +51,15 @@ interface PersonDao {
         status: String,
     )
 
+    /**
+     * v1.1: spec §13 — flip the local-only flag. The sync engine
+     * filters sensitive rows on the way out, so toggling on for
+     * an already-synced row needs a PATCH to the server too
+     * (the server should drop the row from its own copy).
+     */
+    @Query("UPDATE persons SET isSensitive = :sensitive, updatedAt = :updatedAt, syncStatus = :status WHERE id = :id")
+    suspend fun setSensitive(id: String, sensitive: Boolean, updatedAt: String, status: String)
+
     @Query("DELETE FROM persons WHERE id = :id")
     suspend fun deleteById(id: String)
 }

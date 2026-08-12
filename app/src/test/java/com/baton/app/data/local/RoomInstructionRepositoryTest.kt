@@ -36,7 +36,12 @@ class RoomInstructionRepositoryTest {
             instruction(id = normalId, isSensitive = false),
         )
 
-        val repo = com.baton.app.data.instructions.RoomInstructionRepository(dao = dao)
+        val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            dao = dao,
+            syncQueueDao = mockk(relaxed = true),
+            syncEngine = mockk(relaxed = true),
+            appScope = kotlinx.coroutines.GlobalScope,
+        )
         repo.refreshFromNetwork(remote)
 
         val captured = mutableListOf<List<InstructionEntity>>()
@@ -60,12 +65,113 @@ class RoomInstructionRepositoryTest {
             instruction(id = "b", isSensitive = true),
         )
 
-        val repo = com.baton.app.data.instructions.RoomInstructionRepository(dao = dao)
+        val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            dao = dao,
+            syncQueueDao = mockk(relaxed = true),
+            syncEngine = mockk(relaxed = true),
+            appScope = kotlinx.coroutines.GlobalScope,
+        )
         repo.refreshFromNetwork(remote)
 
         val captured = mutableListOf<List<InstructionEntity>>()
         coVerify { dao.upsertAll(capture(captured)) }
         assertEquals(0, captured.first().size)
+    }
+
+    /**
+     * v1.1: markDone sets status=DONE, completedAt=now, refreshes
+     * updatedAt (so the brief's 7-day window resets), and writes
+     * PENDING_UPDATE so the sync engine will PATCH the server.
+     */
+    @Test
+    fun `markDone transitions to DONE with completedAt and queues PENDING_UPDATE`() = runTest {
+        val dao = mockk<InstructionDao>(relaxed = true)
+        val syncQueueDao = mockk<com.baton.app.data.local.SyncQueueDao>(relaxed = true)
+        val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
+        val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            dao = dao,
+            syncQueueDao = syncQueueDao,
+            syncEngine = syncEngine,
+            appScope = kotlinx.coroutines.GlobalScope,
+        )
+
+        repo.markDone("ins-1")
+
+        coVerify {
+            dao.updateStatus(
+                id = "ins-1",
+                status = Status.DONE.name,
+                updatedAt = any(),
+                completedAt = any(),
+                droppedReason = null,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+        }
+        // The sync queue gets an UPDATE entry for the same row.
+        coVerify {
+            syncQueueDao.enqueue(match { it.table == "instructions" && it.rowId == "ins-1" && it.op == "UPDATE" })
+        }
+    }
+
+    /**
+     * v1.1: markDropped sets status=DROPPED, droppedReason, and
+     * refreshes updatedAt. The row stays in Room (the spec's
+     * silent drop is the carriedOver > 30 days rule).
+     */
+    @Test
+    fun `markDropped transitions to DROPPED with reason`() = runTest {
+        val dao = mockk<InstructionDao>(relaxed = true)
+        val syncQueueDao = mockk<com.baton.app.data.local.SyncQueueDao>(relaxed = true)
+        val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
+        val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            dao = dao,
+            syncQueueDao = syncQueueDao,
+            syncEngine = syncEngine,
+            appScope = kotlinx.coroutines.GlobalScope,
+        )
+
+        repo.markDropped("ins-2", "Already handled offline")
+
+        coVerify {
+            dao.updateStatus(
+                id = "ins-2",
+                status = Status.DROPPED.name,
+                updatedAt = any(),
+                completedAt = null,
+                droppedReason = "Already handled offline",
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+        }
+    }
+
+    /**
+     * v1.1: re-open clears completedAt/droppedReason and resets
+     * status to OPEN. The 7-day brief window restarts.
+     */
+    @Test
+    fun `reopen clears lifecycle fields and resets status to OPEN`() = runTest {
+        val dao = mockk<InstructionDao>(relaxed = true)
+        val syncQueueDao = mockk<com.baton.app.data.local.SyncQueueDao>(relaxed = true)
+        val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
+        val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            dao = dao,
+            syncQueueDao = syncQueueDao,
+            syncEngine = syncEngine,
+            appScope = kotlinx.coroutines.GlobalScope,
+        )
+
+        repo.reopen("ins-3")
+
+        coVerify {
+            dao.updateStatus(
+                id = "ins-3",
+                status = Status.OPEN.name,
+                updatedAt = any(),
+                completedAt = null,
+                droppedReason = null,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+        }
     }
 
     private fun instruction(id: String, isSensitive: Boolean): Instruction = Instruction(

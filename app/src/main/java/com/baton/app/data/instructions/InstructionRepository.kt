@@ -33,4 +33,28 @@ interface InstructionRepository {
      * count, including rows captured on other devices.
      */
     suspend fun fetchAll(): List<Instruction>
+
+    /**
+     * v1.1: PATCH an instruction row on the server. Used by the
+     * sync engine to drain PENDING_UPDATE rows from the outbox when
+     * the user has changed a row's status, sensitive flag, etc.
+     * Returns the canonical server row (with its `updated_at`).
+     */
+    suspend fun update(
+        id: String,
+        status: Status,
+        completedAt: String?,
+        droppedReason: String?,
+        isSensitive: Boolean,
+    ): Instruction
+
+    /**
+     * v1.1: convenience wrapper for `update(id, DONE, completedAt, null, ...)`.
+     */
+    suspend fun markDone(id: String, completedAt: String)
+
+    /**
+     * v1.1: convenience wrapper for `update(id, DROPPED, null, reason, ...)`.
+     */
+    suspend fun markDropped(id: String, reason: String?, at: String)
 }

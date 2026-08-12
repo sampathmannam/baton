@@ -87,6 +87,7 @@ fun CaptureSheet(
             onProposalTextChange = viewModel::onProposalTextChange,
             onTagToggled = viewModel::onTagToggled,
             onAddFreeTag = viewModel::onAddFreeTag,
+            onSaveRaw = viewModel::onSaveRaw,
         )
     }
 }
@@ -104,6 +105,7 @@ private fun CaptureSheetContent(
     onProposalTextChange: (String) -> Unit = { },
     onTagToggled: (String) -> Unit = { },
     onAddFreeTag: (String) -> Unit = { },
+    onSaveRaw: () -> Unit = { },
 ) {
     Column(
         modifier = Modifier
@@ -153,6 +155,7 @@ private fun CaptureSheetContent(
             canConfirm = state.canConfirm,
             onExtract = onExtract,
             onConfirm = onConfirm,
+            onSaveRaw = onSaveRaw,
         )
     }
 }
@@ -204,25 +207,43 @@ private fun PrimaryAction(
     canConfirm: Boolean,
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
+    onSaveRaw: () -> Unit,
 ) {
-    Box(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        when {
-            isExtracting -> CircularProgressIndicator()
-            canConfirm -> Button(
-                onClick = onConfirm,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.capture_sheet_confirm))
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                isExtracting -> CircularProgressIndicator()
+                canConfirm -> Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.capture_sheet_confirm))
+                }
+                else -> Button(
+                    onClick = onExtract,
+                    enabled = canExtract,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.capture_sheet_extract))
+                }
             }
-            else -> Button(
-                onClick = onExtract,
-                enabled = canExtract,
+        }
+        // v1.1: spec §12 — "LLM extraction fails → raw text saved as-is".
+        // The user can always skip extraction and save the text verbatim.
+        // Shown only when the LLM hasn't produced a proposal yet, so it
+        // doesn't compete with the primary "Save" button.
+        if (!isExtracting && !canConfirm && canExtract) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = onSaveRaw,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(stringResource(R.string.capture_sheet_extract))
+                Text("Save as text (skip extraction)")
             }
         }
     }
