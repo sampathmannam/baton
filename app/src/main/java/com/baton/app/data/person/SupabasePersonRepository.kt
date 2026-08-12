@@ -21,6 +21,10 @@ import kotlinx.serialization.Serializable
  * the result to rows where `user_id = auth.uid()` and rejects inserts/updates
  * for any other user. Once auth is wired in Task 7 the JWT is set
  * automatically by the supabase-kt Auth plugin.
+ *
+ * M2-T8: [findById] is used by the sync engine's last-write-wins
+ * conflict check — it reads the server's `updated_at` and compares
+ * against the local row before applying an UPDATE.
  */
 class SupabasePersonRepository(
     httpClient: HttpClient,
@@ -60,9 +64,38 @@ class SupabasePersonRepository(
         // Order by created_at so the first hit is deterministic.
         val rows: List<PersonRow> = client.postgrest
             .from("persons")
-            .select(columns = Columns.list("id", "name", "designation", "station", "phone", "user_id")) {
+            .select(
+                columns = Columns.list(
+                    "id", "name", "designation", "station", "phone",
+                    "user_id", "updated_at",
+                ),
+            ) {
                 filter {
                     eq("name", name)
+                }
+                limit(1)
+            }
+            .decodeList()
+        return rows.firstOrNull()?.toDomain()
+    }
+
+    /**
+     * M2-T8: fetch a single person by id. Used by the sync engine
+     * for last-write-wins conflict detection. Returns `null` if the
+     * row no longer exists on the server (e.g. deleted by another
+     * device).
+     */
+    suspend fun findById(id: String): Person? {
+        val rows: List<PersonRow> = client.postgrest
+            .from("persons")
+            .select(
+                columns = Columns.list(
+                    "id", "name", "designation", "station", "phone",
+                    "user_id", "updated_at",
+                ),
+            ) {
+                filter {
+                    eq("id", id)
                 }
                 limit(1)
             }
@@ -113,6 +146,7 @@ private data class PersonRow(
     val station: String? = null,
     val phone: String? = null,
     @SerialName("user_id") val userId: String,
+    @SerialName("updated_at") val updatedAt: String? = null,
 ) {
     fun toDomain(): Person = Person(
         id = id,
@@ -120,6 +154,7 @@ private data class PersonRow(
         designation = designation,
         station = station,
         phone = phone,
+        updatedAt = updatedAt,
     )
 }
 
@@ -129,4 +164,23 @@ internal data class PersonInsert(
     val name: String,
     val designation: String? = null,
     val station: String? = null,
+)
+
+/**
+ * M2-T8: JSON-serialisable snapshot of a Person row at the moment
+ * of a conflict. Stored in `sync_conflicts.localPayload` /
+ * `serverPayload` so the user can review what was lost and what
+ * won. Distinct from [PersonEntity] (which has Room annotations
+ * we don't want in the audit JSON) and from [PersonInsert] (which
+ * doesn't carry [updatedAt] / [userId]).
+ */
+@Serializable
+data class PersonConflictPayload(
+    val id: String,
+    val name: String,
+    val designation: String? = null,
+    val station: String? = null,
+    val phone: String? = null,
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("updated_at") val updatedAt: String? = null,
 )

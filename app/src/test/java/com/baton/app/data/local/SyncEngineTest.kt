@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.baton.app.data.captures.SupabaseCaptureRepository
 import com.baton.app.data.instructions.SupabaseInstructionRepository
 import com.baton.app.data.local.entities.PersonEntity
+import com.baton.app.data.local.entities.SyncConflictEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
 import com.baton.app.data.local.entities.SyncStatus
 import com.baton.app.data.person.Person
@@ -13,12 +14,15 @@ import com.baton.app.data.person.SupabasePersonRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,14 +32,21 @@ import org.robolectric.annotation.Config
 /**
  * Tests for [SyncEngine] — the outbox drain that pushes local
  * writes to Supabase.
+ *
+ * M2-T8 added conflict-detection tests: when the server's
+ * `updated_at` is newer than the local row, the engine drops the
+ * local change, logs to [SyncConflictDao], and mirrors the
+ * server's state into Room.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
+@OptIn(ExperimentalCoroutinesApi::class)
 class SyncEngineTest {
 
     private lateinit var db: AppDatabase
     private lateinit var personDao: PersonDao
     private lateinit var syncQueueDao: SyncQueueDao
+    private lateinit var syncConflictDao: SyncConflictDao
     private lateinit var personRemote: SupabasePersonRepository
     private lateinit var captureRemote: SupabaseCaptureRepository
     private lateinit var instructionRemote: SupabaseInstructionRepository
@@ -50,6 +61,7 @@ class SyncEngineTest {
             .build()
         personDao = db.personDao()
         syncQueueDao = db.syncQueueDao()
+        syncConflictDao = db.syncConflictDao()
         personRemote = mockk(relaxed = true)
         captureRemote = mockk(relaxed = true)
         instructionRemote = mockk(relaxed = true)
@@ -58,6 +70,7 @@ class SyncEngineTest {
             personDao = personDao,
             captureDao = db.captureDao(),
             instructionDao = db.instructionDao(),
+            syncConflictDao = syncConflictDao,
             personRemote = personRemote,
             captureRemote = captureRemote,
             instructionRemote = instructionRemote,
@@ -72,6 +85,8 @@ class SyncEngineTest {
     private suspend fun enqueuePerson(
         id: String,
         name: String,
+        op: String = SyncQueueEntity.OP_INSERT,
+        localUpdatedAt: String = "2026-08-12T00:00:00Z",
     ) {
         personDao.upsert(
             PersonEntity(
@@ -81,16 +96,17 @@ class SyncEngineTest {
                 station = "Bandipora",
                 phone = null,
                 userId = "u-1",
-                createdAt = "2026-08-12T00:00:00Z",
-                updatedAt = "2026-08-12T00:00:00Z",
-                syncStatus = SyncStatus.PENDING_INSERT,
+                createdAt = localUpdatedAt,
+                updatedAt = localUpdatedAt,
+                syncStatus = if (op == SyncQueueEntity.OP_INSERT) SyncStatus.PENDING_INSERT
+                             else SyncStatus.PENDING_UPDATE,
             )
         )
         syncQueueDao.enqueue(
             SyncQueueEntity(
                 table = "persons",
                 rowId = id,
-                op = SyncQueueEntity.OP_INSERT,
+                op = op,
                 payloadJson = json.encodeToString(
                     PersonInsert.serializer(),
                     PersonInsert(id = id, name = name, designation = "SHO", station = "Bandipora"),
@@ -121,6 +137,7 @@ class SyncEngineTest {
                 designation = designation,
                 station = station,
                 phone = null,
+                updatedAt = "2026-08-12T00:00:00Z",
             )
         }
     }
@@ -182,5 +199,171 @@ class SyncEngineTest {
         advanceUntilIdle()
         // No remote call.
         coVerify(exactly = 0) { personRemote.create(any(), any(), any(), any()) }
+    }
+
+    // ----- M2-T8: conflict detection on OP_UPDATE -----
+
+    @Test
+    fun `OP_UPDATE drops local write when server is newer and logs conflict`() = runTest {
+        // Local row was last touched on Aug 10. Server has a newer
+        // version from Aug 12. The local OP_UPDATE must be dropped
+        // and a row logged in sync_conflicts.
+        val oldLocal = "2026-08-10T00:00:00Z"
+        val newerServer = "2026-08-12T00:00:00Z"
+        enqueuePerson(
+            id = "client-1",
+            name = "Ramu (local edit)",
+            op = SyncQueueEntity.OP_UPDATE,
+            localUpdatedAt = oldLocal,
+        )
+        coEvery { personRemote.findById("client-1") } returns Person(
+            id = "client-1",
+            name = "Ramu (server edit)",
+            designation = "SHO",
+            station = "Bandipora",
+            phone = null,
+            updatedAt = newerServer,
+        )
+        // If a conflict is detected we should NOT call create.
+        coEvery { personRemote.create(any(), any(), any(), any()) } throws
+            AssertionError("create() must not be called when a conflict is detected")
+
+        engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        // 1. Queue is drained.
+        assertEquals(0, syncQueueDao.snapshot().size)
+        // 2. Local row is overwritten with the server's newer value.
+        val local = personDao.getById("client-1")
+        assertNotNull(local)
+        assertEquals("Ramu (server edit)", local!!.name)
+        assertEquals(SyncStatus.SYNCED, local.syncStatus)
+        assertEquals(newerServer, local.updatedAt)
+        // 3. Conflict is logged.
+        val conflicts = syncConflictDao.forRow("persons", "client-1")
+        assertEquals(1, conflicts.size)
+        val c: SyncConflictEntity = conflicts[0]
+        assertEquals(SyncEngine.REASON_SERVER_NEWER, c.reason)
+        assertTrue("local payload should mention local name", c.localPayload.contains("local edit"))
+        assertTrue("server payload should mention server name", c.serverPayload.contains("server edit"))
+    }
+
+    @Test
+    fun `OP_UPDATE proceeds when local is newer than server`() = runTest {
+        // Local is Aug 12, server is Aug 10. Local wins; no conflict.
+        val newerLocal = "2026-08-12T00:00:00Z"
+        val olderServer = "2026-08-10T00:00:00Z"
+        enqueuePerson(
+            id = "client-1",
+            name = "Ramu (local edit)",
+            op = SyncQueueEntity.OP_UPDATE,
+            localUpdatedAt = newerLocal,
+        )
+        coEvery { personRemote.findById("client-1") } returns Person(
+            id = "client-1",
+            name = "Ramu (server old)",
+            designation = "SHO",
+            station = "Bandipora",
+            phone = null,
+            updatedAt = olderServer,
+        )
+        stubRemoteEcho()
+
+        engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        // No conflict was logged.
+        assertEquals(0, syncConflictDao.count())
+        // The create call was made.
+        coVerify(exactly = 1) { personRemote.create(any(), any(), any(), any()) }
+        // The local row is SYNCED.
+        val local = personDao.getById("client-1")
+        assertEquals(SyncStatus.SYNCED, local!!.syncStatus)
+    }
+
+    @Test
+    fun `OP_UPDATE proceeds when server has no row yet`() = runTest {
+        // Server returns null (e.g. the row was deleted elsewhere).
+        // The local change is pushed as a fresh create.
+        enqueuePerson(
+            id = "client-1",
+            name = "Ramu",
+            op = SyncQueueEntity.OP_UPDATE,
+        )
+        coEvery { personRemote.findById("client-1") } returns null
+        stubRemoteEcho()
+
+        engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        // No conflict was logged.
+        assertEquals(0, syncConflictDao.count())
+        // The create call was made.
+        coVerify(exactly = 1) { personRemote.create(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `conflict count increments per conflict`() = runTest {
+        val oldLocal = "2026-08-10T00:00:00Z"
+        val newerServer = "2026-08-12T00:00:00Z"
+        // Two UPDATE entries, both conflict.
+        enqueuePerson(id = "client-1", name = "A", op = SyncQueueEntity.OP_UPDATE, localUpdatedAt = oldLocal)
+        enqueuePerson(id = "client-2", name = "B", op = SyncQueueEntity.OP_UPDATE, localUpdatedAt = oldLocal)
+        coEvery { personRemote.findById("client-1") } returns Person(
+            id = "client-1", name = "A-server", designation = null, station = null, phone = null,
+            updatedAt = newerServer,
+        )
+        coEvery { personRemote.findById("client-2") } returns Person(
+            id = "client-2", name = "B-server", designation = null, station = null, phone = null,
+            updatedAt = newerServer,
+        )
+        coEvery { personRemote.create(any(), any(), any(), any()) } throws
+            AssertionError("create() must not be called when a conflict is detected")
+
+        engine.drainAll()
+        advanceUntilIdle()
+
+        assertEquals(2, syncConflictDao.count())
+        // Both rows have the server's name.
+        assertEquals("A-server", personDao.getById("client-1")!!.name)
+        assertEquals("B-server", personDao.getById("client-2")!!.name)
+    }
+
+    @Test
+    fun `no conflict when updated_at equal`() = runTest {
+        // Same timestamp — no LWW loser; we don't log a conflict.
+        val same = "2026-08-12T00:00:00Z"
+        enqueuePerson(id = "client-1", name = "Ramu", op = SyncQueueEntity.OP_UPDATE, localUpdatedAt = same)
+        coEvery { personRemote.findById("client-1") } returns Person(
+            id = "client-1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null,
+            updatedAt = same,
+        )
+        stubRemoteEcho()
+
+        engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        assertEquals(0, syncConflictDao.count())
+        coVerify(exactly = 1) { personRemote.create(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `observe returns the most recent conflict first`() = runTest {
+        val oldLocal = "2026-08-10T00:00:00Z"
+        val newerServer = "2026-08-12T00:00:00Z"
+        enqueuePerson(id = "client-1", name = "Ramu", op = SyncQueueEntity.OP_UPDATE, localUpdatedAt = oldLocal)
+        coEvery { personRemote.findById("client-1") } returns Person(
+            id = "client-1", name = "server", designation = null, station = null, phone = null,
+            updatedAt = newerServer,
+        )
+        coEvery { personRemote.create(any(), any(), any(), any()) } throws
+            AssertionError("create() must not be called when a conflict is detected")
+
+        engine.drainOne(rowId = "client-1", table = "persons", op = SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        val firstEmission = syncConflictDao.observe().first()
+        assertEquals(1, firstEmission.size)
+        assertTrue(firstEmission[0].serverPayload.contains("server"))
     }
 }

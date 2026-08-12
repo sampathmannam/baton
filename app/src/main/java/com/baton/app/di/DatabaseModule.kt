@@ -6,6 +6,7 @@ import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
+import com.baton.app.data.local.SyncConflictDao
 import com.baton.app.data.local.SyncQueueDao
 import dagger.Module
 import dagger.Provides
@@ -51,4 +52,7 @@ object DatabaseModule {
 
     @Provides
     fun provideSyncQueueDao(db: AppDatabase): SyncQueueDao = db.syncQueueDao()
+
+    @Provides
+    fun provideSyncConflictDao(db: AppDatabase): SyncConflictDao = db.syncConflictDao()
 }
