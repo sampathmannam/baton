@@ -14,6 +14,9 @@ import com.baton.app.data.person.Person
 import com.baton.app.data.person.PersonRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -77,12 +80,18 @@ class CaptureViewModelTest {
         val findByNameCalls = mutableListOf<String>()
         val created = mutableListOf<Triple<String, String?, String?>>()
         val existing = mutableMapOf<String, Person>()
-        override suspend fun observeAll(): List<Person> = existing.values.toList()
-        override suspend fun create(name: String, designation: String?, station: String?): Person {
+        override fun observeAll(): Flow<List<Person>> =
+            MutableStateFlow(existing.values.toList()).asStateFlow()
+        override suspend fun create(
+            name: String,
+            designation: String?,
+            station: String?,
+            clientId: String?,
+        ): Person {
             created += Triple(name, designation, station)
             nextId += 1
             val person = Person(
-                id = "person-$nextId",
+                id = clientId ?: "person-$nextId",
                 name = name,
                 designation = designation,
                 station = station,

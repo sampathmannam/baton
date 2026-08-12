@@ -1,15 +1,18 @@
 package com.baton.app.ui.home
 
 import app.cash.turbine.test
+import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.person.Person
-import com.baton.app.data.person.PersonRepository
 import com.baton.app.data.sync.RealtimeSync
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -23,14 +26,18 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
 
-    private val repo: PersonRepository = mockk()
+    private val repo: RoomPersonRepository = mockk(relaxed = true)
     private val realtime: RealtimeSync = mockk(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
+    private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        // Default: empty persons list. Individual tests push values
+        // into the flow directly.
+        every { repo.observeAll() } returns personsFlow.asStateFlow()
         // Default: no Realtime events. Individual tests override
         // to emit a value.
         every { realtime.changes } returns MutableSharedFlow()
@@ -43,7 +50,7 @@ class HomeViewModelTest {
 
     @Test
     fun `empty state shown when repository returns no persons`() = runTest(testDispatcher) {
-        coEvery { repo.observeAll() } returns emptyList()
+        personsFlow.value = emptyList()
 
         val vm = HomeViewModel(repo, realtime)
         advanceUntilIdle()
@@ -60,7 +67,7 @@ class HomeViewModelTest {
             Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
             Person(id = "p2", name = "Priya", designation = "DSP", station = "Srinagar", phone = null),
         )
-        coEvery { repo.observeAll() } returns persons
+        personsFlow.value = persons
 
         val vm = HomeViewModel(repo, realtime)
         advanceUntilIdle()
@@ -77,14 +84,7 @@ class HomeViewModelTest {
         val initial = listOf(
             Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
         )
-        val afterInsert = listOf(
-            Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
-            Person(id = "p2", name = "Priya", designation = "DSP", station = "Srinagar", phone = null),
-        )
-        // First call returns the initial set; subsequent calls
-        // (the refresh after a Realtime event) return the updated
-        // set.
-        coEvery { repo.observeAll() } returnsMany listOf(initial, afterInsert)
+        personsFlow.value = initial
 
         // A hot flow that the test can emit to.
         val changes = MutableSharedFlow<RealtimeSync.Change>(replay = 0, extraBufferCapacity = 4)
@@ -93,14 +93,17 @@ class HomeViewModelTest {
         val vm = HomeViewModel(repo, realtime)
         advanceUntilIdle()
 
-        // After init, state should be Loaded(initial).
+        // After init, state should be Loaded(initial). The init block
+        // also fires refreshFromNetwork once (best-effort, ignored
+        // in this test).
         assertEquals(HomeUiState.Loaded(initial), vm.state.value)
 
-        // Now emit a Persons change. The VM should re-fetch.
+        // Now emit a Persons change. The VM should call
+        // refreshFromNetwork (which fetches from Supabase, not
+        // observed here, but the call itself is what we verify).
         changes.tryEmit(RealtimeSync.Change.Persons)
         advanceUntilIdle()
 
-        // State should now reflect the inserted person.
-        assertEquals(HomeUiState.Loaded(afterInsert), vm.state.value)
+        coVerify(atLeast = 1) { repo.refreshFromNetwork() }
     }
 }

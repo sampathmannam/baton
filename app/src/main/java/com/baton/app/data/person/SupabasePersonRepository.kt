@@ -10,20 +10,21 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Supabase-backed [PersonRepository] for M0. Reads + writes the `persons`
- * table created in Task 5 (`supabase/migrations/0001_init.sql`).
+ * Supabase-backed network adapter for the `persons` table. M2-T6
+ * decoupled this from the [PersonRepository] interface: the
+ * interface is now Room-backed (see
+ * [com.baton.app.data.local.RoomPersonRepository]). The
+ * Supabase client only does POST/PATCH/DELETE/GET; the Room repo
+ * is the only thing the UI talks to.
  *
  * M0 reads/writes the user's own persons only — RLS on the table restricts
  * the result to rows where `user_id = auth.uid()` and rejects inserts/updates
  * for any other user. Once auth is wired in Task 7 the JWT is set
  * automatically by the supabase-kt Auth plugin.
- *
- * M3 will replace this with a Room-backed local mirror + sync loop; for M0
- * a single Supabase read on Home open is enough to prove the wire-up.
  */
 class SupabasePersonRepository(
     httpClient: HttpClient,
-) : PersonRepository {
+) {
 
     private val client: SupabaseClient = buildSupabaseClient(
         url = BuildConfig.SUPABASE_URL,
@@ -31,21 +32,23 @@ class SupabasePersonRepository(
         httpClient = httpClient,
     )
 
-    override suspend fun observeAll(): List<Person> {
-        val rows: List<PersonRow> = client.postgrest
-            .from("persons")
-            .select()
-            .decodeList()
-        return rows.map { it.toDomain() }
-    }
-
-    override suspend fun create(name: String, designation: String?, station: String?): Person {
+    suspend fun create(
+        name: String,
+        designation: String?,
+        station: String?,
+        clientId: String? = null,
+    ): Person {
         // `select()` after `insert` returns the row that was inserted, so we
         // can hand the new Person back to the UI without a second round-trip.
         val inserted: PersonRow = client.postgrest
             .from("persons")
             .insert(
-                PersonInsert(name = name, designation = designation, station = station),
+                PersonInsert(
+                    id = clientId,
+                    name = name,
+                    designation = designation,
+                    station = station,
+                ),
             ) {
                 select()
             }
@@ -53,7 +56,7 @@ class SupabasePersonRepository(
         return inserted.toDomain()
     }
 
-    override suspend fun findByName(name: String): Person? {
+    suspend fun findByName(name: String): Person? {
         // Order by created_at so the first hit is deterministic.
         val rows: List<PersonRow> = client.postgrest
             .from("persons")
@@ -67,7 +70,7 @@ class SupabasePersonRepository(
         return rows.firstOrNull()?.toDomain()
     }
 
-    override suspend fun findOrCreate(
+    suspend fun findOrCreate(
         name: String,
         designation: String?,
         station: String?,
@@ -86,6 +89,19 @@ class SupabasePersonRepository(
             val found = findByName(name)
             found ?: throw e
         }
+    }
+
+    /**
+     * M2-T6: pull all rows for the user. Used by the initial Room
+     * seed and by the Realtime-triggered refresh. Returns the rows
+     * as [Person] (no Room mapping — the caller does that).
+     */
+    suspend fun fetchAll(): List<Person> {
+        val rows: List<PersonRow> = client.postgrest
+            .from("persons")
+            .select()
+            .decodeList()
+        return rows.map { it.toDomain() }
     }
 }
 
@@ -108,7 +124,8 @@ private data class PersonRow(
 }
 
 @Serializable
-private data class PersonInsert(
+internal data class PersonInsert(
+    val id: String? = null,
     val name: String,
     val designation: String? = null,
     val station: String? = null,
