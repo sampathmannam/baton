@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.baton.app.data.instructions.RoomInstructionRepository
 import com.baton.app.data.instructions.SupabaseInstructionRepository
 import com.baton.app.data.local.InstructionDao
+import com.baton.app.data.local.PersonStaleAge
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
@@ -31,27 +32,28 @@ class HomeViewModel @Inject constructor(
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
-        // M3-T5: combine persons + open-instruction counts in a
-        // single Flow so the UI sees a consistent snapshot. The
-        // `combine` operator re-emits on either side's change, so
-        // an instruction save or a person add both trigger a
-        // re-render with the updated badge count.
+        // M3-T5 + M4-T3: combine persons + open-instruction counts +
+        // stale-outgoing ages into a single Flow so the UI sees a
+        // consistent snapshot. The `combine` operator re-emits on
+        // any side's change, so an instruction save / person add /
+        // a row going stale all trigger a re-render.
         viewModelScope.launch {
             combine(
                 personRepository.observeAll(),
                 instructionDao.observeOpenCountByPerson(),
-            ) { persons, counts ->
-                // M3-T5: build a map of personId -> open count, defaulting
-                // missing persons to 0. The DAO only emits rows for
-                // persons with at least one open instruction; persons
-                // with no open work don't show up in the count Flow.
-                // Defaulting here means the PersonRow composable can
-                // always call `map[id]` and never see null.
-                val map = persons.associate { it.id to 0 } + counts.associate { it.personId to it.cnt }
+                instructionDao.observeStaleByPerson(),
+            ) { persons, counts, stale ->
+                val openMap = persons.associate { it.id to 0 } +
+                    counts.associate { it.personId to it.cnt }
+                val staleSet = stale.map { it.personId }.toSet()
                 if (persons.isEmpty()) {
                     HomeUiState.Empty
                 } else {
-                    HomeUiState.Loaded(persons = persons, openCountByPersonId = map)
+                    HomeUiState.Loaded(
+                        persons = persons,
+                        openCountByPersonId = openMap,
+                        stalePersonIds = staleSet,
+                    )
                 }
             }
                 .catch { e -> _state.value = HomeUiState.Error(e.message ?: "Unknown error") }

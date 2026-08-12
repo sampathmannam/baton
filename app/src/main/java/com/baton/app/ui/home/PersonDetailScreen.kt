@@ -24,6 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -72,6 +75,7 @@ fun PersonDetailScreen(
     // nav arg without us passing it manually. The VM exposes
     // `state` as a Flow that the composable collects.
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var nudgeTarget by remember { mutableStateOf<Instruction?>(null) }
 
     Scaffold(
         topBar = {
@@ -104,8 +108,19 @@ fun PersonDetailScreen(
                 subtitle = listOfNotNull(s.person.designation, s.person.station).joinToString(" • "),
                 instructions = s.instructions,
                 padding = padding,
+                onNudge = { ins -> nudgeTarget = ins },
             )
         }
+    }
+
+    val target = nudgeTarget
+    val loaded = (state as? PersonDetailUiState.Loaded)
+    if (target != null && loaded != null) {
+        NudgeSheet(
+            instruction = target,
+            person = loaded.person,
+            onDismiss = { nudgeTarget = null },
+        )
     }
 }
 
@@ -115,6 +130,7 @@ private fun PersonTimeline(
     subtitle: String,
     instructions: List<Instruction>,
     padding: PaddingValues,
+    onNudge: (Instruction) -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier
@@ -169,7 +185,7 @@ private fun PersonTimeline(
             }
         } else {
             items(items = instructions, key = { it.id }) { ins ->
-                InstructionRow(ins)
+                InstructionRow(ins, onNudge = onNudge)
             }
         }
         // Leave room for the NoteBar (carried over from M2).
@@ -178,7 +194,7 @@ private fun PersonTimeline(
 }
 
 @Composable
-private fun InstructionRow(instruction: Instruction) {
+private fun InstructionRow(instruction: Instruction, onNudge: (Instruction) -> Unit = {}) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -211,6 +227,14 @@ private fun InstructionRow(instruction: Instruction) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (instruction.direction == com.baton.app.data.instructions.Direction.OUTGOING &&
+                instruction.status == com.baton.app.data.instructions.Status.OPEN
+            ) {
+                androidx.compose.material3.TextButton(
+                    onClick = { onNudge(instruction) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Draft nudge") }
+            }
         }
     }
 }

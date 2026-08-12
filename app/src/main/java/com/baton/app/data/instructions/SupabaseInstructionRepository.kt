@@ -105,6 +105,7 @@ internal data class InstructionRow(
     @SerialName("captured_at") val capturedAt: String,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
+    @SerialName("is_sensitive") val isSensitive: Boolean = false,
 ) {
     fun toDomain(): Instruction = Instruction(
         id = id,
@@ -119,5 +120,6 @@ internal data class InstructionRow(
         capturedAt = capturedAt,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        isSensitive = isSensitive,
     )
 }

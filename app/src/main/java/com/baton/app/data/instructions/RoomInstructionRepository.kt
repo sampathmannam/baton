@@ -20,7 +20,7 @@ import javax.inject.Singleton
  * flows only need reads.
  */
 @Singleton
-class RoomInstructionRepository @Inject constructor(
+open class RoomInstructionRepository @Inject constructor(
     private val dao: InstructionDao,
 ) {
 
@@ -57,12 +57,13 @@ class RoomInstructionRepository @Inject constructor(
     suspend fun refreshFromNetwork(remote: SupabaseInstructionRepository) {
         val remoteRows = remote.fetchAll()
         val entities = remoteRows.map { it.toEntity() }
-        // REPLACE on conflict: a row whose id matches a pending local
-        // insert will overwrite the PENDING_INSERT placeholder with
-        // the server's response. That's the right behaviour — the
-        // server has now seen the row, so the local mirror should
-        // reflect the server's version.
-        dao.upsertAll(entities)
+        // v1.0: filter out any is_sensitive rows the server may have
+        // somehow returned. By spec these are local-only and should
+        // not be in the network response, but defensive filtering
+        // keeps the local mirror clean if a future migration drops
+        // the row-level gate.
+        val nonSensitive = entities.filter { !it.isSensitive }
+        dao.upsertAll(nonSensitive)
     }
 
     private fun Instruction.toEntity(): InstructionEntity = InstructionEntity(
@@ -78,6 +79,7 @@ class RoomInstructionRepository @Inject constructor(
         capturedAt = capturedAt,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        isSensitive = isSensitive,
         syncStatus = SyncStatus.SYNCED,
     )
 }

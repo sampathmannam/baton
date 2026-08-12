@@ -48,5 +48,9 @@ data class PersonEntity(
     val userId: String,
     val createdAt: String,
     val updatedAt: String,
+    // v1.0: is_sensitive flag (spec §13). When true, the row
+    // never syncs to Supabase; the person + their instructions
+    // live in the local SQLCipher mirror only.
+    val isSensitive: Boolean = false,
     val syncStatus: String = SyncStatus.SYNCED,
 )

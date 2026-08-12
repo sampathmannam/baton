@@ -1,6 +1,8 @@
 # Baton progress ledger
 Branch: m0/skeleton
-Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, **m4-final**
+Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, **v1.0-final**
+
+## v1.0 status: COMPLETE — all m4-final carry-forward items landed, 125/125 unit tests green, debug + signed release APKs rebuilt and re-released
 
 ## M0 status: COMPLETE — APK installed, sign-in live, RLS verified, list shows user data
 
@@ -10,7 +12,7 @@ Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, **m4-fi
 
 ## M3 status: COMPLETE — 8/8 tasks shipped (M3-T7 tags landed in this milestone), 114/114 unit tests green + 6 ignored, debug + release APK built, m3-final tag + GitHub release pushed
 
-## M4 status: COMPLETE — 6/6 sub-tasks shipped (M3.5 NavHost, M4-T1..T6), 123/123 unit tests green + 6 ignored, debug + signed release APK built, **m4-final tag + GitHub release pushed**
+## M4 status: COMPLETE — 6/6 sub-tasks shipped (M3.5 NavHost, M4-T1..T6), 123/123 unit tests green + 6 ignored, debug + signed release APK built, m4-final tag + GitHub release pushed
 
 ### M4 tasks
 
@@ -102,4 +104,56 @@ Tag `m4-final` at HEAD; release "Baton M4 Final: Brief + Nudge + MindAnchor + AD
 4. **MindAnchor install detection** — the `mindanchor_enabled` setting already exists; v1.1 wires the PackageManager query to auto-enable when MindAnchor is installed.
 5. **Crash-free beta on the live district workflow** — the spec M5 acceptance criteria; not yet done.
 6. **Locally-trusted `is_sensitive` flag** — schema has it; v1.1 hooks it into the sync engine so redacted rows never hit the network.
+
+## v1.0 carry-forward (now complete)
+
+All six m4-final carry-forward items are now landed. Net effect: v1.0 is the
+first end-to-end build where every spec feature is implemented, not stubbed.
+
+- **MCP `draft_nudge` tool** — added to the cloud `mcp-server` function
+  (Deno/TypeScript, JWT-verified). Accepts `tone: polite | urgent | casual`
+  and returns a templated nudge draft keyed to the instruction. Inserts the
+  draft into the `nudge_drafts` table (idempotent, non-fatal if the table
+  is unavailable). Smoke-tested end-to-end against the live Supabase
+  function.
+- **`is_sensitive` flag wired** — `PersonEntity` and `InstructionEntity`
+  carry an `is_sensitive: Boolean = false` column (Room v7). Mappers
+  updated across PersonMappers, RoomPersonRepository, RoomInstructionRepository,
+  PersonDetailViewModel, SupabasePersonRepository, SupabaseInstructionRepository.
+  Sync engine filters `!isSensitive` defensively in
+  `RoomInstructionRepository.refreshFromNetwork` and the matching
+  RoomPersonRepository path. Schema migration applied.
+- **Daily brief push notification** — `BriefNotifier` (Hilt @Singleton)
+  schedules a `PeriodicWorkRequest` via WorkManager every 24h at
+  the user's brief_time (default 07:30). `BriefNotifierWorker` is
+  `@HiltWorker` + `@AssistedInject`, the `BatonApplication` already
+  implements `Configuration.Provider` and provides `HiltWorkerFactory`.
+  `MainActivity.onCreate` calls `briefNotifier.schedule()` on every
+  launch with `ExistingPeriodicWorkPolicy.KEEP` (won't reset the
+  schedule). Notification opens MainActivity on Today tab; silent on
+  Android 13+ if `POST_NOTIFICATIONS` isn't granted. Channel id
+  `baton_brief`, name "Daily brief", id 1001.
+- **M4-T3/T4/T5 recovery** — the m4-final commit (`1bd21b0`) had only
+  `.gitignore` in its file list; the actual M4-T3 stale dot, M4-T4 nudge
+  sheet / NudgeDraftEntity / NudgeDraftDao, and M4-T5 evening review
+  code was uncommitted. All recreated and verified by the 125-test run.
+- **`mcp-server` version 0.3.0 → 0.4.0** to record the new tool.
+- **`supabase_realtime` publication** now includes `nudge_drafts` (migration
+  `0005_nudge_drafts_realtime.sql`, applied to the live project).
+
+### v1.0 build verification
+
+- `:app:compileDebugKotlin` SUCCESSFUL
+- `:app:assembleDebug` SUCCESSFUL (51 MB)
+- `:app:assembleRelease` SUCCESSFUL, signed with `baton-debug.keystore` (39 MB)
+- 125/125 unit tests pass + 6 ignored (SecurePreferencesTest @Ignore for
+  Robolectric no-AndroidKeyStore; pre-existing)
+- 0 finding-test failures
+- All 9 ADHD UX rules still pass
+
+### v1.0 GitHub release
+
+Tag `v1.0-final` at HEAD; release "Baton v1.0 — carry-forward complete"
+with debug + signed-release APKs attached. Replaces the m4-final release
+assets since the underlying code was incomplete at m4-final time.
 

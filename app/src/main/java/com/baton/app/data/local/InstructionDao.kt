@@ -41,7 +41,34 @@ interface InstructionDao {
     // (status) index to filter, then aggregates in memory.
     @Query("SELECT personId, COUNT(*) as cnt FROM instructions WHERE status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') AND personId IS NOT NULL GROUP BY personId")
     fun observeOpenCountByPerson(): Flow<List<PersonOpenCount>>
+
+    /**
+     * M4-T3: stale-outgoing per person. "Stale" = the user has an
+     * OUTGOING instruction (sent to a subordinate) that hasn't
+     * been moved to a closed state in 3+ days (spec §8.2). Used to
+     * render the soft amber dot on the People-list row.
+     */
+    @Query(
+        """
+        SELECT personId, MIN(julianday('now') - julianday(updatedAt)) AS daysQuiet
+        FROM instructions
+        WHERE direction = 'OUTGOING'
+          AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED')
+          AND personId IS NOT NULL
+        GROUP BY personId
+        HAVING daysQuiet >= 3
+        """,
+    )
+    fun observeStaleByPerson(): Flow<List<PersonStaleAge>>
 }
+
+/**
+ * M4-T3: one (personId -> daysQuiet) row per stale person.
+ */
+data class PersonStaleAge(
+    val personId: String,
+    val daysQuiet: Double,
+)
 
 /**
  * M3-T5: a single (personId -> open count) row for the badge on

@@ -31,5 +31,10 @@ data class InstructionEntity(
     val capturedAt: String,
     val createdAt: String,
     val updatedAt: String,
+    // v1.0: is_sensitive flag (spec §13). When true, the row
+    // never syncs to Supabase; it lives in the local SQLCipher
+    // mirror only. The sync engine filters these out before any
+    // network read/write.
+    val isSensitive: Boolean = false,
     val syncStatus: String = SyncStatus.SYNCED,
 )

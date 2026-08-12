@@ -20,4 +20,7 @@ data class Person(
     val station: String?,
     val phone: String?,
     val updatedAt: String? = null,
+    // v1.0: spec §13. When true, this row + its instructions
+    // never sync to Supabase.
+    val isSensitive: Boolean = false,
 )

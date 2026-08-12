@@ -15,12 +15,18 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,15 +43,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * M4-T1: Today screen. The morning brief content lives here. Three
- * sections per spec §8.1:
- *  - "Needs you today" (open + due today OR high + open OR stale 7+)
- *  - "Waiting on others" (your outgoing open instructions)
- *  - "Carried over" (your open stale incoming/self, 7..30 days)
+ * M4-T1: Today screen. The morning brief content lives here.
  *
- * **No counts in titles.** Per spec §3.3, section headers are plain
- * labels, never "3 things". The `×N` token in the list (when present)
- * is a quiet `bodySmall` annotation, not a header number.
+ * M4-T5: a "Review" button in the top app bar opens the evening
+ * review sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,10 +54,16 @@ fun TodayScreen(
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
     val brief by viewModel.brief.collectAsStateWithLifecycle()
+    var showReview by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.tab_today)) },
+                actions = {
+                    OutlinedButton(onClick = { showReview = true }) {
+                        Text("Review")
+                    }
+                },
             )
         },
     ) { padding ->
@@ -65,6 +72,13 @@ fun TodayScreen(
         } else {
             BriefContent(brief, padding)
         }
+    }
+    if (showReview) {
+        val review by viewModel.review.collectAsStateWithLifecycle()
+        EveningReviewSheet(
+            review = review,
+            onDismiss = { showReview = false },
+        )
     }
 }
 
@@ -119,7 +133,6 @@ private fun BriefContent(brief: DailyBrief, padding: PaddingValues) {
                 InstructionCard(ins)
             }
         }
-        // Note bar clearance.
         item { Spacer(Modifier.height(80.dp)) }
     }
 }
@@ -171,3 +184,53 @@ private fun formatTime(iso: String): String = try {
         .withZone(ZoneId.systemDefault())
         .format(inst)
 } catch (e: Exception) { iso }
+
+/**
+ * M4-T5: evening review sheet. One screen. "What got done today"
+ * + "What's still open" + a single dismiss tap. No streak, no
+ * count-up, no punishment for missing.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EveningReviewSheet(review: EveningReview, onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Evening review", style = MaterialTheme.typography.headlineSmall)
+            Text(
+                text = review.date,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (review.stillOpen.isEmpty()) {
+                Text(
+                    "Nothing carried over. Nice.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                Text("Still open:", style = MaterialTheme.typography.titleSmall)
+                review.stillOpen.forEach { ins ->
+                    Text(
+                        text = "• ${ins.title}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Tap outside to dismiss. Tomorrow's brief picks up from here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}

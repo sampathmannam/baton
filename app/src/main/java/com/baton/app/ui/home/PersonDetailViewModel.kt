@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -36,6 +37,7 @@ import javax.inject.Inject
  * instructions are observed as a Flow.
  */
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class PersonDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     personDao: PersonDao,
@@ -93,6 +95,7 @@ class PersonDetailViewModel @Inject constructor(
             station = station,
             phone = phone,
             updatedAt = updatedAt,
+            isSensitive = isSensitive,
         )
 
     private fun com.baton.app.data.local.entities.InstructionEntity.toDomain(): Instruction =
@@ -113,6 +116,7 @@ class PersonDetailViewModel @Inject constructor(
             capturedAt = capturedAt,
             createdAt = createdAt,
             updatedAt = updatedAt,
+            isSensitive = isSensitive,
         )
 
     companion object {

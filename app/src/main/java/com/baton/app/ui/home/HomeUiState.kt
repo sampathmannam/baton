@@ -15,6 +15,7 @@ sealed interface HomeUiState {
     data class Loaded(
         val persons: List<Person>,
         val openCountByPersonId: Map<String, Int> = emptyMap(),
+        val stalePersonIds: Set<String> = emptySet(),
     ) : HomeUiState
 
     data class Error(val message: String) : HomeUiState

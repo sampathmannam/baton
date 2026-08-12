@@ -138,7 +138,11 @@ class RoomPersonRepository @Inject constructor(
      */
     suspend fun refreshFromNetwork() {
         val remoteRows = remote.fetchAll()
-        dao.upsertAll(remoteRows.map { it.toEntity(SyncStatus.SYNCED) })
+        // v1.0: spec §13. is_sensitive rows are local-only; filter
+        // them out of the network pull so the local mirror never
+        // claims a server row that doesn't exist there.
+        val nonSensitive = remoteRows.filter { !it.isSensitive }
+        dao.upsertAll(nonSensitive.map { it.toEntity(SyncStatus.SYNCED) })
     }
 
     private suspend fun upsertFromNetwork(person: Person) {

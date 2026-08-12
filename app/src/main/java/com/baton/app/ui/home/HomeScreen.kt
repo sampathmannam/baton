@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -145,6 +146,7 @@ fun HomeScreen(
                 is HomeUiState.Loaded -> PersonList(
                     persons = s.persons,
                     openCountByPersonId = s.openCountByPersonId,
+                    stalePersonIds = s.stalePersonIds,
                     padding = padding,
                     onPersonClick = onOpenPerson,
                 )
@@ -230,6 +232,7 @@ private fun EmptyState(padding: PaddingValues) {
 private fun PersonList(
     persons: List<Person>,
     openCountByPersonId: Map<String, Int>,
+    stalePersonIds: Set<String>,
     padding: PaddingValues,
     onPersonClick: (String) -> Unit,
 ) {
@@ -242,6 +245,7 @@ private fun PersonList(
             PersonRow(
                 person = person,
                 openCount = openCountByPersonId[person.id] ?: 0,
+                isStale = person.id in stalePersonIds,
                 onClick = { onPersonClick(person.id) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -251,7 +255,7 @@ private fun PersonList(
 }
 
 @Composable
-private fun PersonRow(person: Person, openCount: Int, onClick: () -> Unit) {
+private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick: () -> Unit) {
     androidx.compose.foundation.layout.Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -261,7 +265,24 @@ private fun PersonRow(person: Person, openCount: Int, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(person.name, style = MaterialTheme.typography.titleMedium)
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(person.name, style = MaterialTheme.typography.titleMedium)
+                // M4-T3: stale surface. After 3 days of no activity on
+                // an OUTGOING instruction (spec §8.2), the row shows
+                // a quiet amber dot. Not red, not a count-up — just
+                // "this has been quiet".
+                if (isStale) {
+                    Spacer(Modifier.size(8.dp))
+                    Surface(
+                        modifier = Modifier.size(8.dp),
+                        color = androidx.compose.ui.graphics.Color(0xFFD9A05B),
+                        contentColor = androidx.compose.ui.graphics.Color.Transparent,
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                    ) {}
+                }
+            }
             val sub = listOfNotNull(person.designation, person.station).joinToString(" • ")
             if (sub.isNotEmpty()) {
                 Text(

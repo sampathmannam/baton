@@ -21,6 +21,7 @@ fun PersonEntity.toDomain(): Person = Person(
     station = station,
     phone = phone,
     updatedAt = updatedAt,
+    isSensitive = isSensitive,
 )
 
 fun Person.toEntity(syncStatus: String = SyncStatus.SYNCED): PersonEntity = PersonEntity(
@@ -33,5 +34,6 @@ fun Person.toEntity(syncStatus: String = SyncStatus.SYNCED): PersonEntity = Pers
     // doesn't need it (RLS is enforced at the wire).
     createdAt = updatedAt ?: java.time.Instant.now().toString(),
     updatedAt = updatedAt ?: java.time.Instant.now().toString(),
+    isSensitive = isSensitive,
     syncStatus = syncStatus,
 )

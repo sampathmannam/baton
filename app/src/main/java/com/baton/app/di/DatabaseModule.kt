@@ -8,6 +8,7 @@ import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.InstructionTagDao
+import com.baton.app.data.local.NudgeDraftDao
 import com.baton.app.data.local.PersonDao
 import com.baton.app.data.local.SyncConflictDao
 import com.baton.app.data.local.SyncQueueDao
@@ -92,4 +93,7 @@ object DatabaseModule {
 
     @Provides
     fun provideAppDao(db: AppDatabase): AppDao = db.appDao()
+
+    @Provides
+    fun provideNudgeDraftDao(db: AppDatabase): NudgeDraftDao = db.nudgeDraftDao()
 }

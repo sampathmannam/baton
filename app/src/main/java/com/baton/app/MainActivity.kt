@@ -71,12 +71,18 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     private val rootViewModel: RootViewModel by viewModels()
+    @javax.inject.Inject lateinit var briefNotifier: com.baton.app.data.brief.BriefNotifier
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         consumeSharedText(intent)
         consumeQuickCapture(intent)
+        // v1.0: schedule the daily brief push notification. The
+        // schedule is a no-op if the user is on Android 13+ and
+        // POST_NOTIFICATIONS isn't granted; the Today tab brief
+        // still renders in-app regardless.
+        briefNotifier.schedule()
         setContent {
             BatonTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
