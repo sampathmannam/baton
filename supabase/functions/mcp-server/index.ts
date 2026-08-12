@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
 
   const server = new McpServer({
     name: "baton-mcp",
-    version: "0.3.0",
+    version: "0.4.0",
   });
 
   // ===========================================================================
@@ -543,6 +543,103 @@ Deno.serve(async (req) => {
           {
             type: "text" as const,
             text: JSON.stringify(data, null, 2),
+          },
+        ],
+      };
+    },
+  );
+
+  // T5. draft_nudge — server-side nudge draft generator (M4).
+  // The on-device LLM is the production path; this is the cloud
+  // fallback for when the user drafts from a desktop chat client.
+  // The template is intentionally plain. The on-device path
+  // rewrites it in the user's voice; this tool returns the
+  // server-side template, suitable for further LLM refinement
+  // on the client side.
+  server.tool(
+    "draft_nudge",
+    "Generate a nudge draft for an OUTGOING instruction that's gone quiet. The on-device LLM refines the template; this is the cloud-side baseline.",
+    {
+      instruction_id: z.string().uuid().describe("The instruction's UUID"),
+      tone: z.enum(["polite", "urgent", "casual"]).optional().default("polite")
+        .describe("The draft tone. polite is the default; the user's voice in the on-device path overrides this."),
+    },
+    async ({ instruction_id, tone }) => {
+      // Fetch the instruction + person for context.
+      const { data: ins, error: insErr } = await supabase
+        .from("instructions")
+        .select(
+          "id, title, raw_text, status, direction, due_at, captured_at, person_id",
+        )
+        .eq("id", instruction_id)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (insErr) {
+        return mcpError(`draft_nudge failed: ${insErr.message}`);
+      }
+      if (!ins) {
+        return mcpError(`draft_nudge: instruction ${instruction_id} not found`);
+      }
+      if (ins.direction !== "OUTGOING") {
+        return mcpError(
+          `draft_nudge: instruction ${instruction_id} is ${ins.direction}; only OUTGOING instructions are eligible for nudges`,
+        );
+      }
+      // Resolve the person name.
+      let personName: string | null = null;
+      if (ins.person_id) {
+        const { data: person } = await supabase
+          .from("persons")
+          .select("name")
+          .eq("id", ins.person_id)
+          .maybeSingle();
+        personName = person?.name ?? null;
+      }
+      // Build the draft per tone.
+      const name = personName?.trim() || "there";
+      const title = (ins.title || ins.raw_text || "").slice(0, 100);
+      let draftText: string;
+      switch (tone) {
+        case "urgent":
+          draftText = `${name} — I need the "${title}" by end of day. Let me know what's blocking.`;
+          break;
+        case "casual":
+          draftText = `Hey ${name}, gentle reminder on the "${title}" — any update when you get a moment?`;
+          break;
+        case "polite":
+        default:
+          draftText = `Hi ${name} — following up on "${title}". Let me know if you need anything from me.`;
+          break;
+      }
+      // Persist a nudge_drafts row so the user's local mirror
+      // (and the on-device sheet) sees the draft on next sync.
+      // The RLS policy on nudge_drafts restricts to the calling
+      // user, so this insert is safe.
+      const { error: ndErr } = await supabase
+        .from("nudge_drafts")
+        .insert({
+          instruction_id,
+          draft_text: draftText,
+          status: "DRAFT",
+        });
+      // Non-fatal: if the local mirror doesn't have nudge_drafts
+      // wired in v1 the insert errors; we still return the draft
+      // text to the caller.
+      void ndErr;
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              {
+                instruction_id,
+                person_name: personName,
+                tone,
+                draft_text: draftText,
+              },
+              null,
+              2,
+            ),
           },
         ],
       };

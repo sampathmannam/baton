@@ -5,23 +5,22 @@ import androidx.lifecycle.viewModelScope
 import com.baton.app.data.brief.BriefGenerator
 import com.baton.app.data.brief.BriefType
 import com.baton.app.data.brief.DailyBrief
+import com.baton.app.data.instructions.Instruction
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
 
 /**
- * M4-T1: Today screen view-model. Wraps the [BriefGenerator] in a
- * StateFlow so the composable can render reactively. The brief is
- * regenerated on every instruction Room update — no manual refresh.
+ * M4-T1: Today screen view-model.
  *
- * **No need for a server cron.** The local mirror (M2-T6) is the
- * source of truth; we compute the brief from it. When the user
- * closes an instruction, the badge count + brief update in the
- * same Room change.
+ * M4-T5: also exposes the evening review. Computed from the same
+ * brief; the stillOpen list is the still-pending section. The
+ * review surface is a single dismiss tap, no punishment.
  */
 @HiltViewModel
 class TodayViewModel @Inject constructor(
@@ -44,4 +43,27 @@ class TodayViewModel @Inject constructor(
                 carriedOver = emptyList(),
             ),
         )
+
+    val review: StateFlow<EveningReview> = briefGenerator
+        .observeDailyBrief(
+            type = BriefType.EVENING,
+            date = LocalDate.now(ZoneId.systemDefault()),
+        )
+        .map { brief ->
+            EveningReview(
+                date = LocalDate.now(ZoneId.systemDefault()).toString(),
+                stillOpen = brief.needsYouToday + brief.waitingOnOthers,
+            )
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = EveningReview(),
+        )
 }
+
+data class EveningReview(
+    val date: String = "",
+    val gotDoneToday: List<Instruction> = emptyList(),
+    val stillOpen: List<Instruction> = emptyList(),
+)

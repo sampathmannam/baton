@@ -35,6 +35,8 @@ data class Instruction(
     @SerialName("captured_at") val capturedAt: String,
     @SerialName("created_at") val createdAt: String,
     @SerialName("updated_at") val updatedAt: String,
+    // v1.0: spec §13. When true, this row never syncs to Supabase.
+    @SerialName("is_sensitive") val isSensitive: Boolean = false,
 )
 
 /** Wire values match the `instruction_direction` Postgres enum. */

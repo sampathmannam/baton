@@ -147,6 +147,7 @@ private data class PersonRow(
     val phone: String? = null,
     @SerialName("user_id") val userId: String,
     @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("is_sensitive") val isSensitive: Boolean = false,
 ) {
     fun toDomain(): Person = Person(
         id = id,
@@ -155,6 +156,7 @@ private data class PersonRow(
         station = station,
         phone = phone,
         updatedAt = updatedAt,
+        isSensitive = isSensitive,
     )
 }
 

@@ -41,12 +41,14 @@ class HomeViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
     private val countsFlow = MutableStateFlow<List<PersonOpenCount>>(emptyList())
+    private val staleFlow = MutableStateFlow<List<com.baton.app.data.local.PersonStaleAge>>(emptyList())
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         every { repo.observeAll() } returns personsFlow.asStateFlow()
         every { instructionDao.observeOpenCountByPerson() } returns countsFlow.asStateFlow()
+        every { instructionDao.observeStaleByPerson() } returns staleFlow.asStateFlow()
         every { realtime.changes } returns MutableSharedFlow()
         // M3-T5: launch-time instruction refresh is wired but not
         // relevant to the badge-count assertions. Empty list is fine.
@@ -96,7 +98,7 @@ class HomeViewModelTest {
             // M3-T5: open count defaults to 0 for every person who
             // doesn't appear in the count Flow. The PersonRow uses
             // this to hide the badge entirely.
-            assertEquals(HomeUiState.Loaded(persons, openCountByPersonId = mapOf("p1" to 0, "p2" to 0)), state)
+            assertEquals(HomeUiState.Loaded(persons, openCountByPersonId = mapOf("p1" to 0, "p2" to 0), stalePersonIds = emptySet()), state)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -156,7 +158,7 @@ class HomeViewModelTest {
         val vm = makeVm()
         advanceUntilIdle()
 
-        assertEquals(HomeUiState.Loaded(initial, openCountByPersonId = mapOf("p1" to 0)), vm.state.value)
+        assertEquals(HomeUiState.Loaded(initial, openCountByPersonId = mapOf("p1" to 0), stalePersonIds = emptySet()), vm.state.value)
 
         changes.tryEmit(RealtimeSync.Change.Persons)
         advanceUntilIdle()

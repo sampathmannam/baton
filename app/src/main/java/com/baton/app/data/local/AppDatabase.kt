@@ -6,6 +6,7 @@ import com.baton.app.data.local.entities.AppStateEntity
 import com.baton.app.data.local.entities.CaptureEntity
 import com.baton.app.data.local.entities.InstructionEntity
 import com.baton.app.data.local.entities.InstructionTagCrossRef
+import com.baton.app.data.local.entities.NudgeDraftEntity
 import com.baton.app.data.local.entities.PersonEntity
 import com.baton.app.data.local.entities.SyncConflictEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
@@ -46,8 +47,9 @@ import com.baton.app.data.local.entities.TagEntity
         TagEntity::class,
         InstructionTagCrossRef::class,
         AppStateEntity::class,
+        NudgeDraftEntity::class,
     ],
-    version = 5,
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -59,6 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun instructionTagDao(): InstructionTagDao
     abstract fun appDao(): AppDao
+    abstract fun nudgeDraftDao(): NudgeDraftDao
 
     companion object {
         const val NAME = "baton.db"
