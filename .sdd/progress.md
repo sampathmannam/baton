@@ -1,6 +1,8 @@
 # Baton progress ledger
 Branch: m0/skeleton
-Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, **v1.0-final**
+Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, v1.0-final, **v1.1-audit**
+
+## v1.1 status: COMPLETE — 15-day audit ran end-to-end, 1 real bug + 6 feature gaps fixed at root cause, 151/151 unit tests green + 6 ignored, debug + signed release APKs rebuilt (v0.5.0)
 
 ## v1.0 status: COMPLETE — all m4-final carry-forward items landed, 125/125 unit tests green, debug + signed release APKs rebuilt and re-released
 
@@ -156,4 +158,67 @@ first end-to-end build where every spec feature is implemented, not stubbed.
 Tag `v1.0-final` at HEAD; release "Baton v1.0 — carry-forward complete"
 with debug + signed-release APKs attached. Replaces the m4-final release
 assets since the underlying code was incomplete at m4-final time.
+
+## v1.1 — 15-day audit + 6 root-cause fixes
+
+### 15-day simulator
+`app/src/test/java/com/baton/app/integration/FifteenDaySimulationTest.kt`
+seeds 9 people + 25+ instructions across 15 days (varied directions,
+statuses, priorities, ages, sensitive flags) and asserts every spec
+§8 section. 22 tests cover:
+
+- Brief sections per spec §8.1 (needs-you, waiting, carried-over)
+- Home list open counts (excluding DONE/DROPPED/CARRIED_OVER)
+- Stale surface per spec §8.2 (3+ days OUTGOING)
+- 30-day drop per spec §8.1.3 (only on carried-over, not on needs-you)
+- is_sensitive filter (defensive: server response never produces local sensitive rows)
+- Source round-trip (VOICE/TEXT/PHOTO/MCP all preserved)
+- Mark-done / mark-dropped / re-open transitions
+- Concurrent read-during-write
+- 1000-instruction perf (brief still works)
+
+The simulator uses a real in-memory Room database (no mocks) and the
+real `BriefGenerator` — changes that break spec behaviour will fail
+here. This is the M5 finding-test pattern.
+
+### Bug found + fixed
+**InstructionDao.observeStaleByPerson used `MIN(daysQuiet)`** — a
+single fresh OUTGOING (0d) for a person with one stale OUTGOING (5d)
+yielded MIN=0, the HAVING `>= 3` filter dropped the row, and the
+amber dot silently disappeared. Switched to `MAX(daysQuiet)` so the
+dot fires the moment ANY OUTGOING goes 3+ days without an update.
+
+### 6 feature gaps closed (root cause, not for namesake)
+1. **mark-done / mark-dropped / re-open** — instructions could be
+   captured but never closed. Now: DAO + repo + wire + UI + tests.
+2. **is_sensitive setter** — schema had the field, no UI to flip it.
+   Now: per-person + per-instruction toggles with confirm dialog.
+3. **Source preservation** — capture flow always saved as
+   `Source.TEXT`. Now: TEXT/VOICE/PHOTO all round-trip correctly.
+4. **Nudge tone selector** — local generator had one fixed template
+   while the cloud tool supported 3. Now: FilterChip row in
+   NudgeSheet picks polite/urgent/casual.
+5. **Save-as-raw** — spec §12 fallback when LLM extraction fails.
+   Now: "Save as text (skip extraction)" button in CaptureSheet.
+6. **Settings sheet tags list height** — capped at 200dp inside a
+   ModalBottomSheet. With 5+ tags it scrolled inside a scroll
+   inside a sheet. Removed the cap.
+
+### Database migration
+v7 → v8: added `completedAt` + `droppedReason` columns to
+`instructions`. `fallbackToDestructiveMigration` (the local cache
+is reconstructible from Supabase on next refresh).
+
+### Test totals
+- 151/151 unit tests pass + 6 ignored
+- 0 finding-test failures
+
+### Build totals
+- assembleDebug: 51 MB
+- assembleRelease: 39 MB (signed)
+- versionCode 2 → 3, versionName 0.4.0 → 0.5.0
+
+### v1.1 GitHub release
+Tag `v1.1-audit` at commit `4340f53`; release with debug + signed
+APKs at https://github.com/sampathmannam/baton/releases/tag/v1.1-audit
 
