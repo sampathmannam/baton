@@ -47,4 +47,10 @@
     <string name="voice_capture_stop">Stop</string>
     <string name="voice_capture_permission_denied">Microphone permission is required for voice capture.</string>
     <string name="voice_capture_error">Voice capture failed: %1$s</string>
+
+    <!-- M3-T4: settings sheet + sign-out -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_subtitle">Sign out of Baton on this device. Your local data and on-device model files are wiped; your Supabase data stays.</string>
+    <string name="settings_sign_out">Sign out</string>
+    <string name="settings_signing_out">Signing out…</string>
 </resources>
