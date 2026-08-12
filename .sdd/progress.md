@@ -219,6 +219,12 @@ is reconstructible from Supabase on next refresh).
 - versionCode 2 → 3, versionName 0.4.0 → 0.5.0
 
 ### v1.1 GitHub release
-Tag `v1.1-audit` at commit `4340f53`; release with debug + signed
-APKs at https://github.com/sampathmannam/baton/releases/tag/v1.1-audit
+Tag `v1.1-audit` at commit `4340f53`; release creation was attempted
+but GitHub's `POST /releases` endpoint was returning HTTP 500
+consistently for ~2 hours. The tag and the code are pushed to
+origin; the user can create the release from the GitHub web UI
+(`Releases > v1.1-audit tag > Create release`) and upload the
+APKs from `app/build/outputs/apk/debug/app-debug.apk` (51 MB) and
+`app/build/outputs/apk/release/app-release.apk` (39 MB). The
+release notes are in `tmp/release_notes_v1.1.md`.
 
