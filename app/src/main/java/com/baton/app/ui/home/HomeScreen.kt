@@ -6,16 +6,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,6 +46,7 @@ import com.baton.app.features.capture.CaptureViewModel
 import com.baton.app.features.capture.NoteBar
 import com.baton.app.features.capture.PhotoCapture
 import com.baton.app.features.capture.VoiceCaptureService
+import com.baton.app.ui.settings.SettingsSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,6 +69,7 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // M1-T7: when a shared text arrives, pre-fill the capture sheet
@@ -130,7 +135,22 @@ fun HomeScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                TopAppBar(title = { Text(stringResource(R.string.home_title)) })
+                TopAppBar(
+                    title = { Text(stringResource(R.string.home_title)) },
+                    actions = {
+                        // M3-T4: settings entry point. The icon is
+                        // placed in the top-app-bar actions slot so
+                        // the people list still owns the bulk of the
+                        // header. The bottom-sheet handles the actual
+                        // sign-out flow.
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = stringResource(R.string.settings_title),
+                            )
+                        }
+                    },
+                )
             },
             floatingActionButton = {
                 FloatingActionButton(onClick = { showAddPerson = true }) {
@@ -196,6 +216,16 @@ fun HomeScreen(
         CaptureSheet(
             viewModel = captureViewModel,
             onDismiss = { /* sheet is closed via VM dismissSheet(); nothing to do */ },
+        )
+    }
+
+    // M3-T4: Settings bottom-sheet. Tapping the gear in the top bar
+    // flips `showSettings`; the sheet handles sign-out + closing
+    // itself. The session observer in MainActivity picks up the
+    // post-sign-out state and re-renders the AuthScreen.
+    if (showSettings) {
+        SettingsSheet(
+            onDismiss = { showSettings = false },
         )
     }
 }
