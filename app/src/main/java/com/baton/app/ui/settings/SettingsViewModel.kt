@@ -4,15 +4,22 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.tags.RoomTagRepository
+import com.baton.app.data.tags.Tag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * M3-T4: Settings view-model. The single action for now is sign-out.
+ * M3-T4: Settings view-model. The single action for M3-T4 was sign-out.
+ * M3-T7 adds a tag management surface: the sheet shows the user's tags
+ * (a small chips list grouped by kind) plus a free-form entry to add
+ * a new FREE tag.
  *
  * **Sign-out order.** [AppInitializer.runOnSignOut] MUST run before
  * [AuthRepository.signOut] returns, otherwise the in-flight Compose
@@ -26,10 +33,24 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val appInitializer: AppInitializer,
+    private val tagRepository: RoomTagRepository,
 ) : ViewModel() {
 
     private val _signingOut = MutableStateFlow(false)
     val signingOut: StateFlow<Boolean> = _signingOut.asStateFlow()
+
+    /**
+     * M3-T7: the user's tag taxonomy, observed from the Room mirror.
+     * Sorted by usageCount DESC then name ASC inside the DAO. The
+     * sheet groups these by kind for the user.
+     */
+    val tags: StateFlow<List<Tag>> = tagRepository
+        .observeAll()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
 
     fun signOut() {
         if (_signingOut.value) return
@@ -42,6 +63,19 @@ class SettingsViewModel @Inject constructor(
             // down the HomeScreen + SettingsSheet automatically.
             // We don't need to dismiss the sheet ourselves.
             _signingOut.value = false
+        }
+    }
+
+    /**
+     * M3-T7: create a new FREE tag from the management surface. Same
+     * path the LLM extractor will use when it surfaces a `#tag` it
+     * hasn't seen before.
+     */
+    fun addFreeTag(name: String) {
+        val clean = name.trim().trimStart('#').take(40)
+        if (clean.isBlank()) return
+        viewModelScope.launch {
+            runCatching { tagRepository.findOrCreateFree(clean) }
         }
     }
 }

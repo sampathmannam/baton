@@ -6,9 +6,11 @@ import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.InstructionDao
+import com.baton.app.data.local.InstructionTagDao
 import com.baton.app.data.local.PersonDao
 import com.baton.app.data.local.SyncConflictDao
 import com.baton.app.data.local.SyncQueueDao
+import com.baton.app.data.local.TagDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -80,4 +82,10 @@ object DatabaseModule {
 
     @Provides
     fun provideSyncConflictDao(db: AppDatabase): SyncConflictDao = db.syncConflictDao()
+
+    @Provides
+    fun provideTagDao(db: AppDatabase): TagDao = db.tagDao()
+
+    @Provides
+    fun provideInstructionTagDao(db: AppDatabase): InstructionTagDao = db.instructionTagDao()
 }

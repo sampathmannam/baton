@@ -7,6 +7,7 @@ import com.baton.app.data.instructions.SupabaseInstructionRepository
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.sync.RealtimeSync
+import com.baton.app.data.tags.RoomTagRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ class HomeViewModel @Inject constructor(
     private val instructionDao: InstructionDao,
     private val roomInstructionRepository: RoomInstructionRepository,
     private val supabaseInstructionRepository: SupabaseInstructionRepository,
+    private val tagRepository: RoomTagRepository,
     realtimeSync: RealtimeSync,
 ) : ViewModel() {
 
@@ -69,6 +71,11 @@ class HomeViewModel @Inject constructor(
         // install and the badge never appears until the user adds a
         // person via the NoteBar on this same device.
         refreshInstructionsFromNetwork()
+        // M3-T7: pull the user's tags on launch so the tag picker
+        // (in the capture sheet) is populated with the user's full
+        // taxonomy. Without this, the picker is empty until the
+        // user creates a tag on this device.
+        refreshTagsFromNetwork()
         // M2-T7: still subscribe to Realtime changes. When another
         // device (or this device, before the sync queue drains)
         // writes a row, the realtime event triggers a pull from
@@ -78,6 +85,7 @@ class HomeViewModel @Inject constructor(
                 when (change) {
                     is RealtimeSync.Change.Persons -> refreshFromNetwork()
                     is RealtimeSync.Change.Instructions -> refreshInstructionsFromNetwork()
+                    is RealtimeSync.Change.Tags -> refreshTagsFromNetwork()
                 }
             }
         }
@@ -126,6 +134,20 @@ class HomeViewModel @Inject constructor(
                     _state.value = HomeUiState.Error(
                         e.message ?: "Could not refresh instructions from network",
                     )
+                }
+        }
+    }
+
+    /**
+     * M3-T7: pull the user's tags from Supabase and upsert into
+     * Room. Non-fatal on failure; the capture sheet tag picker
+     * will just be empty.
+     */
+    private fun refreshTagsFromNetwork() {
+        viewModelScope.launch {
+            runCatching { tagRepository.refreshFromNetwork() }
+                .onFailure { e ->
+                    // Non-fatal: tag picker will be empty.
                 }
         }
     }

@@ -12,6 +12,7 @@ import com.baton.app.data.instructions.InstructionRepository
 import com.baton.app.data.instructions.Priority
 import com.baton.app.data.instructions.Source
 import com.baton.app.data.person.PersonRepository
+import com.baton.app.data.tags.RoomTagRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +40,7 @@ class CaptureViewModel @Inject constructor(
     private val captureRepository: CaptureRepository,
     private val personRepository: PersonRepository,
     private val instructionRepository: InstructionRepository,
+    private val tagRepository: RoomTagRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CaptureUiState())
@@ -55,12 +57,56 @@ class CaptureViewModel @Inject constructor(
     internal val calendarIntentsChannel: Channel<CalendarEventData> = Channel(capacity = Channel.BUFFERED)
     val calendarIntents: Flow<CalendarEventData> = calendarIntentsChannel.receiveAsFlow()
 
+    init {
+        // M3-T7: keep `availableTags` warm. The user picks from
+        // the full taxonomy; the Room cache is updated on every
+        // Realtime tags event from HomeViewModel.
+        viewModelScope.launch {
+            tagRepository.observeAll().collect { tags ->
+                _state.update { it.copy(availableTags = tags) }
+            }
+        }
+    }
+
     fun openSheet() {
         _state.update { it.copy(isVisible = true) }
     }
 
     fun dismissSheet() {
         _state.value = CaptureUiState()
+    }
+
+    /**
+     * M3-T7: toggle a tag chip in the capture sheet. The set
+     * is in memory only until the user taps Save; on Save the
+     * instruction row is created, then each tag in the set is
+     * linked via `instruction_tags`. The PENDING_INSERT status on
+     * a freshly-created free-form tag is preserved through this
+     * path: the sync queue drains on the next work run.
+     */
+    fun onTagToggled(tagId: String) {
+        _state.update {
+            val current = it.selectedTagIds
+            val next = if (current.contains(tagId)) current - tagId else current + tagId
+            it.copy(selectedTagIds = next)
+        }
+    }
+
+    /**
+     * M3-T7: add a free-form `#tag` to the proposal. The LLM
+     * extractor may surface `proposal.tags` in a future revision;
+     * until then the user can pre-emptively add a tag from the
+     * picker.
+     */
+    fun onAddFreeTag(name: String) {
+        val clean = name.trim().trimStart('#').take(40)
+        if (clean.isBlank()) return
+        viewModelScope.launch {
+            val tag = tagRepository.findOrCreateFree(clean) ?: return@launch
+            _state.update {
+                it.copy(selectedTagIds = it.selectedTagIds + tag.id)
+            }
+        }
     }
 
     fun onTextChanged(text: String) {
@@ -330,7 +376,7 @@ class CaptureViewModel @Inject constructor(
                     dueAt = proposal.dueAt,
                 )
             }
-            result.onSuccess {
+            result.onSuccess { created ->
                 // M1-T6: emit a calendar event data *after* the
                 // instruction lands. The instruction is the source
                 // of truth; the calendar event is a copy. The
@@ -344,6 +390,18 @@ class CaptureViewModel @Inject constructor(
                     )
                     if (event != null) {
                         calendarIntentsChannel.trySend(event)
+                    }
+                }
+                // M3-T7: attach the user's selected tags to the
+                // newly-created instruction. Failure here is
+                // non-fatal — the instruction lands in any case;
+                // the user can re-tag from the management screen.
+                if (current.selectedTagIds.isNotEmpty()) {
+                    runCatching {
+                        tagRepository.attachToInstruction(
+                            instructionId = created.id,
+                            tagIds = current.selectedTagIds.toList(),
+                        )
                     }
                 }
                 dismissSheet()

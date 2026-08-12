@@ -8,6 +8,7 @@ import com.baton.app.data.local.PersonOpenCount
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.person.Person
 import com.baton.app.data.sync.RealtimeSync
+import com.baton.app.data.tags.RoomTagRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -34,6 +35,7 @@ class HomeViewModelTest {
     private val instructionDao: InstructionDao = mockk(relaxed = true)
     private val roomInstructionRepository: RoomInstructionRepository = mockk(relaxed = true)
     private val supabaseInstructionRepository: SupabaseInstructionRepository = mockk(relaxed = true)
+    private val tagRepository: RoomTagRepository = mockk(relaxed = true)
     private val realtime: RealtimeSync = mockk(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -61,6 +63,7 @@ class HomeViewModelTest {
         instructionDao = instructionDao,
         roomInstructionRepository = roomInstructionRepository,
         supabaseInstructionRepository = supabaseInstructionRepository,
+        tagRepository = tagRepository,
         realtimeSync = realtime,
     )
 
