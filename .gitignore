@@ -57,6 +57,10 @@ app/debug/
 # of the repo. Delete the directory to force a re-vendor.
 app/src/main/cpp/llama-cpp/
 
+# M2-T3: vendored whisper.cpp source tree, downloaded by the
+# `vendorWhisperCpp` Gradle task. Same rationale as llama-cpp.
+app/src/main/cpp/whisper-cpp/
+
 # Local AI model files (downloaded at first run, NOT in repo)
 models/*.gguf
 models/*.bin

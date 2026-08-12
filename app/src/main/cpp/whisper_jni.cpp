@@ -44,6 +44,7 @@
 
 struct WhisperSession {
     whisper_context *ctx = nullptr;
+    int n_threads = 4;
     long last_eval_ms = 0;
 };
 
@@ -65,9 +66,12 @@ Java_com_baton_app_ai_whisper_WhisperBridge_nativeLoad(
     std::string path = jstring_to_std(env, model_path);
     LOGI("nativeLoad: path=%s n_threads=%d", path.c_str(), n_threads);
 
+    // whisper.cpp v1.8.x removed n_threads from whisper_context_params;
+    // n_threads is now a whisper_full_params field set at decode time.
+    // We keep the JNI signature for forward compat (the n_threads value
+    // is captured here and used in nativeTranscribe).
     whisper_context_params cparams = whisper_context_default_params();
     cparams.use_gpu = false;  // M2: CPU only (GPU is M3+).
-    cparams.n_threads = static_cast<int>(n_threads);
 
     whisper_context *ctx = whisper_init_from_file_with_params(path.c_str(), cparams);
     if (ctx == nullptr) {
@@ -77,6 +81,7 @@ Java_com_baton_app_ai_whisper_WhisperBridge_nativeLoad(
 
     auto *session = new WhisperSession();
     session->ctx = ctx;
+    session->n_threads = static_cast<int>(n_threads);
     return reinterpret_cast<jlong>(session);
 }
 
@@ -112,7 +117,7 @@ Java_com_baton_app_ai_whisper_WhisperBridge_nativeTranscribe(
     wparams.print_timestamps = false;
     wparams.translate = false;
     wparams.language = "en";
-    wparams.n_threads = 4;
+    wparams.n_threads = session->n_threads > 0 ? session->n_threads : 4;
     wparams.n_max_text_ctx = 0;  // no prompt prefix
     wparams.offset_ms = 0;
 
