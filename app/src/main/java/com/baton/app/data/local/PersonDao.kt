@@ -25,6 +25,18 @@ interface PersonDao {
     @Query("SELECT * FROM persons WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): PersonEntity?
 
+    /**
+     * v1.1.1: reactive read for the PersonDetailViewModel. Emits
+     * every time the row changes (e.g. when [setSensitive]
+     * toggles the local flag). The previous one-shot
+     * [getById] would not re-emit on a local update, so the
+     * detail screen's "Mark as sensitive" button stayed in its
+     * old state after a tap even though the local Room row
+     * flipped correctly.
+     */
+    @Query("SELECT * FROM persons WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<PersonEntity?>
+
     @Query("SELECT * FROM persons WHERE name = :name COLLATE NOCASE LIMIT 1")
     suspend fun findByName(name: String): PersonEntity?
 

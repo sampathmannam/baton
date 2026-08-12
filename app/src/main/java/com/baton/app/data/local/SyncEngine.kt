@@ -133,13 +133,27 @@ class SyncEngine @Inject constructor(
                 // server's state into Room. The caller (e.g. a UI
                 // "Edit person" flow) will see the authoritative
                 // value the next time it reads.
-                val row = json.decodeFromString(PersonInsert.serializer(), entry.payloadJson)
+                //
+                // v1.1.1: the payload is decoded as a sanity check
+                // — malformed JSON throws and the entry stays in the
+                // outbox for retry. v1.1 OP_UPDATE for persons is
+                // exclusively the `is_sensitive` toggle (there's no
+                // other person-edit flow yet). The wire call is
+                // `setSensitive(id, local.isSensitive)` regardless
+                // of true/false. v1.1's else-branch that called
+                // `personRemote.create(...)` for the false case was
+                // a root-cause bug — it would re-INSERT the row
+                // instead of PATCHing the column.
+                json.decodeFromString(PersonInsert.serializer(), entry.payloadJson)
                 val localRow = personDao.getById(entry.rowId)
+                if (localRow == null) {
+                    // Row was deleted locally before the drain ran.
+                    // Drop the entry; nothing to push.
+                    return
+                }
                 val serverRow = personRemote.findById(entry.rowId)
 
-                if (localRow != null && serverRow != null &&
-                    isServerNewer(serverRow.updatedAt, localRow.updatedAt)
-                ) {
+                if (serverRow != null && isServerNewer(serverRow.updatedAt, localRow.updatedAt)) {
                     // Conflict: server is newer. Drop local, log audit, mirror server.
                     syncConflictDao.insert(
                         SyncConflictEntity(
@@ -163,24 +177,13 @@ class SyncEngine @Inject constructor(
                     return
                 }
 
-                // No conflict: push the local change to the server.
-                // v1.1: if the local row is now sensitive, the
-                // server should drop the row (spec §13). The wire
-                // side's setSensitive does the PATCH.
-                if (localRow?.isSensitive == true) {
-                    personRemote.setSensitive(entry.rowId, true)
-                } else {
-                    personRemote.create(
-                        name = row.name,
-                        designation = row.designation,
-                        station = row.station,
-                        clientId = row.id,
-                    )
-                }
+                // No conflict (or server has no copy): PATCH the
+                // server's `is_sensitive` to match the local row.
+                personRemote.setSensitive(entry.rowId, localRow.isSensitive)
                 personDao.setSyncStatus(
                     entry.rowId,
                     SyncStatus.SYNCED,
-                    localRow?.updatedAt ?: nowIso(),
+                    localRow.updatedAt,
                 )
             }
             SyncQueueEntity.OP_DELETE -> {

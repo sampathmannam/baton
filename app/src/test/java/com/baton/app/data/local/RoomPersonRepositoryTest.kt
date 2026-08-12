@@ -216,4 +216,139 @@ class RoomPersonRepositoryTest {
         // Remote was NOT called.
         coVerify(exactly = 0) { remote.findByName(any()) }
     }
+
+    // ----- v1.1.1 root-cause: setSensitive wire flow -----
+
+    @Test
+    fun `setSensitive ON updates local, enqueues UPDATE, and PATCHes server with true`() = runTest {
+        // Seed a SYNCED row.
+        personDao.upsert(
+            com.baton.app.data.local.entities.PersonEntity(
+                id = "local-1",
+                name = "Ramu",
+                designation = "SHO",
+                station = "Bandipora",
+                phone = null,
+                userId = "u-1",
+                createdAt = "2026-08-12T00:00:00Z",
+                updatedAt = "2026-08-12T00:00:00Z",
+                syncStatus = SyncStatus.SYNCED,
+            )
+        )
+        // The wire PATCH succeeds.
+        coEvery { remote.findById("local-1") } returns null
+        coEvery { remote.setSensitive(any(), any()) } returns Unit
+
+        repo.setSensitive("local-1", true)
+        // Drain synchronously (production fires-and-forgets via
+        // appScope.launch; in the test we drive the drain
+        // explicitly so the assertion sees the wire call before
+        // the test returns).
+        syncEngine.drainOne("local-1", "persons", SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        // Local row is sensitive and SYNCED.
+        val local = personDao.getById("local-1")
+        assertNotNull(local)
+        assertEquals(true, local!!.isSensitive)
+        assertEquals(SyncStatus.SYNCED, local.syncStatus)
+        // Wire call PATCHed is_sensitive = true.
+        coVerify(exactly = 1) { remote.setSensitive("local-1", true) }
+        // No create() — v1.1's else-branch bug.
+        coVerify(exactly = 0) { remote.create(any(), any(), any(), any()) }
+        // Queue drained cleanly.
+        assertEquals(0, syncQueueDao.snapshot().size)
+    }
+
+    @Test
+    fun `setSensitive OFF PATCHes server with false (v1_1_1 regression guard)`() = runTest {
+        // v1.1.1 fix: toggling OFF must PATCH `is_sensitive = false`
+        // — NOT call `create()`. v1.1's else-branch bug would
+        // re-INSERT the row. The AssertionError in the create
+        // mock will fail the test if the bug regresses.
+        personDao.upsert(
+            com.baton.app.data.local.entities.PersonEntity(
+                id = "local-1",
+                name = "Ramu",
+                designation = "SHO",
+                station = "Bandipora",
+                phone = null,
+                userId = "u-1",
+                createdAt = "2026-08-12T00:00:00Z",
+                updatedAt = "2026-08-12T00:00:00Z",
+                isSensitive = true,  // already sensitive
+                syncStatus = SyncStatus.SYNCED,
+            )
+        )
+        coEvery { remote.findById("local-1") } returns null
+        coEvery { remote.setSensitive(any(), any()) } returns Unit
+        coEvery { remote.create(any(), any(), any(), any()) } throws
+            AssertionError("v1.1.1 fix: setSensitive(false) must NOT call create()")
+
+        repo.setSensitive("local-1", false)
+        syncEngine.drainOne("local-1", "persons", SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        // Local row is no longer sensitive and SYNCED.
+        val local = personDao.getById("local-1")
+        assertNotNull(local)
+        assertEquals(false, local!!.isSensitive)
+        assertEquals(SyncStatus.SYNCED, local.syncStatus)
+        // Wire call PATCHed is_sensitive = false.
+        coVerify(exactly = 1) { remote.setSensitive("local-1", false) }
+        assertEquals(0, syncQueueDao.snapshot().size)
+    }
+
+    @Test
+    fun `setSensitive wire failure leaves entry in outbox for retry`() = runTest {
+        // Offline tolerance: if the PATCH throws, the sync queue
+        // entry stays and the local row stays PENDING_UPDATE so
+        // the next drain retries.
+        personDao.upsert(
+            com.baton.app.data.local.entities.PersonEntity(
+                id = "local-1",
+                name = "Ramu",
+                designation = "SHO",
+                station = "Bandipora",
+                phone = null,
+                userId = "u-1",
+                createdAt = "2026-08-12T00:00:00Z",
+                updatedAt = "2026-08-12T00:00:00Z",
+                syncStatus = SyncStatus.SYNCED,
+            )
+        )
+        coEvery { remote.findById("local-1") } returns null
+        coEvery { remote.setSensitive(any(), any()) } throws
+            RuntimeException("network down")
+
+        repo.setSensitive("local-1", true)
+        syncEngine.drainOne("local-1", "persons", SyncQueueEntity.OP_UPDATE)
+        advanceUntilIdle()
+
+        // Local row is sensitive but PENDING_UPDATE (drain failed).
+        val local = personDao.getById("local-1")
+        assertNotNull(local)
+        assertEquals(true, local!!.isSensitive)
+        assertEquals(SyncStatus.PENDING_UPDATE, local.syncStatus)
+        // Sync queue entry remains.
+        val queue = syncQueueDao.snapshot()
+        assertEquals(1, queue.size)
+        assertEquals("persons", queue[0].table)
+        assertEquals(SyncQueueEntity.OP_UPDATE, queue[0].op)
+        assertTrue(queue[0].attempts >= 1)
+        assertNotNull(queue[0].lastError)
+    }
+
+    @Test
+    fun `setSensitive with non-existent id is a no-op`() = runTest {
+        // Edge case: the user tapped the toggle on a person that
+        // was just deleted. The DAO's getById returns null and
+        // the repo silently returns. No sync queue entry, no
+        // wire call.
+        repo.setSensitive("ghost", true)
+        advanceUntilIdle()
+
+        assertEquals(0, syncQueueDao.snapshot().size)
+        coVerify(exactly = 0) { remote.setSensitive(any(), any()) }
+    }
 }
