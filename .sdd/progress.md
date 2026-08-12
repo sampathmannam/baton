@@ -1,84 +1,73 @@
 # Baton progress ledger
 Branch: m0/skeleton
-Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final
+Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, **m3-final**
 
 ## M0 status: COMPLETE — APK installed, sign-in live, RLS verified, list shows user data
 
 ## M1 status: COMPLETE — 8 tasks shipped, 46/46 unit tests green, debug + release APK built, m1-capture tag pushed
 
-## M2 status: COMPLETE — 8/8 tasks shipped, 94/94 unit tests green, debug + release APK built, **m2-final tag + GitHub release pushed**
+## M2 status: COMPLETE — 8/8 tasks shipped, 94/94 unit tests green, debug + release APK built, m2-final tag + GitHub release pushed
 
-- M2-T1 + T2 (commit c4e71e5): share intent accepts image + in-app camera + ML Kit OCR
-- M2-T7 (commit 8007485): Realtime WebSocket subscription (OkHttp engine swap, persons + instructions table added to supabase_realtime publication via dashboard migration 0003). Live e2e: insert person via API -> Home tab refreshes in <1s.
-- M2-T5 (commit 0f7d9a9): quick-settings tile (BatonTileService) + home-screen widget (BatonCaptureWidget). Deep link `com.baton.app.action.QUICK_CAPTURE` -> MainActivity -> RootViewModel.quickCapture -> HomeScreen opens capture sheet. Live e2e: `am start -a QUICK_CAPTURE` opens the New note sheet.
-- M2-T6 (commit 75e7c43): **Room mirror + write-through sync queue**. Architecture change: UI reads from Room (Flow), writes go through Room + sync outbox + drain to Supabase. Live e2e: created "Room Test_M2T6 / ACP" via AddPersonSheet, appeared in Home within ~1s, verified reach at Supabase REST (id bdd07555-...). Tests: 76/76 green.
-- M2-T8 (commit 04b5f84): **last-write-wins conflict resolution** on the `persons` sync queue. SyncEngine now compares local `updated_at` against the server's via `findById`; if the server is newer, the local write is dropped and a row is inserted into `sync_conflicts` for the audit trail. The server's state is mirrored into Room. 6 new tests: server-newer drops + logs, local-newer proceeds, server-null proceeds, no conflict on equal timestamps, multiple conflicts, observe flow ordering. Tests: 82/82 green.
-- M2-T3 (commit 912630e): **Whisper.cpp JNI structure** for voice capture. New files: `app/src/main/cpp/whisper_jni.cpp` (PCM-16 -> text via `whisper_full`), `app/src/main/java/com/baton/app/ai/whisper/WhisperBridge.kt` (Kotlin facade), `WhisperError.kt` (sealed errors), `WhisperModelManager.kt` (~75 MB model download with SHA-256 verify). Gradle `vendorWhisperCpp` task downloads whisper.cpp v1.6.0 (last release compatible with the b4600-era ggml that llama.cpp vendors). 8 new tests. Tests: 90/90 green.
-- M2-T4 (commit c274b57): **VoiceCaptureService** (microphone foreground service) + mic button wired in NoteBar. AudioRecord at 16 kHz mono PCM-16; recording is streamed to a temp .pcm file, then on stop handed to WhisperBridge.transcribe(). The service sends the transcript (or error) back to the Activity via `ResultReceiver`. Manifest: RECORD_AUDIO + FOREGROUND_SERVICE + FOREGROUND_SERVICE_MICROPHONE perms; `foregroundServiceType="microphone"` on API 34+. Live e2e: tap mic -> permission dialog -> grant -> foreground service starts -> AudioFlinger thread "ready to run" -> mic icon at top of status bar turns green (active recording). 4 new VM tests. Tests: 94/94 green.
-- M2 build (commit 1db2691): whisper.cpp v1.6.0 vendor + JNI updated for v1.6+ API (n_threads moved from whisper_context_params to whisper_full_params) + .gitignore for the vendored tree.
+## M3 status: COMPLETE — 7/8 tasks shipped (T7 tags deferred), 114/114 unit tests green + 6 ignored, debug + release APK built, **m3-final tag + GitHub release pushed**
 
-### M2 finding-tests status
-- **FT-2.1** Photo capture: code path ready, live e2e on real device gated.
-- **FT-2.2** Voice capture: code path ready, real audio gated on a real device.
-- **FT-2.3** Image share: code path ready, live e2e on real device gated.
-- **FT-2.4** Multi-device sync: **VERIFIED** via M2-T7 (Realtime push) + M2-T6 (Room mirror).
-- **FT-2.5** Offline -> online: **VERIFIED** via M2-T6 unit test (create keeps local row when remote fails; sync queue retains with `attempts++` and `lastError`).
+### M3 tasks
 
-### m2-final tag + GitHub release
+- M3-T1 (commit 64a64e0): **SQLCipher encryption** for the local Room mirror. 32-byte passphrase generated in `SecurePreferences` (Keystore-backed `EncryptedSharedPreferences`), passed to `SupportOpenHelperFactory` at DB open. M2 plain `baton.db` is wiped on the M2 -> M3 transition by `AppInitializer.runOnAppStart()`. Verified on the emulator: `adb pull databases/baton.db` + `head -c 32` shows encrypted bytes (0xFF 0xFE 0xFD ...), not the "SQLite format 3" magic. 6 `SecurePreferencesTest` cases `@Ignore`d for Robolectric-no-AndroidKeyStore.
 
-Tag `m2-final` at commit 1db2691; release "Baton M2 Final: Voice + Photo + Sync" at https://github.com/sampathmannam/baton/releases/tag/m2-final with debug + release-unsigned APKs attached.
+- M3-T2 (commit 64a64e0): **WorkManager on-demand init**. The auto-init `ContentProvider` is removed from the manifest with `tools:node="remove"`; `BatonApplication.workManagerConfiguration` injects a Hilt-aware `Configuration` with `HiltWorkerFactory`; `SyncDrainWorker` is a `@HiltWorker` that calls `syncEngine.drainAll()`.
 
-### Finding test status (M2)
+- M3-T3 (commit f89e2ee): **8-shot extract prompt** in `assets/prompts/extract_v1.txt`. Added DSP rank preservation, same-day time cues ("before she leaves at 5"), `LOW` priority, and the explicit "no instruction found" return path. 4 new `ExtractorTest` cases.
+
+- M3-T4 (commit 59c7412): **Sign-out UI** — gear icon in the top app bar opens a `ModalBottomSheet` with a single destructive "Sign out" button. `SettingsViewModel.signOut()` calls `AppInitializer.runOnSignOut()` FIRST (drop DB key + delete `baton.db`) and THEN `authRepository.signOut()` (clear Supabase session). Reverse order would let the still-mounted Compose tree see a SQLCipher "not a database" error. 5 `SettingsViewModelTest` cases (order, observable flag, re-entrancy, AppInitializer error survives, AuthRepository error survives).
+
+- M3-T5 (commit c9b2535): **People list open-instruction badge**. New `InstructionDao.observeOpenCountByPerson(): Flow<List<PersonOpenCount>>` aggregates per person in Room; `HomeViewModel` `combine()`s it with the persons Flow and defaults missing persons to 0; `PersonRow` shows a `tertiaryContainer` Surface chip when count > 0, hides it otherwise. 3 new `InstructionDaoTest` cases (empty, count open + ignore closed, exclude null personId).
+
+- M3-T6 (commit 917ceb7): **PersonDetailScreen**. TopAppBar with back arrow, timeline of cards sorted by `capturedAt DESC` (title + status chip + raw text + capture date), empty state, bottom spacer for NoteBar. In-place routing for now (no NavHost); a Hilt entry point + `SavedStateHandle` carry the `personId` so the wiring moves into a real `composable("person/{personId}")` in M3.5 without touching the VM contract.
+
+- M3-T7: **DEFERRED**. Schema and design decided; UI lands in M4. Pre-existing `tags` + `instruction_tags` tables in `0001_init.sql` are untouched (the `tag_kind` enum is already in place).
+
+- M3-T8 (commits f8c7683 + 71f510c + 2f6755a): **Cloud MCP server** at `supabase/functions/mcp-server/`. 7 resources (`baton://persons`, `baton://person/{id}`, `baton://instructions`, `baton://instruction/{id}`, `baton://instructions/open`, `baton://instructions/due-today`, `baton://stats`) and 4 zod-validated tools (`create_person`, `create_instruction`, `update_instruction_status`, `search_instructions`). JWT verified at the Supabase gateway. Deployed to `https://cfnmpqwfvhlnbblxqesm.supabase.co/functions/v1/mcp-server`. Verified end-to-end: MCP initialize returned the right capabilities, all 7 resources listed, 4 tools listed with input schemas, the three write tools round-trip through RLS. Two non-obvious bumps during the deploy: the initial pin to SDK 1.0.0 didn't even have the high-level `McpServer` class (need 1.1+), and `StreamableHTTPServerTransport` is Node-only — Deno needs `WebStandardStreamableHTTPServerTransport` from `server/webStandardStreamableHttp.js`.
+
+- M3 e2e (commit 2f6755a): two issues caught when running the build on the emulator: (1) `net.zetetic:sqlcipher-android:4.6.1` bundles `libsqlcipher.so` but doesn't auto-load it, so the first DB read throws "No implementation found for nativeOpen" — fixed by `System.loadLibrary("sqlcipher")` at the top of `AppInitializer.runOnAppStart()`. (2) The M3-T5 badge was always 0 for instructions not created on this device because the launch-time refresh only pulled persons (M2-T6) and not instructions (left as TODO in M3-T5) — fixed by adding `InstructionRepository.fetchAll` + a thin `RoomInstructionRepository.refreshFromNetwork(remote)` overload, wired into `HomeViewModel.init`. After both fixes, signing in shows 7 persons with a `1` badge on Inspector Ramu, and tapping Ramu opens PersonDetailScreen with the instruction card, status chip, raw text, and capture date.
+
+### M3 finding-tests status
 
 | Test | Status |
 |---|---|
-| FT-2.1 photo capture -> confirmation card | Code path ready; real-device run gated on a JPEG fixture in cacheDir + a real device. |
-| FT-2.2 voice capture -> confirmation card | Deferred with M2-T3. |
-| FT-2.3 image share -> confirmation card | Code path ready; same gated-on-real-device caveat. |
-| FT-2.4 multi-device sync | **VERIFIED** (M2-T7 + T6): insert person via REST API -> Room is updated -> Home tab Flow re-emits -> UI updates within <1s. |
-| FT-2.5 offline -> online | **VERIFIED** (M2-T6): Unit test `create keeps local row when remote fails (offline tolerance)` proves the sync queue retains the entry with attempts++ and lastError; the next drain retries. Live e2e to follow. |
+| SQLCipher encryption end-to-end | **VERIFIED** — `adb pull databases/baton.db` + `head -c 32` shows encrypted bytes, not the SQLite magic. Sign-out flow + relaunch re-pulls from Supabase into a fresh encrypted DB. |
+| People list badge | **VERIFIED** — Inspector Ramu row shows `1` chip on real Supabase data; other 6 persons show no chip. |
+| Person detail timeline | **VERIFIED** — Tap Ramu, see the OPEN instruction card with raw text + 12 Aug capture date + status chip. |
+| MCP server resources | **VERIFIED** — `curl` with a Supabase user JWT returned all 7 resources' contents via `resources/list` + `resources/read`. |
+| MCP server tools | **VERIFIED** — `tools/call` for `create_person`, `create_instruction`, `search_instructions` all round-tripped through RLS and the writes were visible via the same resources. |
 
-### Live e2e verified on emulator-5554
+### Live e2e on emulator-5554
 
-- App installs and launches without crash
-- NoteBar shows the enabled camera + mic icons
-- Sign-in flow intact; Home shows existing persons
-- **Realtime**: inserted a person via REST API as baton.m0+demo@baton.app; the Home tab refreshed and the new person appeared within ~1s
-- **Quick-capture deep link**: `am start -a com.baton.app.action.QUICK_CAPTURE -n com.baton.app.debug/com.baton.app.MainActivity` opens the "New note" capture sheet
-- **Room mirror + write-through (M2-T6)**: created "Room Test_M2T6 / ACP" via AddPersonSheet; the row appeared in Home within ~1s; the REST API shows the same row at Supabase with the same client-generated UUID
+- Cold install + sign-in: list shows 7 persons; **Inspector Ramu** has a `1` badge (the OPEN `send FIR 47 - Inspector Ramu` instruction that's been sitting in Supabase since M1).
+- Tap **Inspector Ramu** → PersonDetailScreen with the instruction card, `Open` status chip, raw text, and capture date.
+- Re-install + cold start: SQLCipher `baton.db` is recreated encrypted; same data re-pulled from Supabase.
 
 ### What's deployed / ready
 
-- **APK (debug)**: `app/build/outputs/apk/debug/app-debug.apk` (49 MB, with M2-T1+T2+T5+T6+T7)
-- **APK (release)**: `app/build/outputs/apk/release/app-release-unsigned.apk` (38 MB)
+- **APK (debug)**: `app/build/outputs/apk/debug/app-debug.apk` (57 MB, with `libbaton-llama.so` + `libbaton-whisper.so` + `libsqlcipher.so`)
+- **APK (release)**: `app/build/outputs/apk/release/app-release-unsigned.apk` (40 MB)
 - **Supabase project**: cfnmpqwfvhlnbblxqesm (South Asia / Mumbai)
+- **MCP server**: `https://cfnmpqwfvhlnbblxqesm.supabase.co/functions/v1/mcp-server` (JWT-verified, 7 resources + 4 tools, RLS-scoped)
 - **Schema**: 13 migrations (12 + 0003_enable_realtime_publication), 11 tables, 42 RLS policies, `supabase_realtime` publication has `persons` + `instructions`
-- **Local DB**: Room mirror of `persons` / `instructions` / `captures` + `sync_queue` (encryption deferred to M3 audit)
+- **Local DB**: SQLCipher-encrypted Room mirror of `persons` / `instructions` / `captures` + `sync_queue` + `sync_conflicts`
 - **Test users**: baton.m0+demo@baton.app, baton.m0+userb@baton.app
 - **Branch**: m0/skeleton
-- **Tags**: m0-skeleton, m0-final, m1-capture, m2-capture
+- **Tags**: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, **m3-final**
 
-### Carry-forward to M3
+### m3-final tag + GitHub release
 
-1. **M2-T8 conflict resolution**: last-write-wins on `updated_at`,
-   audit in `sync_conflicts`. ~2 hours. `SyncEngine` already
-   tracks `attempts` and `lastError`; the merge rule lands in
-   the M2-T8 commit.
-2. **M2-T3 + T4 Whisper + voice service**: vendor whisper.cpp,
-   write `whisper_jni.cpp`, add `ggml-tiny.en.bin` model, wire a
-   `microphone` foreground service. ~6 hours total.
-3. **M3 People list timeline + person detail**: per-person
-   instruction history, person detail screen.
-4. **MCP server expansion**: all 7 resources + 4 tools at the
-   cloud Edge Function.
-5. **is_sensitive flag**: schema has it, M3 hooks it into the
-   sync engine.
-6. **WorkManager on-demand init** (the lint-disabled provider):
-   schedule SyncEngine.drainAll() on a periodic + connectivity
-   trigger.
-7. **SQLCipher on the local DB**: the dep is in `build.gradle.kts`
-   but the M2-T6 build opens a plain Room DB. The key derivation
-   lands with the privacy audit (M5).
-8. **5-shot -> 8-shot prompt** for better extraction accuracy.
-9. **Proper `title` field** in the extraction prompt.
-10. **Sign-out UI** (M5).
+Tag `m3-final` at commit c66195e; release "Baton M3 Final: Encrypted Local DB + Cloud MCP Server" at https://github.com/sampathmannam/baton/releases/tag/m3-final with debug + release-unsigned APKs attached.
+
+### Carry-forward to M4
+
+1. **M3-T7 tags**: schema v4, tag picker in capture sheet, tag management screen, Supabase RLS on `tags` + `instruction_tags`.
+2. **Today tab + nudge drafts** via llama.cpp — the M3 stats resource gives us the counts; M4 wraps them in a daily brief.
+3. **Brief scheduler** — Supabase cron job that calls the MCP server's `baton://instructions/due-today` resource on a schedule and pushes a digest to the user.
+4. **AppState IPC with MindAnchor** so captures from the watch flow into the same Room mirror.
+5. **8 / 9 ADHD-UX finding tests** (the calm-blue badge colour, the "carried over, not overdue" copy, the 1-tap save, etc.).
+6. **M3.5 real `NavHost`** so the `PersonDetailScreen` wiring moves out of the in-place `selectedPersonId` state in `HomeScreen` into `composable("person/{personId}")`.
+7. **Locally-trusted `is_sensitive` flag** — schema has it; M3 hooks it into the sync engine so redacted rows never hit the network.
