@@ -61,6 +61,9 @@ app/src/main/cpp/llama-cpp/
 # `vendorWhisperCpp` Gradle task. Same rationale as llama-cpp.
 app/src/main/cpp/whisper-cpp/
 
+# Failed v1.8.1 vendor attempt; never built into the app.
+app/src/main/cpp/whisper-cpp.v1.8.1.bak.tmp.removed/
+
 # Local AI model files (downloaded at first run, NOT in repo)
 models/*.gguf
 models/*.bin
