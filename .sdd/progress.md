@@ -1,33 +1,32 @@
 # Baton progress ledger
 Branch: m0/skeleton
-Tags: m0-skeleton, m0-final, m1-capture, m2-capture
+Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final
 
 ## M0 status: COMPLETE — APK installed, sign-in live, RLS verified, list shows user data
 
 ## M1 status: COMPLETE — 8 tasks shipped, 46/46 unit tests green, debug + release APK built, m1-capture tag pushed
 
-## M2 status: PARTIAL — 5 of 8 tasks shipped (photo + share image + Realtime + tile/widget + Room mirror), 76/76 unit tests green, debug + release APK built
+## M2 status: COMPLETE — 8/8 tasks shipped, 94/94 unit tests green, debug + release APK built, **m2-final tag + GitHub release pushed**
 
 - M2-T1 + T2 (commit c4e71e5): share intent accepts image + in-app camera + ML Kit OCR
 - M2-T7 (commit 8007485): Realtime WebSocket subscription (OkHttp engine swap, persons + instructions table added to supabase_realtime publication via dashboard migration 0003). Live e2e: insert person via API -> Home tab refreshes in <1s.
 - M2-T5 (commit 0f7d9a9): quick-settings tile (BatonTileService) + home-screen widget (BatonCaptureWidget). Deep link `com.baton.app.action.QUICK_CAPTURE` -> MainActivity -> RootViewModel.quickCapture -> HomeScreen opens capture sheet. Live e2e: `am start -a QUICK_CAPTURE` opens the New note sheet.
 - M2-T6 (commit 75e7c43): **Room mirror + write-through sync queue**. Architecture change: UI reads from Room (Flow), writes go through Room + sync outbox + drain to Supabase. Live e2e: created "Room Test_M2T6 / ACP" via AddPersonSheet, appeared in Home within ~1s, verified reach at Supabase REST (id bdd07555-...). Tests: 76/76 green.
+- M2-T8 (commit 04b5f84): **last-write-wins conflict resolution** on the `persons` sync queue. SyncEngine now compares local `updated_at` against the server's via `findById`; if the server is newer, the local write is dropped and a row is inserted into `sync_conflicts` for the audit trail. The server's state is mirrored into Room. 6 new tests: server-newer drops + logs, local-newer proceeds, server-null proceeds, no conflict on equal timestamps, multiple conflicts, observe flow ordering. Tests: 82/82 green.
+- M2-T3 (commit 912630e): **Whisper.cpp JNI structure** for voice capture. New files: `app/src/main/cpp/whisper_jni.cpp` (PCM-16 -> text via `whisper_full`), `app/src/main/java/com/baton/app/ai/whisper/WhisperBridge.kt` (Kotlin facade), `WhisperError.kt` (sealed errors), `WhisperModelManager.kt` (~75 MB model download with SHA-256 verify). Gradle `vendorWhisperCpp` task downloads whisper.cpp v1.6.0 (last release compatible with the b4600-era ggml that llama.cpp vendors). 8 new tests. Tests: 90/90 green.
+- M2-T4 (commit c274b57): **VoiceCaptureService** (microphone foreground service) + mic button wired in NoteBar. AudioRecord at 16 kHz mono PCM-16; recording is streamed to a temp .pcm file, then on stop handed to WhisperBridge.transcribe(). The service sends the transcript (or error) back to the Activity via `ResultReceiver`. Manifest: RECORD_AUDIO + FOREGROUND_SERVICE + FOREGROUND_SERVICE_MICROPHONE perms; `foregroundServiceType="microphone"` on API 34+. Live e2e: tap mic -> permission dialog -> grant -> foreground service starts -> AudioFlinger thread "ready to run" -> mic icon at top of status bar turns green (active recording). 4 new VM tests. Tests: 94/94 green.
+- M2 build (commit 1db2691): whisper.cpp v1.6.0 vendor + JNI updated for v1.6+ API (n_threads moved from whisper_context_params to whisper_full_params) + .gitignore for the vendored tree.
 
-### M2 deferred (see Carry-forward)
+### M2 finding-tests status
+- **FT-2.1** Photo capture: code path ready, live e2e on real device gated.
+- **FT-2.2** Voice capture: code path ready, real audio gated on a real device.
+- **FT-2.3** Image share: code path ready, live e2e on real device gated.
+- **FT-2.4** Multi-device sync: **VERIFIED** via M2-T7 (Realtime push) + M2-T6 (Room mirror).
+- **FT-2.5** Offline -> online: **VERIFIED** via M2-T6 unit test (create keeps local row when remote fails; sync queue retains with `attempts++` and `lastError`).
 
-The M2 plan covered 8 tasks. 5 shipped (T1, T2, T5, T6, T7). T3, T4, T8 deferred:
+### m2-final tag + GitHub release
 
-- **Whisper JNI (T3)** is a multi-day lift: vendor whisper.cpp at
-  b4600 alongside llama.cpp, write `whisper_jni.cpp` (PCM byte
-  array -> text), add the `ggml-tiny.en.bin` model download (75 MB
-  separate from the 1.1 GB Qwen model), wire OkHttp + SHA-256 verify.
-- **Voice foreground service (T4)** is the surrounding plumbing
-  (RECORD_AUDIO + FOREGROUND_SERVICE_MICROPHONE permissions,
-  `microphone` foreground service type, AudioRecord at 16 kHz, a
-  Channel<PCM> from service to VM). Depends on T3.
-- **Conflict resolution (T8)** depends on the Room mirror. The
-  SyncEngine's `recordFailure` / `lastError` columns are in place;
-  T8 adds the last-write-wins merge logic.
+Tag `m2-final` at commit 1db2691; release "Baton M2 Final: Voice + Photo + Sync" at https://github.com/sampathmannam/baton/releases/tag/m2-final with debug + release-unsigned APKs attached.
 
 ### Finding test status (M2)
 
