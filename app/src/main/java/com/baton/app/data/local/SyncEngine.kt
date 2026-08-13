@@ -179,6 +179,17 @@ class SyncEngine @Inject constructor(
      */
     suspend fun retryPermanentlyFailed(): Int = syncQueueDao.resetPermanentlyFailed()
 
+    /**
+     * v1.2.4 (F-HIGH-08): live count of outbox rows that have
+     * hit [MAX_ATTEMPTS] and are stuck (`PERMANENT_FAILURE:*`).
+     * Used by [com.baton.app.ui.settings.SettingsViewModel] to
+     * surface a "N stuck entries — Retry" action in the
+     * Settings sheet. The Flow re-emits on every change (new
+     * stuck row, retry, or drain).
+     */
+    fun observeStuckCount(): kotlinx.coroutines.flow.Flow<Int> =
+        syncQueueDao.observeStuckCount()
+
     private suspend fun processEntry(entry: SyncQueueEntity) {
         when (entry.table) {
             "persons" -> processPersonEntry(entry)

@@ -97,4 +97,25 @@ interface SyncQueueDao {
             "WHERE lastError LIKE 'PERMANENT_FAILURE:%'",
     )
     suspend fun resetPermanentlyFailed(): Int
+
+    /**
+     * v1.2.4 (F-HIGH-08): count of `PERMANENT_FAILURE:*` rows.
+     * Used by the SettingsViewModel to surface "N stuck outbox
+     * rows" in the UI. The count is also the input to the
+     * "Retry stuck entries" action.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM sync_queue WHERE lastError LIKE 'PERMANENT_FAILURE:%'",
+    )
+    fun observeStuckCount(): Flow<Int>
+
+    /**
+     * v1.2.4: synchronous count, for the SettingsViewModel's
+     * `retryStuck()` action — it shows the count on the
+     * confirmation snackbar ("Reset 3 stuck entries").
+     */
+    @Query(
+        "SELECT COUNT(*) FROM sync_queue WHERE lastError LIKE 'PERMANENT_FAILURE:%'",
+    )
+    suspend fun stuckCount(): Int
 }

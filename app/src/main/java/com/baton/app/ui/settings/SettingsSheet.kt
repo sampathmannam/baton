@@ -90,6 +90,18 @@ fun SettingsSheet(
                 onAdd = viewModel::addFreeTag,
             )
 
+            // v1.2.4 (F-HIGH-08): stuck-outbox-row indicator.
+            // Hidden when count is 0; shows a single row with
+            // the count + a "Retry" button when there are stuck
+            // rows.
+            val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()
+            if (stuckCount > 0) {
+                StuckOutboxCard(
+                    count = stuckCount,
+                    onRetry = viewModel::retryStuckOutbox,
+                )
+            }
+
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -123,6 +135,62 @@ fun SettingsSheet(
                 )
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/**
+ * v1.2.4 (F-HIGH-08): card showing the count of outbox rows
+ * stuck at `PERMANENT_FAILURE:*` + a "Retry" button. The retry
+ * action calls [SettingsViewModel.retryStuckOutbox] which
+ * resets the rows so the next drain can try them again.
+ *
+ * v1.2.4 design note: we deliberately use a non-error color
+ * (surfaceVariant) for the card. The rows are not necessarily
+ * the user's fault (server RLS denial, supabase outage, etc.)
+ * — the spec §1 says "no red badges". The user-action surface
+ * here is informational + actionable, not a warning.
+ */
+@Composable
+private fun StuckOutboxCard(
+    count: Int,
+    onRetry: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.typography.bodyLarge.let {
+            androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+        },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "$count stuck outbox ${if (count == 1) "entry" else "entries"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Failed to sync after multiple retries. Retry to put them back in the queue.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.size(8.dp))
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            ) {
+                Text("Retry")
+            }
         }
     }
 }

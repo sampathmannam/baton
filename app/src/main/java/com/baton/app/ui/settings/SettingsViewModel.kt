@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import com.baton.app.data.tags.Tag
@@ -41,10 +42,27 @@ class SettingsViewModel @Inject constructor(
     private val appInitializer: AppInitializer,
     private val tagRepository: RoomTagRepository,
     private val realtimeSync: RealtimeSync,
+    private val syncEngine: SyncEngine,
 ) : ViewModel() {
 
     private val _signingOut = MutableStateFlow(false)
     val signingOut: StateFlow<Boolean> = _signingOut.asStateFlow()
+
+    /**
+     * v1.2.4 (F-HIGH-08): number of outbox rows that have hit
+     * [SyncEngine.MAX_ATTEMPTS] and are stuck
+     * (`PERMANENT_FAILURE:*`). 0 means "no stuck rows" — the
+     * UI hides the retry card. The flow re-emits on every
+     * change (new stuck row, retry, or successful drain of a
+     * previously-stuck row).
+     */
+    val stuckOutboxCount: StateFlow<Int> = syncEngine
+        .observeStuckCount()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 0,
+        )
 
     /**
      * M3-T7: the user's tag taxonomy, observed from the Room mirror.
@@ -92,6 +110,24 @@ class SettingsViewModel @Inject constructor(
         if (clean.isBlank()) return
         viewModelScope.launch {
             runCatching { tagRepository.findOrCreateFree(clean) }
+        }
+    }
+
+    /**
+     * v1.2.4 (F-HIGH-08): reset all `PERMANENT_FAILURE:*` rows
+     * in the outbox so the next drain retries them. Called from
+     * the "Retry stuck entries" action in the Settings sheet.
+     * The next periodic drain (15 minutes) or the next
+     * per-write drain will process them with `attempts = 0`.
+     *
+     * No UI feedback is wired yet — the Settings sheet
+     * observes [stuckOutboxCount] and the count drops to 0 on
+     * success. A snackbar is a natural follow-up but it's
+     * out of scope for this fix.
+     */
+    fun retryStuckOutbox() {
+        viewModelScope.launch {
+            runCatching { syncEngine.retryPermanentlyFailed() }
         }
     }
 }
