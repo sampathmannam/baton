@@ -3,6 +3,7 @@ package com.baton.app.di
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppDao
@@ -75,12 +76,34 @@ object DatabaseModule {
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
             .openHelperFactory(factory)
             .addCallback(foreignKeysCallback())
-            // M2-T6: destructive migration is fine because the local
-            // cache is reconstructible from Supabase on the next
-            // refresh. Replace with real Migrations once the schema
-            // stabilises beyond M3.
-            .fallbackToDestructiveMigration()
+            // v1.2.2 (BUG-DATA-001): the first non-destructive
+            // migration in the project. v8 -> v9 adds
+            // `nextAttemptAt` to sync_queue. All previous bumps
+            // used `fallbackToDestructiveMigration`, which would
+            // have nuked any PENDING outbox rows on the upgrade.
+            // This migration preserves them — `ALTER TABLE ADD
+            // COLUMN` is a fast, online, lossless operation in
+            // SQLite (the file is rewritten but no data is read
+            // or copied; existing rows get the DEFAULT value).
+            .addMigrations(MIGRATION_8_9)
+            // v2 -> v8 still fall back to destructive (the
+            // pre-M3 versions had no outbox in production use,
+            // so there was nothing to preserve).
+            .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7, 8)
             .build()
+    }
+
+    /**
+     * v1.2.2 migration: add `nextAttemptAt` to sync_queue for
+     * exponential-backoff drain. `INTEGER NOT NULL DEFAULT 0`
+     * — existing rows get 0 = "ready now" so they're tried
+     * immediately on the first v1.2.2 drain.
+     */
+    private val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_queue_nextAttemptAt ON sync_queue(nextAttemptAt)")
+        }
     }
 
     /**
