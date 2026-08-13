@@ -83,8 +83,15 @@ class CaptureViewModelTest {
         val findByNameCalls = mutableListOf<String>()
         val created = mutableListOf<Triple<String, String?, String?>>()
         val existing = mutableMapOf<String, Person>()
-        override fun observeAll(): Flow<List<Person>> =
-            MutableStateFlow(existing.values.toList()).asStateFlow()
+        // v1.4 (PHONE-FINDING-8): reactive observeAll. v1.3 was a
+        // one-shot snapshot, which means [CaptureViewModel.hasPeople]
+        // would be stuck at the constructor-time value forever and
+        // never flip to `true` after a `create()`. Real Room is a
+        // live flow that re-emits on every local write; the v1.4
+        // fake mirrors that so the hasPeople StateFlow tests are
+        // faithful.
+        private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
+        override fun observeAll(): Flow<List<Person>> = personsFlow.asStateFlow()
         override suspend fun create(
             name: String,
             designation: String?,
@@ -101,6 +108,7 @@ class CaptureViewModelTest {
                 phone = null,
             )
             existing[name] = person
+            personsFlow.value = existing.values.toList()
             return person
         }
         override suspend fun findByName(name: String): Person? {
@@ -595,5 +603,150 @@ class CaptureViewModelTest {
         } catch (e: Throwable) {
             // Some Android stubs throw; we accept that.
         }
+    }
+
+    // ---- v1.4 (PHONE-FINDING-8): no-people guard on the capture
+    //      sheet. The brand-new user with zero people used to hit
+    //      a vague "Could not save note. Try again." error; the
+    //      v1.4 path exposes [hasPeople] as a StateFlow, gates
+    //      [onSaveRaw] in the VM, and renders an inline "Add a
+    //      person first" card in the UI. These tests lock the VM
+    //      contract; the UI-side assertions are static-scanned in
+    //      [com.baton.app.ui.home.HomeScreenTest].
+
+    @Test
+    fun `hasPeople is false when the repo has no people`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        // The fake's initial MutableStateFlow value is `emptyList()`,
+        // so the VM's `map { it.isNotEmpty() }` flow emits `false`.
+        assertFalse("brand-new repo must surface hasPeople = false", vm.hasPeople.value)
+    }
+
+    @Test
+    fun `hasPeople is true when the repo has at least one person`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        // Seed the fake with one person before constructing the VM.
+        person.create(name = "SHO Ramu", designation = null, station = null, clientId = "p1")
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        advanceUntilIdle()
+        assertTrue("repo with one person must surface hasPeople = true", vm.hasPeople.value)
+    }
+
+    @Test
+    fun `hasPeople flips to true after a person is created via the repo`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        advanceUntilIdle()
+        assertFalse(vm.hasPeople.value)
+        // AddPerson → fake.create() → personsFlow re-emits → VM flips.
+        person.create(name = "DSP Srinagar", designation = null, station = null, clientId = "p2")
+        advanceUntilIdle()
+        assertTrue(
+            "creating a person via the repo must flip hasPeople to true",
+            vm.hasPeople.value,
+        )
+    }
+
+    @Test
+    fun `selectedPersonId is null when the repo has no people`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        assertNull(vm.selectedPersonId.value)
+    }
+
+    @Test
+    fun `selectedPersonId is the first person in the repo when there is at least one`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        person.create(name = "SHO Ramu", designation = null, station = null, clientId = "p1")
+        person.create(name = "DSP Srinagar", designation = null, station = null, clientId = "p2")
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        advanceUntilIdle()
+        // Map order is iteration order of the underlying map, which
+        // is insertion order; "SHO Ramu" was inserted first.
+        assertEquals("p1", vm.selectedPersonId.value)
+    }
+
+    @Test
+    fun `onSaveRaw with no people surfaces NoPeopleException message and does not create an instruction`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        // Set up enough state for canSaveRaw to be true: a non-blank
+        // text. The VM's canSaveRaw check is `text.isNotBlank()`,
+        // not a proposal check.
+        vm.openSheet()
+        vm.onTextChanged("Some text the user wants to save verbatim")
+        advanceUntilIdle()
+        assertTrue(vm.state.value.canSaveRaw)
+
+        vm.onSaveRaw()
+        advanceUntilIdle()
+
+        // No instruction row is created when the user has no people.
+        assertEquals(
+            "onSaveRaw must NOT create an instruction when the user has no people",
+            0,
+            ins.created.size,
+        )
+        // The error surfaces the neutral NoPeopleException message.
+        val expected = NoPeopleException().message
+        assertEquals(
+            "onSaveRaw must surface the NoPeopleException message as the inline error",
+            expected,
+            vm.state.value.error,
+        )
+        // The sheet stays open so the user can tap the inline "Add
+        // person" button on the NoPeopleCard.
+        assertTrue(
+            "sheet must stay open after a no-people onSaveRaw",
+            vm.state.value.isVisible,
+        )
+    }
+
+    @Test
+    fun `onSaveRaw with a person present creates the instruction and dismisses the sheet`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        // Pre-seed the repo so hasPeople is true at VM construction.
+        person.create(name = "SHO Ramu", designation = null, station = null, clientId = "p1")
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        advanceUntilIdle()
+        assertTrue(vm.hasPeople.value)
+
+        vm.openSheet()
+        vm.onTextChanged("Some text the user wants to save verbatim")
+        advanceUntilIdle()
+        vm.onSaveRaw()
+        advanceUntilIdle()
+
+        assertEquals(1, ins.created.size)
+        assertNull(
+            "onSaveRaw is the free-floating path; the saved instruction has no person",
+            ins.created[0].personId,
+        )
+        assertFalse(
+            "sheet must dismiss after a successful onSaveRaw",
+            vm.state.value.isVisible,
+        )
+    }
+
+    @Test
+    fun `NoPeopleException message is neutral and action-oriented`() {
+        val ex = NoPeopleException()
+        val msg = ex.message ?: ""
+        // Spec §1: no red / no shame framing. The message must
+        // tell the user the next action in neutral language.
+        assertTrue("message must be non-blank", msg.isNotBlank())
+        assertTrue(
+            "message must not use the word 'error' (no-shame spec §1)",
+            !msg.contains("error", ignoreCase = true),
+        )
+        assertTrue(
+            "message must not use the word 'failed' (no-shame spec §1)",
+            !msg.contains("failed", ignoreCase = true),
+        )
+        assertTrue(
+            "message must guide the user to the next action",
+            msg.contains("Add a person", ignoreCase = true),
+        )
     }
 }
