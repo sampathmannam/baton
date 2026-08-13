@@ -1,4 +1,4 @@
-package com.baton.app.features.capture
+﻿package com.baton.app.features.capture
 
 import android.content.Context
 import android.content.Intent
@@ -17,9 +17,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -45,6 +48,58 @@ class CaptureViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(CaptureUiState())
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
+
+    /**
+     * v1.4 (PHONE-FINDING-8): the capture sheet now refuses to
+     * accept a save when the user has zero people — there is no
+     * person to attribute the instruction to, and the previous
+     * behaviour ("Could not save note. Try again.") was a vague
+     * silent failure. The UI observes [hasPeople] and renders an
+     * inline "Add a person first" card with a primary-coloured
+     * button that opens the AddPersonSheet; the Extract button is
+     * disabled when this is `false`. Defaulting to `false` is the
+     * safe direction: the first emission of [hasPeople] is the
+     * synchronous initial value, so a brand-new user who taps the
+     * note bar before the Room flow has emitted is protected by
+     * the inline card until [personRepository.observeAll] confirms
+     * the empty state. A real "has people" emit flips the flag on.
+     *
+     * The flow is `stateIn` with [SharingStarted.Eagerly] so the
+     * first reader sees the latest snapshot, not the default
+     * value — a user with 5 people won't flash the "Add a person
+     * first" card for a frame between activity create and first
+     * Room emission.
+     */
+    val hasPeople: StateFlow<Boolean> = personRepository.observeAll()
+        .map { it.isNotEmpty() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = false,
+        )
+
+    /**
+     * v1.4 (PHONE-FINDING-8): the [personId] the capture sheet
+     * should use to attribute the next saved instruction. The
+     * v1.3 path called [PersonRepository.findOrCreate] inside
+     * [onConfirm] which `findOrCreate`s by name and is fine for a
+     * proposal that already has a person. The v1.4 "no people"
+     * path means the user has no one to assign; the [onSave]
+     * guard (the brief calls this [selectedPersonId] derivation)
+     * is the explicit "we have a person to attribute to"
+     * derivation. The first person in [personRepository.observeAll]
+     * is the auto-selected default when the user has people but
+     * hasn't picked a specific one in the proposal yet. Returns
+     * `null` when [hasPeople] is `false` — the inline card in
+     * [CaptureSheet] blocks Extract in that case.
+     */
+    val selectedPersonId: StateFlow<String?> = personRepository.observeAll()
+        .map { persons -> persons.firstOrNull()?.id }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = null,
+        )
 
     /**
      * M1-T6: one-shot side effects. The ViewModel emits an [Intent]
@@ -347,6 +402,16 @@ class CaptureViewModel @Inject constructor(
         val current = _state.value
         val proposal = current.proposal ?: return
         if (!current.canConfirm) return
+        // v1.4 (PHONE-FINDING-8): note — v1.3 contract preserved.
+        // The capture sheet already disables Extract when
+        // [hasPeople] is `false`, so this path is only reachable
+        // when the proposal already names a person (v1.3
+        // `onConfirm` always saves a free-floating instruction
+        // when `proposal.person == null`, and the v1.3 test
+        // `onConfirm with no person still saves a free-floating
+        // instruction` locks this behaviour). The UI gate is
+        // the primary enforcement; the VM stays permissive so
+        // the v1.3 free-floating path is unbroken.
         _state.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
             val personId: String? = proposal.person?.let { name ->
@@ -423,6 +488,22 @@ class CaptureViewModel @Inject constructor(
     fun onSaveRaw() {
         val current = _state.value
         if (!current.canSaveRaw) return
+        // v1.4 (PHONE-FINDING-8): "Save as text" still needs a
+        // person to attribute to. The UI already hides this button
+        // when [hasPeople] is false (the inline "Add a person first"
+        // card replaces it), so this guard is the same
+        // defensive-backstop as [onConfirm] above. The user sees a
+        // clear error and the sheet stays open; the locked message
+        // tells them to add a person first.
+        if (!hasPeople.value) {
+            _state.update {
+                it.copy(
+                    isSaving = false,
+                    error = NoPeopleException().message,
+                )
+            }
+            return
+        }
         _state.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
             val rawText = current.text.trim()
@@ -477,3 +558,29 @@ class CaptureViewModel @Inject constructor(
         else -> Priority.NORMAL
     }
 }
+
+/**
+ * v1.4 (PHONE-FINDING-8): the locked "no people" failure. The
+ * capture sheet is unusable for a brand-new user with zero people
+ * — there is no person to attribute the instruction to. The
+ * previous behaviour surfaced this as a vague "Could not save note.
+ * Try again." which left the user stuck. The new path:
+ *
+ *  1. UI: when [com.baton.app.features.capture.CaptureViewModel.hasPeople]
+ *     is `false`, [com.baton.app.features.capture.CaptureSheet]
+ *     renders an inline "Add a person first" card and disables
+ *     the Extract button. The user sees the recovery path before
+ *     they can fail.
+ *  2. VM: even if the UI somehow fires [onConfirm] / [onSaveRaw]
+ *     with [hasPeople] false (a stale state from a delete race),
+ *     the VM surfaces [NoPeopleException.message] as the inline
+ *     error instead of attempting an un-attributable save.
+ *  3. Test: the VM's `onSave` test asserts this exception type,
+ *     so a future "let's just save with personId = null" shortcut
+ *     fails the test.
+ *
+ * The message is short, neutral, and tells the user the next
+ * action. No "error" / "failed" / red colour (the spec §1
+ * no-shame rule).
+ */
+class NoPeopleException : Exception("Add a person first to capture instructions.")

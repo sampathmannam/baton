@@ -1,11 +1,16 @@
-package com.baton.app.features.capture
+﻿package com.baton.app.features.capture
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -18,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -46,8 +52,15 @@ fun CaptureSheet(
     viewModel: CaptureViewModel,
     sheetState: SheetState = rememberModalBottomSheetState(),
     onDismiss: () -> Unit,
+    onOpenAddPerson: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // v1.4 (PHONE-FINDING-8): the no-people state is rendered as
+    // an inline card inside the sheet, with a primary-coloured
+    // "Add person" button. The VM's [hasPeople] StateFlow is the
+    // source of truth — the UI does not duplicate the empty-state
+    // check, it just collects the flow.
+    val hasPeople by viewModel.hasPeople.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // M1-T6: collect calendar events from the VM and launch them
@@ -75,6 +88,7 @@ fun CaptureSheet(
     ) {
         CaptureSheetContent(
             state = state,
+            hasPeople = hasPeople,
             onTextChanged = viewModel::onTextChanged,
             onExtract = viewModel::onExtract,
             onConfirm = viewModel::onConfirm,
@@ -88,6 +102,7 @@ fun CaptureSheet(
             onTagToggled = viewModel::onTagToggled,
             onAddFreeTag = viewModel::onAddFreeTag,
             onSaveRaw = viewModel::onSaveRaw,
+            onOpenAddPerson = onOpenAddPerson,
         )
     }
 }
@@ -95,6 +110,7 @@ fun CaptureSheet(
 @Composable
 private fun CaptureSheetContent(
     state: CaptureUiState,
+    hasPeople: Boolean,
     onTextChanged: (String) -> Unit,
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
@@ -106,6 +122,7 @@ private fun CaptureSheetContent(
     onTagToggled: (String) -> Unit = { },
     onAddFreeTag: (String) -> Unit = { },
     onSaveRaw: () -> Unit = { },
+    onOpenAddPerson: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -114,6 +131,22 @@ private fun CaptureSheetContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         SheetHeader(onClose = onClose)
+        // v1.4 (PHONE-FINDING-8): brand-new users have no people,
+        // so the capture sheet is unusable. The previous behaviour
+        // (a vague "Could not save note. Try again." on the rare
+        // save that actually fired) was a dead end. The new flow:
+        // an inline surfaceVariant card sits at the top with the
+        // exact next action ("Add person"). The card is non-
+        // dismissive (X / scrim / BACK still close the sheet as
+        // normal) — the user can keep typing, just not save, until
+        // they've added a person. The "Add person" button on the
+        // card calls [onOpenAddPerson], the same entry point the
+        // Home screen uses, so the user lands in the same AddPerson
+        // form. The surfaceVariant colour is neutral grey (per the
+        // no-red rule); no shame framing.
+        if (!hasPeople) {
+            NoPeopleCard(onOpenAddPerson = onOpenAddPerson)
+        }
         CaptureTextField(
             text = state.text,
             isExtracting = state.isExtracting,
@@ -153,10 +186,58 @@ private fun CaptureSheetContent(
             isExtracting = state.isExtracting,
             canExtract = state.canExtract,
             canConfirm = state.canConfirm,
+            // v1.4 (PHONE-FINDING-8): hard-disable the Extract
+            // (and the "Save as text" fallback below) when the
+            // user has no people. The button is still rendered —
+            // hiding it entirely would be confusing — but tapping
+            // it is a no-op. The inline NoPeopleCard above is the
+            // visible cue.
+            hasPeople = hasPeople,
             onExtract = onExtract,
             onConfirm = onConfirm,
             onSaveRaw = onSaveRaw,
         )
+    }
+}
+
+/**
+ * v1.4 (PHONE-FINDING-8): the inline "you need a person first"
+ * card. Renders at the top of the capture sheet when
+ * [CaptureViewModel.hasPeople] is `false`. The card uses
+ * `surfaceVariant` (a neutral grey, not the red `errorContainer`)
+ * and carries a single primary-coloured "Add person" button that
+ * fires [onOpenAddPerson]. The text is short and action-oriented
+ * per the no-shame spec rule.
+ */
+@Composable
+private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.capture_needs_person_message),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = onOpenAddPerson,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Add person" },
+            ) {
+                Text(stringResource(R.string.home_add_person))
+            }
+        }
     }
 }
 
@@ -205,12 +286,21 @@ private fun PrimaryAction(
     isExtracting: Boolean,
     canExtract: Boolean,
     canConfirm: Boolean,
+    hasPeople: Boolean,
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
     onSaveRaw: () -> Unit,
 ) {
+    // v1.4 (PHONE-FINDING-9): respect both the soft keyboard (ime)
+    // and the system navigation/gesture bar (navigationBars). On
+    // 1264x2780 devices the secondary "Save as text (skip
+    // extraction)" button was being clipped by the gesture bar. The
+    // `union` covers the case where only the gesture bar is present
+    // (no keyboard) and the case where the keyboard is up.
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
@@ -227,7 +317,11 @@ private fun PrimaryAction(
                 }
                 else -> Button(
                     onClick = onExtract,
-                    enabled = canExtract,
+                    // v1.4 (PHONE-FINDING-8): Extract is disabled when
+                    // the user has no people. The inline NoPeopleCard
+                    // above is the visible reason. Power users with
+                    // people keep the v1.3 behaviour.
+                    enabled = canExtract && hasPeople,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.capture_sheet_extract))
@@ -237,8 +331,11 @@ private fun PrimaryAction(
         // v1.1: spec §12 — "LLM extraction fails → raw text saved as-is".
         // The user can always skip extraction and save the text verbatim.
         // Shown only when the LLM hasn't produced a proposal yet, so it
-        // doesn't compete with the primary "Save" button.
-        if (!isExtracting && !canConfirm && canExtract) {
+        // doesn't compete with the primary "Save" button. v1.4
+        // (PHONE-FINDING-8): hidden when [hasPeople] is false for the
+        // same reason Extract is disabled — a "Save as text" without a
+        // person would still fail the same way.
+        if (!isExtracting && !canConfirm && canExtract && hasPeople) {
             androidx.compose.material3.OutlinedButton(
                 onClick = onSaveRaw,
                 modifier = Modifier.fillMaxWidth(),

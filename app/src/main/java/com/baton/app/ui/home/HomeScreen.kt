@@ -1,4 +1,4 @@
-package com.baton.app.ui.home
+﻿package com.baton.app.ui.home
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -143,7 +144,10 @@ fun HomeScreen(
             },
         ) { padding ->
             when (val s = state) {
-                HomeUiState.Empty -> EmptyState(padding)
+                HomeUiState.Empty -> EmptyState(
+                    padding = padding,
+                    onAddPersonClick = { showAddPerson = true },
+                )
                 HomeUiState.Loading -> Box(modifier = Modifier.fillMaxSize().padding(padding))
                 is HomeUiState.Loaded -> PersonList(
                     persons = s.persons,
@@ -199,12 +203,26 @@ fun HomeScreen(
         CaptureSheet(
             viewModel = captureViewModel,
             onDismiss = { /* sheet closed via VM */ },
+            // v1.4 (PHONE-FINDING-8): when the user has no people
+            // yet, the inline "Add a person first" card on the
+            // capture sheet points its "Add person" button at the
+            // same entry point the Home screen uses, so the user
+            // lands in the same AddPerson form. The sheet is
+            // dismissed before the AddPerson sheet opens so the
+            // back stack is single-step.
+            onOpenAddPerson = {
+                captureViewModel.dismissSheet()
+                showAddPerson = true
+            },
         )
     }
 }
 
 @Composable
-private fun EmptyState(padding: PaddingValues) {
+private fun EmptyState(
+    padding: PaddingValues,
+    onAddPersonClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -225,6 +243,37 @@ private fun EmptyState(padding: PaddingValues) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // v1.4 (PHONE-FINDING-1): the FAB in the Scaffold above
+            // uses primaryContainer which is too low-contrast against
+            // the dark surface — new users miss the entry point. The
+            // empty-state copy now carries its own prominent primary-
+            // coloured "Add person" button so the first thing a
+            // brand-new user sees gives them an obvious action. The
+            // FAB is still present (so power users have a constant
+            // anchor), but the empty-state button is the
+            // first-impression entry point. The button uses
+            // colorScheme.primary (not primaryContainer) so it stands
+            // out against both the dark and the light surface.
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = onAddPersonClick,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+                modifier = Modifier
+                    .semantics { contentDescription = "Add person" },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = stringResource(R.string.home_add_person),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
             Spacer(Modifier.height(80.dp))
         }
     }
