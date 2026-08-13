@@ -41,6 +41,8 @@ hilt-work-compiler = { module = "androidx.hilt:hilt-compiler", version = "1.2.0"
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+sqlite = { module = "androidx.sqlite:sqlite", version = "2.4.0" }
 sqlcipher-android = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher" }
 security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

@@ -262,6 +262,8 @@ dependencies {
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.okhttp)
+    testImplementation(libs.room.testing)
+    testImplementation(libs.sqlite)
     kspTest(libs.hilt.compiler)
 
     androidTestImplementation(libs.androidx.junit)
