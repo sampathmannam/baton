@@ -122,13 +122,25 @@ class SupabaseInstructionRepository(
         droppedReason: String?,
         isSensitive: Boolean,
     ): Instruction {
-        val nowIso = java.time.Instant.now().toString()
+        // v1.2 BATON-WIRE-007 fix: do NOT include `updated_at` in
+        // the PATCH body. The previous code stamped it with the
+        // device's `Instant.now()` — which is wrong if the device
+        // clock is skewed (NTP drift, manual timezone change, fresh
+        // phone). The brief generator and the LWW conflict check
+        // both compare `updated_at` lexicographically, so a
+        // mis-stamped server value masked real concurrent edits.
+        //
+        // We leave the column out of the PATCH so the server keeps
+        // its existing value. The Postgres schema has a
+        // `BEFORE UPDATE` trigger (deployed via the v1.2 migration)
+        // that sets `new.updated_at = now()` on every UPDATE. If
+        // the trigger is missing, the column is left unchanged —
+        // still safer than stamping a wrong value.
         val body: Map<String, kotlinx.serialization.json.JsonElement> = mapOf(
             "status" to JsonPrimitive(status.name),
             "completed_at" to (completedAt?.let { JsonPrimitive(it) } ?: JsonNull),
             "dropped_reason" to (droppedReason?.let { JsonPrimitive(it) } ?: JsonNull),
             "is_sensitive" to JsonPrimitive(isSensitive),
-            "updated_at" to JsonPrimitive(nowIso),
         )
         val updated: InstructionRow = client.postgrest
             .from("instructions")
@@ -145,6 +157,9 @@ class SupabaseInstructionRepository(
      * the sync engine when draining a PENDING_UPDATE with status =
      * DONE. The wire side does NOT itself queue another outbox
      * entry; the caller is responsible for the post-update mirror.
+     *
+     * v1.2: do NOT include `updated_at` (see BATON-WIRE-007). The
+     * server's `BEFORE UPDATE` trigger handles the timestamp.
      */
     override suspend fun markDone(id: String, completedAt: String) {
         client.postgrest
@@ -153,7 +168,6 @@ class SupabaseInstructionRepository(
                 mapOf(
                     "status" to Status.DONE.name,
                     "completed_at" to completedAt,
-                    "updated_at" to completedAt,
                 ),
             ) { filter { eq("id", id) } }
     }
@@ -162,6 +176,8 @@ class SupabaseInstructionRepository(
      * v1.1: convenience — mark a row DROPPED on the server. The
      * `reason` (free-text) is written into the `dropped_reason`
      * column so the user can review why in a future conflict UI.
+     *
+     * v1.2: do NOT include `updated_at` (see BATON-WIRE-007).
      */
     override suspend fun markDropped(id: String, reason: String?, at: String) {
         client.postgrest
@@ -170,7 +186,6 @@ class SupabaseInstructionRepository(
                 mapOf(
                     "status" to Status.DROPPED.name,
                     "dropped_reason" to reason,
-                    "updated_at" to at,
                 ),
             ) { filter { eq("id", id) } }
     }

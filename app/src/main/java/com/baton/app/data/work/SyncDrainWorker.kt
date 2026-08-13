@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.baton.app.data.local.SyncEngine
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 
 /**
  * M3-T2: a one-shot worker that drains the Room sync outbox to
@@ -14,15 +15,17 @@ import dagger.assisted.AssistedInject
  * (e.g. on connectivity change, or as a periodic worker — TBD in
  * M3.5).
  *
- * **Why a worker, not just a coroutine launch in the VM.** The
- * `HomeViewModel`'s `refreshFromNetwork` and the
- * `RoomPersonRepository.create` path both fire their own drains
- * — those cover the foreground use case. The worker covers
- * writes that the user made while the app was backgrounded or
- * killed (the outbox grows on disk until something flushes it).
- * For M2 the worker is registered but not scheduled; the
- * per-write drain is enough for the alpha. M3 wires it up to
- * WorkManager on connectivity change.
+ * **v1.2 root-cause fix (F-CRIT-07 / BUG-DATA-005):** v1.1 had the
+ * worker but never scheduled it. The per-write drainOne covered
+ * only the foreground path. A user who made 3 writes while
+ * backgrounded, was offline, and reopened the app 4 hours later
+ * had those 3 PENDING rows in `sync_queue` until the next
+ * foreground write — potentially forever. v1.2:
+ *  - calls drainAll (was already correct)
+ *  - is now scheduled periodically in [WorkManagerInitializer.schedule]
+ *  - the per-write drain in RoomPersonRepository.create /
+ *    RoomInstructionRepository.enqueueUpdate is unchanged — it
+ *    covers the foreground case
  */
 @HiltWorker
 class SyncDrainWorker @AssistedInject constructor(
@@ -35,8 +38,14 @@ class SyncDrainWorker @AssistedInject constructor(
         return try {
             syncEngine.drainAll()
             Result.success()
+        } catch (e: CancellationException) {
+            // Cooperative cancel — rethrow and do NOT retry. The
+            // work is canceled; the next periodic run will pick up
+            // whatever was left in the outbox.
+            throw e
         } catch (e: Exception) {
-            // Retry up to the WorkManager default. The outbox stays
+            // Transient failure (network, 5xx). Retry with
+            // WorkManager's exponential backoff. The outbox stays
             // on disk and the next worker run (or the per-write
             // drain in the VM) re-tries.
             Result.retry()

@@ -2,6 +2,14 @@ cmake_minimum_required(VERSION 3.22.1)
 
 project(baton_native LANGUAGES C CXX)
 
+# v1.2: 16 KB page-size alignment for Android 15+. Set BEFORE
+# add_subdirectory() so the upstream llama-cpp/ggml/whisper targets
+# inherit the flag too. Without this, Play Store rejects apps that
+# ship unaligned .so files (release-blocker on devices with 16 KB
+# pages, e.g. Pixel 8+, Galaxy S24+).
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384")
+set(CMAKE_EXECUTABLE_LINKER_FLAGS "${CMAKE_EXECUTABLE_LINKER_FLAGS} -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384")
+
 # Baton JNI bridge for llama.cpp AND whisper.cpp.
 #
 # Strategy: out-of-tree builds against vendored source trees. Two
@@ -35,6 +43,7 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/llama-cpp/CMakeLists.txt")
         ${log-lib}
         log
     )
+    # 16 KB page-size alignment set globally above (CMAKE_SHARED_LINKER_FLAGS).
     message(STATUS "Baton: llama.cpp subdir present, building baton-llama")
 else()
     message(WARNING "Baton: llama-cpp/ not vendored; skipping baton-llama (M1 features will be unavailable)")
@@ -54,6 +63,7 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/whisper-cpp/CMakeLists.txt")
         ${log-lib}
         log
     )
+    # 16 KB page-size alignment set globally above (CMAKE_SHARED_LINKER_FLAGS).
     message(STATUS "Baton: whisper.cpp subdir present, building baton-whisper")
 else()
     message(WARNING "Baton: whisper-cpp/ not vendored; skipping baton-whisper (M2 voice features will be unavailable)")

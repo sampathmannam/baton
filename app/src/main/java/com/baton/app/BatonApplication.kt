@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.work.WorkManagerInitializer
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -25,6 +26,12 @@ class BatonApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         appInitializer.runOnAppStart()
+        // v1.2 root-cause fix (F-CRIT-07): schedule a periodic
+        // sync drain so the outbox self-heals after process kill
+        // + reopen. The per-write drain in the VMs remains the
+        // foreground path; this is the "I was offline and now I'm
+        // not" safety net.
+        WorkManagerInitializer.schedulePeriodicDrain(this)
     }
 
     /**

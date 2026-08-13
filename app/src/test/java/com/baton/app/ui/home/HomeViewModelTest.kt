@@ -9,15 +9,23 @@ import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.person.Person
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
+import io.github.jan.supabase.exceptions.BadRequestRestException
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.get
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -25,6 +33,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -164,5 +174,71 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         coVerify(atLeast = 1) { repo.refreshFromNetwork() }
+    }
+
+    /**
+     * v1.2 regression test (BEAU-NEW-01 / BUG-AUTH-008).
+     *
+     * The original `Flow.catch { e -> HomeUiState.Error(e.message) }`
+     * surfaced the supabase-kt exception message verbatim, including
+     * the full REST URL, the JWT, the apikey, and the
+     * `X-Client-Info: supabase-kt/3.1.1` header. This test forces the
+     * upstream Flow to throw a `RestException` carrying all of that
+     * and asserts the surfaced [HomeUiState.Error] string contains
+     * none of it.
+     */
+    @Test
+    fun `BEAU-NEW-01 Flow catch does not leak URL, JWT, apikey, or SDK header`() = runTest(testDispatcher) {
+        val secretUrl = "https://cfnmpqwfvhlnbblxqesm.supabase.co/rest/v1/instructions?select=%2A"
+        val secretJwt = "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.dozjgNryXcZVm5lTHb8KDXGwY4H8Jz9w"
+        val secretApikey = "sb_publishable_ueOz-C6YKZM8CDPJSqsSgQ_UtYoPJVm"
+        val secretClientInfo = "supabase-kt/3.1.1"
+
+        // Build a real Ktor HttpResponse with a 500 status + leaky body
+        // so that RestException carries realistic exception text.
+        val leakyResponse: io.ktor.client.statement.HttpResponse =
+            HttpClient(MockEngine {
+                respond(
+                    content = "leaked: $secretUrl $secretJwt $secretApikey $secretClientInfo",
+                    status = HttpStatusCode.InternalServerError,
+                    headers = headersOf("X-Client-Info", secretClientInfo),
+                )
+            }).get("https://example.invalid/")
+
+        val leakyError = BadRequestRestException(
+            "GET $secretUrl: 500 $secretJwt $secretApikey $secretClientInfo",
+            leakyResponse,
+            "Server boom at $secretUrl",
+        )
+
+        // Make observeAll() throw our leaky exception.
+        // Use a flow that emits once and then throws, so the combine
+        // operator has at least one emission to react to before the
+        // throw propagates to the .catch block.
+        every { repo.observeAll() } returns flow<List<Person>> {
+            emit(emptyList())  // initial empty state — triggers combine emission
+            throw leakyError    // then throw — propagates to .catch
+        }
+
+        val vm = makeVm()
+
+        // Use Turbine to wait until the VM settles into Error.
+        vm.state.test {
+            // Skip past Loading + Empty.
+            var saw = awaitItem()
+            while (saw !is HomeUiState.Error) {
+                saw = awaitItem()
+            }
+            val msg = saw.message
+            assertFalse("URL leaked: $msg", msg.contains("supabase.co", ignoreCase = true))
+            assertFalse("/rest/v1/ leaked: $msg", msg.contains("/rest/v1/", ignoreCase = true))
+            assertFalse("JWT leaked: $msg", msg.contains("eyJ", ignoreCase = true))
+            assertFalse("Bearer leaked: $msg", msg.contains("Bearer", ignoreCase = true))
+            assertFalse("apikey leaked: $msg", msg.contains("sb_publishable", ignoreCase = true))
+            assertFalse("SDK name leaked: $msg", msg.contains("supabase-kt", ignoreCase = true))
+            assertFalse("X-Client-Info leaked: $msg", msg.contains("X-Client-Info", ignoreCase = true))
+            assertFalse("SDK version leaked: $msg", msg.contains("/3.1.1"))
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

@@ -1,0 +1,502 @@
+[
+  {
+    "id": "F-01",
+    "severity": "HIGH",
+    "title": "Brief notifier posts a permanent '0 / Nothing on your plate' — BriefNotifierWorker always builds an empty brief",
+    "file": "app/src/main/java/com/baton/app/data/brief/BriefNotifier.kt",
+    "lines": "137-152",
+    "category": "behavior",
+    "description": "BriefNotifierWorker.doWork() calls briefGenerator.build(..., instructions = emptyList()). The comment on line 143 admits 'this is a stub; the real count comes from the Today screen's brief'. As shipped, the daily push ALWAYS shows 'Nothing on your plate.' even when 12 items are open. The user has no idea there is a brief until they open the app.",
+    "fix": "Inject InstructionDao and pass `instructionDao.snapshot()` (or a Flow.first()) into the build. Or inject the same BriefGenerator.observeDailyBrief() and .first()."
+  },
+  {
+    "id": "F-02",
+    "severity": "HIGH",
+    "title": "POST_NOTIFICATIONS permission is declared but never requested — every morning brief is silent on Android 13+",
+    "file": "app/src/main/java/com/baton/app/MainActivity.kt + AndroidManifest.xml",
+    "lines": "MainActivity.kt:85, AndroidManifest.xml:33",
+    "category": "ux / a11y",
+    "description": "Manifest declares the permission; BriefNotifier gracefully no-ops if it isn't granted (BriefNotifier.kt:97-102). But nothing in the codebase ever invokes ActivityResultContracts.RequestPermission for it (grep -r confirms: only the RECORD_AUDIO launcher exists). On a fresh Android 13+ install, the brief is dead-on-arrival. The whole 'first 10 minutes' is missing the central retention loop.",
+    "fix": "In MainActivity.onCreate (after sessionState == Authenticated), use rememberLauncherForActivityResult(RequestPermission) and launch() for POST_NOTIFICATIONS. Show a one-line rationale first. The system dialog is non-blocking if the user denies."
+  },
+  {
+    "id": "F-03",
+    "severity": "HIGH",
+    "title": "Calendar intent crashes the app on devices without a Calendar app (no resolveActivity check)",
+    "file": "app/src/main/java/com/baton/app/features/capture/CalendarGate.kt + CaptureSheet.kt",
+    "lines": "CalendarGate.kt:75-84, CaptureSheet.kt:56-60",
+    "category": "crash",
+    "description": "toIntent() adds FLAG_ACTIVITY_NEW_TASK and is launched straight from the Composable's LaunchedEffect (CaptureSheet.kt:57-58). If the user has no Calendar app (vanilla AOSP, eBay phones, some Chinese OEMs), context.startActivity throws ActivityNotFoundException, killing the activity. The user just saved an instruction, the sheet dismisses, the app crashes. CalendarGateTest never runs the startActivity path.",
+    "fix": "In CaptureSheet.kt:56-60 wrap `context.startActivity(...)` in runCatching {}. On ActivityNotFoundException, show an inline snackbar/toast 'No Calendar app installed'. Also: Android 11+ package-visibility means even intent.resolveActivity() is unreliable unless you declare `<queries><intent><action android:name=\"android.intent.action.INSERT\" data android:mimeType=\"vnd.android.cursor.dir/event\" /></intent></queries>` in the manifest."
+  },
+  {
+    "id": "F-04",
+    "severity": "HIGH",
+    "title": "VoiceCaptureService.startForeground runs BEFORE the RECORD_AUDIO check — crashes on API 34+ if permission is denied",
+    "file": "app/src/main/java/com/baton/app/features/capture/VoiceCaptureService.kt",
+    "lines": "92-97, 201-233",
+    "category": "crash / permissions",
+    "description": "handleStart() unconditionally calls startForegroundWithNotification() and startRecording() with no permission preflight. On API 34+, the startForeground(id, notif, FOREGROUND_SERVICE_TYPE_MICROPHONE) call requires the app to be currently holding RECORD_AUDIO at that instant — if it isn't, the system throws SecurityException and the service dies. The 'caller must hold RECORD_AUDIO' javadoc on line 60-62 is wishful, not enforced. The HomeScreen check (HomeScreen.kt:170-178) helps the happy path but a backgrounded call (TileService deep-link, share-target → voice, etc.) could land here.",
+    "fix": "In handleStart(), check ContextCompat.checkSelfPermission(RECORD_AUDIO) FIRST. If denied, call deliverError('RECORD_AUDIO permission denied') + stopSelf() and return before startForeground."
+  },
+  {
+    "id": "F-05",
+    "severity": "HIGH",
+    "title": "VoiceCaptureService posts a permanent 'Listening' notification if AudioRecord fails to initialise",
+    "file": "app/src/main/java/com/baton/app/features/capture/VoiceCaptureService.kt",
+    "lines": "92-118, 161-167",
+    "category": "ux / resources",
+    "description": "If the microphone is held by another app (phone call, another recording app), AudioRecord returns a handle whose state != STATE_INITIALIZED. The code logs 'AudioRecord failed to initialize' to deliverError, but startForegroundWithNotification() ran on line 95 BEFORE that check, so the foreground-service notification 'Listening' stays visible with no way to dismiss it. The user sees a notification that says 'Recording your instruction' for an app that is doing nothing. The service eventually self-stops, but only if the receiver survives — on a process kill the notification persists.",
+    "fix": "Move startForegroundWithNotification() AFTER the AudioRecord init check. If init fails, deliverError and stopSelf() without ever calling startForeground."
+  },
+  {
+    "id": "F-06",
+    "severity": "HIGH",
+    "title": "Spec calls for 11-second recording cap and 'blind save' on Whisper failure — both are missing",
+    "file": "app/src/main/java/com/baton/app/features/capture/VoiceCaptureService.kt + spec § M2-T4",
+    "lines": "136-199",
+    "category": "spec drift / data loss",
+    "description": "Spec M2-T4 says: cap recording at 11s; if Whisper is slow, 'blind save' (write the PCM to disk so the user can re-transcribe later). Neither exists. Recording runs until the user taps Stop — at 16kHz mono PCM-16 = 32KB/s, an unattended recording can fill the cache. If the model is missing or Whisper throws, deliverError() is called and the recorded pcmFile in cacheDir/voice-*.pcm is silently abandoned. The user typed a 45-second instruction and lost it.",
+    "fix": "In startRecording(), launch a sibling coroutine with `delay(11_000)` that calls stopRecording() automatically. In handleStop(), on any throw from transcribe(), keep the pcmFile and write a 'FAILED_TRANSCRIBE' marker to Room so the next launch can offer 'Re-transcribe last voice'."
+  },
+  {
+    "id": "F-07",
+    "severity": "HIGH",
+    "title": "ShareReceiverActivity loses the shared text on OCR cancellation",
+    "file": "app/src/main/java/com/baton/app/features/capture/ShareReceiverActivity.kt",
+    "lines": "32-55",
+    "category": "data loss",
+    "description": "Line 50-52: `if (pending.isCancelled) forwardText(\"\")`. When the OCR coroutine is cancelled (activity is destroyed before it completes), this branch calls forwardText with an empty string. The forwarded intent carries EXTRA_SHARED_TEXT=\"\", HomeScreen's LaunchedEffect opens the sheet, the user types a new note, and the original shared image is GONE — the user thinks they shared it but Baton never recorded the attempt. Real loss of user input.",
+    "fix": "On cancel, still call forwardText with whatever bytes were OCR'd (even if partial), and on the MainActivity side, treat empty text as 'no pre-fill, don't open the sheet'. Or, simpler: don't auto-open the sheet on empty shared text."
+  },
+  {
+    "id": "F-08",
+    "severity": "HIGH",
+    "title": "Camera capture cancellation silently leaves a junk file in cacheDir with no user feedback",
+    "file": "app/src/main/java/com/baton/.../HomeScreen.kt + CameraLauncher.kt",
+    "lines": "HomeScreen.kt:103-118, CameraLauncher.kt:60-72",
+    "category": "ux",
+    "description": "If the user opens the camera and cancels, success=false. The Composable does nothing visible: no toast, no snackbar, no inline error. The cacheDir/captures/capture_<ts>.jpg file (created in newCaptureUri) is never deleted. Cache grows over time. Worse, if the system camera app crashes, success=false is also returned — the user sees a black screen flash and the capture sheet does nothing.",
+    "fix": "In the cameraLauncher callback, on `!success`, call captureViewModel.onVoiceError('Camera cancelled') (or a new onPhotoError method) and also delete the stale file in cacheDir/captures/. On success=false with the file empty, surface 'Camera unavailable' instead of staying silent."
+  },
+  {
+    "id": "F-09",
+    "severity": "HIGH",
+    "title": "Process death loses the partial note in the capture sheet — no SavedStateHandle",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureViewModel.kt",
+    "lines": "37-69",
+    "category": "data loss",
+    "description": "CaptureViewModel holds `text`, `proposal`, `selectedTagIds` etc. in MutableStateFlow — all in-memory. If Android kills the process while the sheet is open (Recents swipe, memory pressure, doze), on relaunch the VM is recreated with the default CaptureUiState(isVisible = false, text = ''). The user spent 4 minutes typing a long note — gone. No SavedStateHandle.getStateFlow('text', '') is wired.",
+    "fix": "Inject SavedStateHandle into CaptureViewModel, back `text`, `proposal`, `mode` with `getStateFlow(...)` / `savedStateHandle['text'] = it`. Restore on construction. Also: persist the in-progress note to Room (a 'draft' table) so even a force-close keeps it."
+  },
+  {
+    "id": "F-10",
+    "severity": "HIGH",
+    "title": "Extractor silently downloads the ~1GB Qwen model on first Extract with no progress UI",
+    "file": "app/src/main/java/com/baton/app/ai/extraction/Extractor.kt",
+    "lines": "49-82",
+    "category": "ux / network",
+    "description": "ensureModelLoaded() calls modelManager.downloadModel().collect { /* TODO: emit progress */ }. The user taps Extract for the first time and sees a frozen CircularProgressIndicator for 30-120 seconds. The TODO admits it. On a flaky network the download fails and the user just sees 'Inference failed' (line 55) with no path to retry. First-run UX is broken.",
+    "fix": "Convert the TODO into a real emit: ExtractorState.Downloading(percent). Surface in CaptureUiState as a determinate progress bar. On error, set ExtractorState.Error(msg) and re-enable Extract; the user taps again to retry."
+  },
+  {
+    "id": "F-11",
+    "severity": "HIGH",
+    "title": "Realtime subscription is never closed on sign-out and never debounced — leaks WebSockets across sign-in cycles",
+    "file": "app/src/main/java/com/baton/.../RealtimeSync.kt + HomeViewModel.kt",
+    "lines": "RealtimeSync.kt:42-99, HomeViewModel.kt:85-93",
+    "category": "resource leak / network",
+    "description": "(a) No stop() / unsubscribe. The application-scoped CoroutineScope outlives sign-out — the WebSocket stays open with the OLD auth token until the process dies. (b) The start() comment claims 'channel names are unique-per-URL, so two calls would subscribe twice' — but this is a footgun, not a guarantee: the supabase-kt 3.x API does not dedupe. (c) A single user edit on the server produces a flood of change events (one per touched row); each emits a Change.Instructions → a full Supabase fetchAll() in refreshInstructionsFromNetwork. No debounce. On a busy day, dozens of unnecessary round-trips per minute. (d) No ConnectivityManager.NetworkCallback — if the WebSocket drops on a network change, nothing reconnects until the next process start.",
+    "fix": "Add RealtimeSync.stop() that calls channel.unsubscribe() and cancels the scope. Wire AuthRepository.sessionStatus to invoke stop() on Unauthenticated. Wrap the changes collector in a .debounce(250.milliseconds).distinctUntilChanged() before dispatching. Add a NetworkCallback that calls start() again on availability."
+  },
+  {
+    "id": "F-12",
+    "severity": "HIGH",
+    "title": "Lexicographic date comparison in SyncEngine breaks for non-canonical timestamp formats — silently drops server updates",
+    "file": "app/src/main/java/com/baton/app/data/local/SyncEngine.kt",
+    "lines": "251-255",
+    "category": "data integrity",
+    "description": "isServerNewer does `serverUpdatedAt > localUpdatedAt` as strings. Java Instant.toString() produces e.g. '2026-08-13T05:39:00.123Z'. PostgREST can return '2026-08-13T05:39:00.123456+00:00' (Postgres microsecond precision). Char compare: '.123456+' vs '.123Z' — at position after '.123', '4' (0x34) < 'Z' (0x5A), so the server's newer timestamp is judged OLDER. The LWW logic then drops the server update. A recent server-side edit by another device is silently lost on this device. The comment claims the comparison is safe; it isn't.",
+    "fix": "Replace string compare with `Instant.parse(server).isAfter(Instant.parse(local))` (after null-checks). Same change needed wherever ISO-8601 strings are compared (Person.updatedAt, Instruction.updatedAt)."
+  },
+  {
+    "id": "F-13",
+    "severity": "MEDIUM",
+    "title": "BatonCaptureWidget missing FLAG_ACTIVITY_SINGLE_TOP — multiple widget taps create stacked activities and drop in-flight text",
+    "file": "app/src/main/java/com/baton/app/features/capture/BatonCaptureWidget.kt + AndroidManifest.xml",
+    "lines": "BatonCaptureWidget.kt:32-35, AndroidManifest.xml:60-68",
+    "category": "ux",
+    "description": "Widget intent uses `FLAG_ACTIVITY_NEW_TASK or FLAG_ACTIVITY_CLEAR_TOP` but no SINGLE_TOP. If MainActivity is already in the task (user has the app open, has a half-typed note), the widget tap creates a new instance. CLEAR_TOP destroys the existing one, so any pending capture sheet state in the in-memory VM is destroyed. The user sees a fresh empty screen.",
+    "fix": "Add `Intent.FLAG_ACTIVITY_SINGLE_TOP` to the widget intent flags. Combined with `onNewIntent` in MainActivity (which already exists), the action is delivered to the existing instance. TileService already does this correctly — the widget should match."
+  },
+  {
+    "id": "F-14",
+    "severity": "MEDIUM",
+    "title": "PersonHeader shows hardcoded '0 instructions' instead of the real count",
+    "file": "app/src/main/java/com/baton/app/ui/home/PersonDetailScreen.kt",
+    "lines": "276-281",
+    "category": "ux / copy",
+    "description": "Line 277: `stringResource(R.string.person_detail_timeline_count, /* placeholder */ 0)`. The comment says 'placeholder'. The string resource is `%1$d instructions`, so every person screen reads '0 instructions' regardless of how many rows are in the timeline. The real count is `s.instructions.size` from the Loaded state and is not wired.",
+    "fix": "Change PersonHeader to take `count: Int` and pass `instructions.size` from PersonTimeline. The string can become 'N instructions' or 'No instructions yet' (the latter if count==0, hiding the number entirely for ADHD-friendly copy)."
+  },
+  {
+    "id": "F-15",
+    "severity": "MEDIUM",
+    "title": "No length cap on the capture text field — 100k char paste freezes the LLM and (in some paths) OOMs",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureSheet.kt + CaptureViewModel.kt",
+    "lines": "CaptureSheet.kt:189-201, CaptureViewModel.kt:112-114",
+    "category": "crash / performance",
+    "description": "OutlinedTextField is unbounded; onValueChange is wired straight to onTextChanged which sets state.text = text. A 100,000-char paste goes into StateFlow (memory), then into the prompt string, then into the JNI call. LlamaBridge is configured with nCtx=2048 tokens — the JNI truncates, but Compose re-renders the sheet on every char (debouncing is per-keystroke, not per-paste). Result: a 5-second freeze on large pastes. The saveRaw path (CaptureViewModel.kt:429-430) takes(40) for the title but writes the full text to rawText — a 100k-char rawText row in Supabase is a real concern.",
+    "fix": "Add a soft cap: onTextChanged truncates to e.g. 4000 chars with a snackbar 'Long notes get truncated for the LLM extraction'. Hard-cap the Room column or document the limit in the UI."
+  },
+  {
+    "id": "F-16",
+    "severity": "MEDIUM",
+    "title": "Extractor accepts a proposal with empty action / empty instruction_text if confidence >= 0.5",
+    "file": "app/src/main/java/com/baton/app/ai/extraction/Extractor.kt",
+    "lines": "63-72 + ExtractedInstruction schema",
+    "category": "data integrity",
+    "description": "parse() decodes JSON into ExtractedInstruction without validating that `action` is non-blank or that `instructionText` is non-blank. The schema (ExtractedInstruction.kt:27) requires `action: String` (non-nullable) but does not enforce non-blank. If the LLM returns `{\"action\":\"\", \"instruction_text\":\"\", \"confidence\":0.9}` the proposal is accepted. The save flow (CaptureViewModel.buildTitle line 468-472) falls back to `proposal.instructionText.take(40)` which is also empty — the instruction row in Supabase has title='' and rawText=''. Real production data integrity bug.",
+    "fix": "In Extractor.parse(), reject if `parsed.action.isBlank() || parsed.instructionText.isBlank()`. Set ExtractorState.Error('Empty extraction') and return null."
+  },
+  {
+    "id": "F-17",
+    "severity": "MEDIUM",
+    "title": "WhisperModelManager.verify() returns true when the SHA asset is missing or starts with '#' (TOFU placeholder) — any tampered file is accepted",
+    "file": "app/src/main/java/com/baton/app/ai/whisper/WhisperModelManager.kt",
+    "lines": "97-109",
+    "category": "security / supply chain",
+    "description": "The shipped assets/whisper_sha256.txt starts with '#' (the test confirms this on line 81 of WhisperBridgeTest). verify() short-circuits to `return true` on the placeholder or any I/O failure. This is fine for a first run, but there's no upgrade path: if a future build swaps the placeholder for a real SHA, every existing user re-downloads the model. Worse, the protection is asymmetric — a tamperer who replaces the model AND the SHA asset (both in /data/data/.../files/models) wins. The threat model in SecurePreferences.kt is 'someone pulls the SQLite file'; the threat model for the model file should be similar.",
+    "fix": "On a real SHA, verify strictly. If the SHA is missing/placeholder, log a one-time WARN to logcat so the dev sees it in `adb logcat`. Consider embedding the SHA in code as a fallback (matches the SecurePreferences threat model)."
+  },
+  {
+    "id": "F-18",
+    "severity": "MEDIUM",
+    "title": "HomeViewModel's `combine(...)` of persons + counts + stale ignores the personId FK direction — count for free-floating instructions isn't shown",
+    "file": "app/src/main/java/com/baton/app/ui/home/HomeViewModel.kt",
+    "lines": "40-61",
+    "category": "behavior",
+    "description": "observeOpenCountByPerson() returns rows grouped by personId for non-null personIds only (InstructionDao.kt:68). Free-floating instructions (personId=null) are not represented in the badge. A user with 3 person rows and 5 free-floating instructions will see badge '0 / 0 / 0'. The behaviour is correct (no personId = no badge) but the UI does not communicate this — the user might assume the free-floating notes are lost.",
+    "fix": "Show a 'n free notes' row in HomeScreen when free-floating instructions exist. Or document the asymmetry in the empty-state copy."
+  },
+  {
+    "id": "F-19",
+    "severity": "MEDIUM",
+    "title": "TonePicker in NudgeSheet passes `stringResource` results directly as Modifier content description — fine — but several other IconButtons have no content description (or null) for TalkBack",
+    "file": "app/src/main/java/com/baton/app/features/capture/NoteBar.kt, TagPicker.kt, SettingsSheet.kt",
+    "lines": "NoteBar.kt:64-77, TagPicker.kt:107-110, SettingsSheet.kt:160-162",
+    "category": "a11y",
+    "description": "NoteBar's photo and mic IconButtons have contentDescription = stringResource(R.string.note_bar_camera/mic) — good. But the assist-chip '+ #tag' icons set `contentDescription = null` (TagPicker.kt:109, SettingsSheet.kt:160). The label 'Add a tag' is in the chip's text, so TalkBack reads the label — OK. However, the AssistChip onClick is `{}` for the ConfidenceChip in ConfirmationCard.kt:110 (it's not interactive, just decorative). A real a11y issue: the home screen's `StatusChip` in PersonDetailScreen.kt and the count badge in HomeScreen.kt:295-308 have no semantics at all — TalkBack reads the number but not 'open instructions' (no contentDescription on the Surface or Text).",
+    "fix": "Add `contentDescription` via semantics{...} to: count badge in PersonRow, StatusChip, ConfidenceChip ('High / Medium / Low confidence'), the Stale indicator dot ('No activity for 3+ days'). The pattern is to wrap with `Modifier.semantics { contentDescription = \"...\" }` and `role = Role.Image`."
+  },
+  {
+    "id": "F-20",
+    "severity": "MEDIUM",
+    "title": "Touch targets below 48dp in the capture sheet's free-tag input and tag chips",
+    "file": "app/src/main/java/com/baton/app/features/tags/TagPicker.kt, app/src/main/java/com/baton/app/ui/settings/SettingsSheet.kt",
+    "lines": "TagPicker.kt:73,90, SettingsSheet.kt:173-175",
+    "category": "a11y",
+    "description": "TagPicker LazyRow `heightIn(min = 40.dp)` (TagPicker.kt:73) is below Material's 48dp minimum touch target. The free-form text field `heightIn(min = 40.dp)` (TagPicker.kt:90) is also under-sized. The same is true of SettingsSheet.kt:173-175 (40dp). On a touch screen, a small-finger / motor-impairment user can miss the chip. Compose's default minimumInteractiveComponentSize is 48dp but the explicit heightIn override bypasses it.",
+    "fix": "Remove the heightIn(min = 40.dp), or set it to 48dp. For chips, use `Modifier.heightIn(min = 32.dp)` on the visual chip but rely on FilterChip's default touch padding."
+  },
+  {
+    "id": "F-21",
+    "severity": "MEDIUM",
+    "title": "Capture sheet OutlinedTextField clips at 200dp — text disappears at 200% font scale",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureSheet.kt",
+    "lines": "189-201",
+    "category": "a11y",
+    "description": "The capture text field is `heightIn(min = 96.dp, max = 200.dp)`. At Android's 200% font scale (the max users can set in display size), a 6-line paste fills 200dp+ and the rest scrolls off without a scroll flag. Spec §3 calls for large-font support. Compose's OutlinedTextField scrolls internally but the heightIn clips the visible region; the user can't see what they're typing. Worse, the primary action button is below the text field — at 200% scale, the keyboard pushes it off screen.",
+    "fix": "Drop the heightIn(max=...) or set it to a much larger value (e.g. 320.dp). Wrap in verticalScroll(rememberScrollState()) for the whole sheet content. For the keyboard, add `Modifier.imePadding()` on the Column or use `WindowCompat.setDecorFitsSystemWindows(window, false)` (MainActivity already calls enableEdgeToEdge — verify imePadding propagation)."
+  },
+  {
+    "id": "F-22",
+    "severity": "MEDIUM",
+    "title": "Spec says 'light only' but Theme.kt ships a full BatonDarkScheme — dark-mode users see half-designed colors",
+    "file": "app/src/main/java/com/baton/app/ui/theme/Theme.kt + colors.xml/themes.xml",
+    "lines": "Theme.kt:28-39, themes.xml:3",
+    "category": "spec drift / ux",
+    "description": "Theme.kt defines a complete darkColorScheme (lines 28-39) which kicks in when isSystemInDarkTheme(). themes.xml line 3 hardcodes `android:Theme.Material.Light.NoActionBar` for the activity. The result: the splash and any native widgets are light; the Compose tree is dark. Hard-coded `Color(0xFFD9A05B)` (stale dot in HomeScreen.kt:280) doesn't switch. The Capture sheet's translucent `AssistChip` background (ConfirmationCard.kt:114) is `Color.Transparent` — in dark mode, the label color is `tertiary` on `surface`, which may not be WCAG-AA. Spec explicitly says light-only; the code is contradicting it.",
+    "fix": "Either remove BatonDarkScheme and force `BatonTheme(darkTheme = false, ...)`, or commit to dark mode and design a complete dark palette (with WCAG-AA contrast verification). Don't ship half-baked dark."
+  },
+  {
+    "id": "F-23",
+    "severity": "MEDIUM",
+    "title": "Color contrast of the AssistChip ConfidenceChip (Color.Transparent container, onSurface tint) likely fails WCAG AA",
+    "file": "app/src/main/java/com/baton/app/features/capture/ConfirmationCard.kt",
+    "lines": "103-117",
+    "category": "a11y / WCAG",
+    "description": "ConfidenceChip uses `containerColor = Color.Transparent` and `labelColor = color` where color is `primary / tertiary / outline`. The actual visible background is the parent surface — `MaterialTheme.colorScheme.surface` in light mode is `0xFFFFFFFF`. The label color `primary` is `0xFF4A6FA5` (a mid blue) on `0xFFFFFFFF` = ~5.3:1 ratio. Borderline-pass at body text size but AssistChip text is labelMedium (~12sp), which requires 4.5:1 minimum. The 'Low' chip uses `outline` (0xFFD8D2C5) — that's a 1.4:1 ratio and FAILS WCAG AA completely.",
+    "fix": "Replace the transparent container with `MaterialTheme.colorScheme.surfaceVariant` (or `secondaryContainer`). Use a labelColor with verified contrast: 'High' = `onPrimaryContainer` on `primaryContainer`, 'Medium' = `onTertiaryContainer` on `tertiaryContainer`, 'Low' = `onSurfaceVariant` on `surfaceVariant`."
+  },
+  {
+    "id": "F-24",
+    "severity": "MEDIUM",
+    "title": "No orientation lock — MainActivity allows rotation but the spec says portrait-only and the layout does not adapt",
+    "file": "app/src/main/AndroidManifest.xml + theme/colors",
+    "lines": "AndroidManifest.xml:60-68",
+    "category": "spec drift / layout",
+    "description": "The spec says portrait-only. The manifest has no `android:screenOrientation=\"portrait\"`. If the user rotates the device, the activity is recreated. The `ModalBottomSheet` for capture may re-open with state loss (depends on the VM). The `LazyColumn` in PersonDetail at landscape on a foldable will work but the capture sheet is sized for portrait — at landscape, the text field is half the screen, the buttons are off-screen. The `BottomNav` doesn't move, leaving 80dp of nav bar taking up half the screen. The behaviour is not 'broken' but it's not tested.",
+    "fix": "Either set `android:screenOrientation=\"portrait\"` in the manifest to match the spec, or add landscape-specific layouts. The current state is a real-world surprise on tablets and foldables."
+  },
+  {
+    "id": "F-25",
+    "severity": "MEDIUM",
+    "title": "Voice capture blind-save gap: pcmFile from a failed transcription is never moved to a recoverable location",
+    "file": "app/src/main/java/com/baton/app/features/capture/VoiceCaptureService.kt",
+    "lines": "99-118, 168-170",
+    "category": "data loss",
+    "description": "When handleStop() runs and transcribe() throws (model missing, no audio bytes, etc.), the function logs the error to deliverError, then stopForegroundCompat + stopSelf. The PCM file in cacheDir/voice-${ms}.pcm is left on disk but never moved to a 'drafts' table or surfaced. Cache eviction may delete it before the user realises. The user dictated an instruction and lost it — the error string in the toast is the only evidence.",
+    "fix": "On any failure in handleStop(), rename the pcmFile to `filesDir/voice_drafts/${ms}.pcm` (persistent) and insert a 'failed_voice_capture' row into Room with the file path. On the next launch, surface '1 unsaved voice note — Retry' in the capture sheet."
+  },
+  {
+    "id": "F-26",
+    "severity": "MEDIUM",
+    "title": "ShareReceiverActivity's CoroutineScope(Dispatchers.IO) is never cancelled — leaks when the OCR is slow",
+    "file": "app/src/main/java/com/baton/app/features/capture/ShareReceiverActivity.kt",
+    "lines": "42-53",
+    "category": "resource leak",
+    "description": "Line 43 creates a new `CoroutineScope(Dispatchers.IO)` per share intent. The `pending` Job is fired but the scope itself is never cancelled. invokeOnCompletion on line 50 fires for the job but the scope's lifetime is the process. On a slow OCR (large image, low device), the activity finishes but the coroutine keeps running. With a steady stream of shares this leaks memory + the InputImage.fromFilePath may hold a content provider reference.",
+    "fix": "Replace the anonymous scope with a `lifecycleScope` (Activity-1.7+) or a `MainScope() + Job` that is cancelled in onDestroy."
+  },
+  {
+    "id": "F-27",
+    "severity": "MEDIUM",
+    "title": "Configuration `models` asset files (whisper_url.txt, model_url.txt) can throw FileNotFoundException at runtime if missing",
+    "file": "app/src/main/java/com/baton/app/ai/whisper/WhisperModelManager.kt + ModelManager.kt",
+    "lines": "WhisperModelManager.kt:49-50, ModelManager.kt:43-44",
+    "category": "crash / packaging",
+    "description": "downloadModel() opens `whisper_url.txt` and `whisper_sha256.txt` from assets with no try/catch around the open() calls. The verify() function on line 99 does have a runCatching, but downloadModel does not. If the build ever drops these asset files (e.g. M2 release is shipped without M2-T3's whisper bits), the first capture throws FileNotFoundException mid-Flow — the user sees a crash with no actionable message.",
+    "fix": "Wrap the assets.open() calls in runCatching, throw a friendly `LlamaError.ModelManifestMissing` / `WhisperError.ModelManifestMissing`. Show 'Voice capture not available on this build' in the UI."
+  },
+  {
+    "id": "F-28",
+    "severity": "MEDIUM",
+    "title": "Realtime subscription collects 3 separate Change types but HomeViewModel dispatches each independently — race window for partial refresh",
+    "file": "app/src/main/java/com/baton/app/ui/home/HomeViewModel.kt",
+    "lines": "85-93",
+    "category": "concurrency",
+    "description": "When `Change.Instructions` arrives, only `refreshInstructionsFromNetwork()` runs. When `Change.Persons` arrives, only `refreshFromNetwork()` runs. A multi-row update on the server (e.g. a person + their instructions update in the same Realtime event batch) emits two separate changes with a small gap. Between them, the UI shows the new person with stale open counts (the badge re-renders only after the second fetch). With debounce missing (see F-11), the gap is visible.",
+    "fix": "Coalesce: have a single `refreshAll()` that pulls persons + instructions + tags in parallel, and dispatch it on any Change type."
+  },
+  {
+    "id": "F-29",
+    "severity": "MEDIUM",
+    "title": "M3-T6 'stalePersonIds' has a TOCTOU between brief generation and the people list re-render",
+    "file": "app/src/main/java/com/baton/app/data/brief/BriefGenerator.kt + HomeViewModel.kt",
+    "lines": "BriefGenerator.kt:39-47, HomeViewModel.kt:40-61",
+    "category": "concurrency / spec",
+    "description": "BriefGenerator observes instructionDao.observeAll() to compute the brief. HomeViewModel observes a different Flow (combine of persons + counts + stale) for the Home screen. The same Room row is re-read in two different observers. With Flow.combine's emission semantics, a single Room update can fire BOTH observers, but at different times. The user opens the Today tab (sees brief N), then the Home tab (sees HomeList N+1) — a single instruction completion can flicker between the two. On mark-done, the brief's `needsYouToday` recomputes but the Home list's `stalePersonIds` and `openCountByPersonId` recompute separately. Brief and Home are not in lockstep.",
+    "fix": "Share a single StateFlow source-of-truth at the Application scope (a BriefRepository that wraps both). Or, in the ViewModel, expose `brief` and `homeList` from the same underlying Flow chain."
+  },
+  {
+    "id": "F-30",
+    "severity": "LOW",
+    "title": "Whisper native library loaded in a static init block — silent on failure, but caller can't distinguish 'voice not vendored' from 'JNI signature wrong'",
+    "file": "app/src/main/java/com/baton/app/ai/whisper/WhisperBridge.kt",
+    "lines": "96-110",
+    "category": "diagnostics",
+    "description": "The `init` block swallows `UnsatisfiedLinkError`. transcribe() then throws `WhisperError.NotLoaded` regardless of whether the lib is missing, the JNI signature is wrong, or the model isn't loaded. In production, when the user reports 'voice capture broken', the developer has no signal as to which one. The error path becomes a black box.",
+    "fix": "Expose a `loadStatus: StateFlow<LoadStatus>` with values VENDORED_MISSING, LOAD_OK, INFERENCE_OK. Surface in a debug-only screen or a tag on the model file."
+  },
+  {
+    "id": "F-31",
+    "severity": "LOW",
+    "title": "Camera launcher's `pendingUri` lives in a `remember`ed state — survives configuration changes but is lost on process death",
+    "file": "app/src/main/java/com/baton/app/ui/home/HomeScreen.kt",
+    "lines": "102-118",
+    "category": "data loss / ux",
+    "description": "`val pendingUri = remember { mutableStateOf<android.net.Uri?>(null) }` — this is correct for a config change (remember preserves across recomposition but not process death). If the user opens the camera and the system kills Baton while the camera app is foregrounded, on relaunch pendingUri is null, the cameraLauncher returns success=true with no URI, and the code does nothing. The user has a photo they took but Baton silently dropped it.",
+    "fix": "Hoist pendingUri into the CaptureViewModel (as a property backed by StateFlow). Even better: persist the file path into Room as a PENDING_OCR row."
+  },
+  {
+    "id": "F-32",
+    "severity": "LOW",
+    "title": "MainActivity#consumeSharedText only inspects, doesn't handle Image payloads — sharing an image opens the capture sheet with empty text",
+    "file": "app/src/main/java/com/baton/app/MainActivity.kt",
+    "lines": "118-126",
+    "category": "behavior",
+    "description": "When the ShareReceiverActivity forwards an image, it OCRs first (ShareReceiverActivity.kt:42-46) and calls forwardText with the OCR text — so MainActivity receives a `Result.Text`, not `Result.Image`. The `is ShareIntake.Result.Image` branch on line 122 is dead code. Fine, but it's a maintenance smell. If the OCR path ever changes to forward the image URI (e.g. the user wants to capture a photo of a person's handwriting), the receiver is not wired.",
+    "fix": "Remove the dead branch with a comment, OR wire it up: forward the image URI to the capture sheet which shows a thumbnail and prompts 'Extract text?'."
+  },
+  {
+    "id": "F-33",
+    "severity": "LOW",
+    "title": "addFreeTag in CaptureViewModel adds the tag id but doesn't surface the new chip — invisible addition in the horizontal scroll",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureViewModel.kt",
+    "lines": "101-110",
+    "category": "ux",
+    "description": "When the user types a new free-form #tag, it's added to selectedTagIds. The TagPicker LazyRow may or may not scroll to show the new chip. The state `availableTags` updates from `tagRepository.observeAll()` but the LazyRow's `items()` does not auto-scroll to the last item. The user may tap '+ #tag', type 'case-foo', hit Add, and the chip is added off-screen to the right. They assume it didn't work.",
+    "fix": "In TagPicker.kt, after onAddFree, use `rememberLazyListState` and `LaunchedEffect(tags.size)` to `listState.animateScrollToItem(tags.size - 1)`."
+  },
+  {
+    "id": "F-34",
+    "severity": "LOW",
+    "title": "Calendar intent does not preserve the source instruction's link — calendar event has no `person` or `id` reference",
+    "file": "app/src/main/java/com/baton/app/features/capture/CalendarGate.kt",
+    "lines": "40-88",
+    "category": "data loss",
+    "description": "The intent passes TITLE, DESCRIPTION, BEGIN_TIME, END_TIME. There's no extra for `person`, no `instruction_id`. The user creates a calendar entry; later they look at the calendar entry, no way to know which Baton instruction it came from. Description carries the prose but the link to the instruction row in Supabase is lost.",
+    "fix": "Add `CalendarContract.EXTRA_EVENT_DESCRIPTION` continuation: 'Baton instruction: ${instructionId}'. Or use the new CalendarContract.ExtendedProperties (API 26+) to add a custom property `baton_instruction_id` that the app can read back via the Calendar Provider."
+  },
+  {
+    "id": "F-35",
+    "severity": "LOW",
+    "title": "HomeViewModel `init` launches 3 parallel network fetches + a Realtime subscription on every VM creation",
+    "file": "app/src/main/java/com/baton/app/ui/home/HomeViewModel.kt",
+    "lines": "40-94",
+    "category": "performance",
+    "description": "On every configuration change that destroys and recreates the HomeViewModel (rotation, theme switch, sign-in), the 3 refreshes fire again. With `stateIn(SharingStarted.Eagerly, ...)` on `sessionState` in RootViewModel, the HomeViewModel may be recreated multiple times. Each call hits Supabase. There is no `distinctUntilChanged` or single-source check.",
+    "fix": "Move the 'first launch refresh' logic into a `HomeRepository` that is application-scoped and uses a single SharedFlow to dedupe. The VM only observes the repository."
+  },
+  {
+    "id": "F-36",
+    "severity": "LOW",
+    "title": "Brief notifier KEEP policy means changing the user's brief_time never applies until the user reinstalls",
+    "file": "app/src/main/java/com/baton/app/data/brief/BriefNotifier.kt",
+    "lines": "68-84",
+    "category": "spec drift",
+    "description": "WorkManager.enqueueUniquePeriodicWork uses KEEP. If the user changes their preferred brief_time (the UI doesn't currently expose this, but spec implies it should), the existing scheduled work is kept. The new hour has no effect. Spec calls for 'user-local 4 AM' (M4-T1 comment) but the current code defaults to 07:30 with no UI to change it.",
+    "fix": "When the brief_time preference changes, call enqueueUniquePeriodicWork with REPLACE instead of KEEP. Or expose a one-shot `enqueueNextBrief()` and have the worker schedule its successor."
+  },
+  {
+    "id": "F-37",
+    "severity": "LOW",
+    "title": "BatonTileService uses CATEGORY_LAUNCHER workaround on API 34+ but never tested — quick-settings tiles on OneUI / MIUI may have different requirements",
+    "file": "app/src/main/java/com/baton/app/features/capture/BatonTileService.kt",
+    "lines": "35-46",
+    "category": "compat",
+    "description": "The branch on line 35-45 adds CATEGORY_LAUNCHER only on API 34+. On Xiaomi MIUI, the tile service can be 'banned' from starting activities if the app is in a deep-sleep state. On Samsung OneUI, the tile works only if the user has added the tile (which the manifest's QS_TILE intent-filter handles) AND has granted 'auto-launch' permission. None of this is tested.",
+    "fix": "Add an emulator/device matrix in the test plan that exercises Xiaomi + Samsung + Pixel. The TileService's startActivity path should be smoke-tested manually and a screenshot test added."
+  },
+  {
+    "id": "F-38",
+    "severity": "LOW",
+    "title": "BriefNotifierWorker doesn't respect POST_NOTIFICATIONS check on the worker thread — the API 33+ guard runs but if the app's notification permission was revoked between schedule and fire, the notify() still throws SecurityException",
+    "file": "app/src/main/java/com/baton/app/data/brief/BriefNotifier.kt",
+    "lines": "96-121",
+    "category": "crash / permissions",
+    "description": "postNotification() checks `Manifest.permission.POST_NOTIFICATIONS` (line 97-102) but then calls NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notif) on line 119. NotificationManagerCompat's notify() is documented to silently fail on Android 13+ if the permission is denied — but the runCatching on line 118-120 also catches a SecurityException that may be thrown by some OEM ROMs (Xiaomi, Huawei, Vivo have a separate 'auto-start' / 'battery whitelist' permission). On those devices, the brief worker crashes silently and the user has no recourse.",
+    "fix": "Wrap the notify in a broader try-catch and log a WARN; the brief is also available in the Today tab, so the notification failure is non-fatal."
+  },
+  {
+    "id": "F-39",
+    "severity": "LOW",
+    "title": "Capture sheet's `OutlinedButton` Save-as-text is a hardcoded English string — not localised",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureSheet.kt",
+    "lines": "242-247",
+    "category": "i18n / a11y",
+    "description": "Text(\"Save as text (skip extraction)\") is a hardcoded English literal. Every other UI text in the file uses stringResource(R.string.…). This is the only string the user sees on the failure path (when the LLM returns null) so the inconsistency is jarring. Same in ConfirmationCard.kt:50 ('Proposed instruction'), line 87 ('Needs a due time'). The spec calls for a multilingual app (Tamil+English+Hindi per the LEO design language).",
+    "fix": "Move all hardcoded English to strings.xml."
+  },
+  {
+    "id": "F-40",
+    "severity": "LOW",
+    "title": "onPhotoTextRecognized in CaptureViewModel silently discards blank OCR — no user feedback that the photo was unreadable",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureViewModel.kt",
+    "lines": "150-156",
+    "category": "ux",
+    "description": "If PhotoCapture.recognize returns an empty string, the Composable branch `if (text.isNotBlank()) captureViewModel.onPhotoTextRecognized(text)` is skipped (HomeScreen.kt:112-114). The user sees the camera button flash, no sheet opens, no toast. The photo was likely blurry, dark, or handwritten. The user retries with the same result.",
+    "fix": "Surface 'Couldn't read text from the photo. Try again with better lighting.' in the capture sheet error field. Even better: also pass the imageUri so the user can see what was captured."
+  },
+  {
+    "id": "F-41",
+    "severity": "LOW",
+    "title": "Data extraction rules fully exclude backup, but `data_extraction_rules.xml` includes `device-transfer` with only `<exclude domain=\"root\" />` — too narrow",
+    "file": "app/src/main/res/xml/data_extraction_rules.xml",
+    "lines": "1-14",
+    "category": "security / data extraction",
+    "description": "The cloud-backup section excludes all 5 domains (root, file, database, sharedpref, external) — good. The device-transfer section excludes only `root`. A device-to-device transfer (Android 12+ 'Switch to new phone' flow) would copy the Room database (unencrypted on the wire — Transfer happens over a local Wi-Fi Direct link) and the shared prefs (which contain the SQLCipher passphrase!). The threat model in SecurePreferences.kt is 'someone steals the phone'; the device-transfer flow is exactly that threat: a new device gets the same database AND the key to decrypt it.",
+    "fix": "Mirror the cloud-backup exclusions in device-transfer: exclude database, sharedpref, file, external. Or, explicitly opt out of device transfer entirely with a single `<exclude domain=\"root\" />` + `<exclude domain=\"database\" />` + `<exclude domain=\"sharedpref\" />`."
+  },
+  {
+    "id": "F-42",
+    "severity": "LOW",
+    "title": "Capture sheet doesn't accept IME action 'Done' / 'Search' — keyboard Enter inserts newline",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureSheet.kt",
+    "lines": "189-201",
+    "category": "a11y / ux",
+    "description": "OutlinedTextField has no `keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)`, no `keyboardActions = KeyboardActions(onDone = { onExtract() })`. The user types a note, hits Enter on the keyboard, gets a newline. They expected 'submit'. ADHD-friendly UX would wire Enter to Extract / Save.",
+    "fix": "Add imeAction = ImeAction.Done and onDone = { onExtract() }."
+  },
+  {
+    "id": "F-43",
+    "severity": "LOW",
+    "title": "Realtime subscription channel name uses `BuildConfig.SUPABASE_URL.hashCode()` — collisions on multi-environment builds (debug + release point to same Supabase)",
+    "file": "app/src/main/java/com/baton/app/data/sync/RealtimeSync.kt",
+    "lines": "87-99",
+    "category": "diagnostics / multi-env",
+    "description": "The comment on line 91 says 'unique-per-URL'. If a developer has both debug and release builds pointing to the same Supabase URL, the channel name collides. If both are installed, the second `start()` will subscribe to the same channel — and supabase-kt will route events to whichever process is currently attached, but a process backgrounding the app may cause events to be delivered to the wrong process. Subtle, hard-to-debug.",
+    "fix": "Include the package name in the channel name: `\"baton-$table-${BuildConfig.SUPABASE_URL.hashCode()}-${context.packageName}\"`."
+  },
+  {
+    "id": "F-44",
+    "severity": "LOW",
+    "title": "FileProvider authority suffix hardcoded as `'.fileprovider'` — drift risk if applicationId changes",
+    "file": "app/src/main/java/com/baton/app/features/capture/CameraLauncher.kt + AndroidManifest.xml",
+    "lines": "CameraLauncher.kt:27, AndroidManifest.xml:94",
+    "category": "maintenance",
+    "description": "CameraLauncher.AUTHORITY_SUFFIX = '.fileprovider' is hardcoded. The manifest declares `${applicationId}.fileprovider`. If a future product flavor uses applicationId='com.baton.app.pro', CameraLauncher's suffix produces 'com.baton.app.pro.fileprovider' which matches — but only if the constant stays in sync. There's no test asserting the two are equal.",
+    "fix": "Read the authority from the manifest at runtime via `packageManager.getProviderInfo(ProviderInfo().apply { authority = \"${packageName}.fileprovider\" }, 0)`. Or add a test that reads both and asserts equality."
+  },
+  {
+    "id": "F-45",
+    "severity": "LOW",
+    "title": "Build-time locale: app is English-only — no values-ta (Tamil) or values-hi (Hindi) directories, contradicting the spec",
+    "file": "app/src/main/res/values/strings.xml + spec §3",
+    "lines": "strings.xml (1-62)",
+    "category": "spec drift / i18n",
+    "description": "All 62 strings are in English. The LEO design language (per the user-profile) calls for Tamil+English+Hindi. A police officer in Tamil Nadu who types English for capture but expects the UI in Tamil will see English-only text. The LLM extraction prompt (extract_v1.txt) is in English; the user-facing strings should be available in at least Tamil.",
+    "fix": "Add values-ta/strings.xml + values-hi/strings.xml with translations. Wire `localConfiguration` in MainActivity to honour the user's locale."
+  },
+  {
+    "id": "F-46",
+    "severity": "LOW",
+    "title": "Extractor state observer is dead code — ExtractorState is set in process() but never read by the UI",
+    "file": "app/src/main/java/com/baton/app/ai/extraction/Extractor.kt",
+    "lines": "42-61",
+    "category": "dead code",
+    "description": "Extractor exposes `state: StateFlow<ExtractorState>` but no Composable or ViewModel collects it. CaptureViewModel watches `isExtracting` on its own MutableStateFlow (CaptureViewModel.kt:231). The Extractor's state is informational only — the test in ExtractorTest doesn't even check it. The 'measure before you claim' rule (project memory) would catch this: the progress emit on line 78 of Extractor is also dead code (commented TODO).",
+    "fix": "Either remove the dead state observer, or wire it to CaptureUiState so the UI can show 'Downloading model: 47%' on first run."
+  },
+  {
+    "id": "F-47",
+    "severity": "LOW",
+    "title": "Capture sheet onConfirm fires the calendar intent via a Channel, but the channel has BUFFERED capacity — a fast double-tap can buffer 2 calendar events",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureViewModel.kt",
+    "lines": "57-58, 380-390",
+    "category": "duplicate dispatch",
+    "description": "calendarIntentsChannel has `Channel.BUFFERED` capacity. The Composable collects via .receiveAsFlow() which is a single-consumer. onConfirm is called once per Save tap, and after success, dismissSheet() resets state (line 399). The canConfirm guard prevents most double-dispatches. But: if the user has slow tap recognition and double-taps Save before canConfirm flips to false (between line 380 and 399), both taps reach onConfirm. Two calendar intents fire. Real on a low-end device with a slow onSaveRaw path.",
+    "fix": "In onConfirm, set isSaving = true at the top (line 350 already does this), and the canConfirm gate (line 349) is checked — but isSaving is also in the gate. Verify: `_state.update { it.copy(isSaving = true, ...) }` happens BEFORE the launch. Yes — so the second tap sees isSaving=true and the gate `canConfirm = isVisible && proposal != null && !isSaving` returns false. OK, this is actually defended. Downgrading to INFO."
+  },
+  {
+    "id": "F-48",
+    "severity": "INFO",
+    "title": "Duplicate detection between identical captures is not implemented",
+    "file": "app/src/main/java/com/baton/app/features/capture/CaptureViewModel.kt + InstructionRepository",
+    "lines": "CaptureViewModel.kt:346-409",
+    "category": "feature gap",
+    "description": "User question 10: 'tell Ramu to send FIR' twice → two instructions. The current implementation has no dedup. Each onConfirm writes a fresh row. The audit-trail argument is real (user did capture twice) but the UX is jarring — the second one is the same as the first.",
+    "fix": "In onConfirm, before create(), check InstructionDao.findRecentSameTextAndPerson(proposal.instructionText, personId, withinMinutes = 5) — if found, show 'You just captured this 2 minutes ago. Add again?'"
+  },
+  {
+    "id": "F-49",
+    "severity": "INFO",
+    "title": "VoiceCaptureService has no explicit AudioFocus request — recording in foreground will not pause other apps' media",
+    "file": "app/src/main/java/com/baton/app/features/capture/VoiceCaptureService.kt",
+    "lines": "136-200",
+    "category": "spec drift / platform",
+    "description": "AudioRecord opens the microphone but the service does not request AudioFocus via AudioManager.requestAudioFocus. Other apps playing music keep playing while the user records. On Android 10+, mic capture takes priority over media, so the music ducks — but the user may not realise. For an instruction-capture app this is fine; for a voice memo app it would be wrong.",
+    "fix": "Add `audioManager.requestAudioFocus(AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)...)` in startRecording(). Release in stopRecording()."
+  },
+  {
+    "id": "F-50",
+    "severity": "INFO",
+    "title": "Test coverage gap: VoiceCaptureService.startForeground + RECORD_AUDIO denial path is not tested under Robolectric",
+    "file": "app/src/test/java/com/baton/app/features/capture/CaptureViewModelTest.kt",
+    "lines": "580-598",
+    "category": "test gap",
+    "description": "The existing test (CaptureViewModelTest line 580-598) tries to call vm.onVoiceStart(ctx) with a relaxed mock Context and catches any throwable. It does not assert the specific failure mode. F-04 (startForeground before permission check) and F-05 (permanent notification on AudioRecord init failure) are both unverified by tests. Robolectric can simulate API 34 SecurityException — add a test that sets `Build.VERSION.SDK_INT = 34`, denies RECORD_AUDIO, and asserts the service never reaches startForeground.",
+    "fix": "Add VoiceCaptureServiceRobolectricTest with three scenarios: permission denied → no notification, mic held by other app → notification cancelled, normal path → notification posted."
+  }
+]

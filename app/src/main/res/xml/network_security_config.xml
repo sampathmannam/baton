@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v1.2 root-cause fix (BUG-AUTH-009): the manifest had no
+  android:networkSecurityConfig attribute, so the platform
+  default allowed cleartext on API 26-27 and there was no
+  cert pinning. We now:
+   - disallow cleartext globally
+   - trust only the system store
+   - restrict supabase.co to TLS only
+
+  Pin-set is intentionally omitted in v1.2 — pinning Supabase's
+  leaf is the next step (the cert SHA-256 is not stable across
+  Supabase cert renewals and pinning the wrong key would brick
+  the app on every cert rotation). The cert set is documented at
+  https://supabase.com/docs/guides/platform/ssl-configuration
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">supabase.co</domain>
+        <domain includeSubdomains="true">supabase.in</domain>
+    </domain-config>
+</network-security-config>

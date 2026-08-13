@@ -2,8 +2,15 @@ package com.baton.app.data.work
 
 import android.content.Context
 import androidx.work.Configuration
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.Constraints
 import com.baton.app.BatonApplication
+import java.util.concurrent.TimeUnit
 
 /**
  * M3-T2: WorkManager on-demand initialiser.
@@ -32,6 +39,11 @@ import com.baton.app.BatonApplication
  */
 object WorkManagerInitializer {
 
+    private const val ONE_SHOT_NAME = "baton-sync-drain"
+    private const val PERIODIC_NAME = "baton-sync-periodic"
+    private const val BRIEF_NAME = "baton-daily-brief"
+    private const val PERIODIC_INTERVAL_MIN = 15L
+
     /**
      * Idempotent. Safe to call from any coroutine on any
      * dispatcher; the underlying [WorkManager.getInstance] call
@@ -41,22 +53,47 @@ object WorkManagerInitializer {
         WorkManager.getInstance(context.applicationContext)
 
     /**
-     * Convenience: enqueue a one-shot [SyncDrainWorker] right
-     * now. The first call triggers [WorkManager.getInstance],
-     * which reads [BatonApplication.workManagerConfiguration]
-     * (Hilt-injected) and starts the worker factory.
+     * v1.2 root-cause fix (F-CRIT-07): v1.1 declared this method
+     * but never called it. A user who made writes while the app
+     * was backgrounded and never made another write would have
+     * their outbox rows stay PENDING forever. We now call this
+     * from [BatonApplication.onCreate].
      */
     fun enqueueSyncDrain(context: Context) {
-        val request = androidx.work.OneTimeWorkRequestBuilder<SyncDrainWorker>()
+        val request = OneTimeWorkRequestBuilder<SyncDrainWorker>()
             .setConstraints(
-                androidx.work.Constraints.Builder()
-                    .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build(),
             )
             .build()
         get(context).enqueueUniqueWork(
-            "baton-sync-drain",
-            androidx.work.ExistingWorkPolicy.KEEP,
+            ONE_SHOT_NAME,
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v1.2 root-cause fix (F-CRIT-07): periodic background drain
+     * so the outbox self-heals after process kill + reopen. Runs
+     * every 15 minutes when the device is online. The per-write
+     * drain in the VMs remains the foreground path; this is the
+     * "I was offline and now I'm not" safety net.
+     */
+    fun schedulePeriodicDrain(context: Context) {
+        val request = PeriodicWorkRequestBuilder<SyncDrainWorker>(
+            PERIODIC_INTERVAL_MIN, TimeUnit.MINUTES,
+        )
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build(),
+            )
+            .build()
+        get(context).enqueueUniquePeriodicWork(
+            PERIODIC_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
     }

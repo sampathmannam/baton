@@ -143,7 +143,11 @@ private fun MainScaffold(rootViewModel: RootViewModel) {
             // M4-T2: only show the bottom nav on the three top-level
             // routes. Person detail hides the nav (focused context).
             if (currentRoute in setOf(Routes.HOME, Routes.TODAY)) {
-                BottomNav(navController = navController, currentRoute = currentRoute)
+                BottomNav(
+                    navController = navController,
+                    currentRoute = currentRoute,
+                    onSettingsClick = { showSettings = true },
+                )
             }
         },
     ) { padding ->
@@ -185,9 +189,20 @@ private fun MainScaffold(rootViewModel: RootViewModel) {
  * M4-T2: bottom nav. Three tabs. The Home and Today entries use
  * `popUpTo(start)` to avoid growing the back stack. Settings opens
  * the bottom sheet (no nav entry — see [MainScaffold]).
+ *
+ * **v1.2 root-cause fix (BUG-MAIN-005):** the Settings entry's
+ * `onClick` was a literal `{}` — the parent [MainScaffold] owns
+ * the `showSettings` state but no callback was wired down. The
+ * button was unresponsive on a real device. v1.2 takes an
+ * `onSettingsClick: () -> Unit` parameter and the parent
+ * passes `{ showSettings = true }`.
  */
 @Composable
-private fun BottomNav(navController: NavHostController, currentRoute: String) {
+private fun BottomNav(
+    navController: NavHostController,
+    currentRoute: String,
+    onSettingsClick: () -> Unit,
+) {
     NavigationBar {
         NavEntry(
             label = stringResource(R.string.tab_home),
@@ -220,7 +235,7 @@ private fun BottomNav(navController: NavHostController, currentRoute: String) {
             icon = Icons.Default.Settings,
             route = "settings-tab",
             currentRoute = currentRoute,
-            onClick = { /* opens the bottom sheet in the parent */ },
+            onClick = onSettingsClick,
         )
     }
 }

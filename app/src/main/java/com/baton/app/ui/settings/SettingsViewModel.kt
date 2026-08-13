@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import com.baton.app.data.tags.Tag
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,12 +29,18 @@ import javax.inject.Inject
  * error from SQLCipher. We run them in the right order here:
  * wipe first (synchronous, cheap), then drop the session (which
  * triggers the observer).
+ *
+ * v1.2 (BUG-AUTH-002): also close the Realtime WebSocket BEFORE
+ * `authRepository.signOut()` so the previous user's JWT does not
+ * stay on the wire after the local DB is wiped. The next
+ * sign-in re-calls [RealtimeSync.start] with the new token.
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val appInitializer: AppInitializer,
     private val tagRepository: RoomTagRepository,
+    private val realtimeSync: RealtimeSync,
 ) : ViewModel() {
 
     private val _signingOut = MutableStateFlow(false)
@@ -56,13 +63,22 @@ class SettingsViewModel @Inject constructor(
         if (_signingOut.value) return
         _signingOut.value = true
         viewModelScope.launch {
+            // Order matters:
+            // 1. Close Realtime — the previous user's JWT must not
+            //    stay on the WebSocket (BUG-AUTH-002 / BATON-WIRE-002).
+            // 2. Wipe the local DB — the Compose tree still references
+            //    SQLCipher via Hilt; the wipe must finish before the
+            //    session observer tears the activity down.
+            // 3. Sign out of Supabase — the local sign-out is
+            //    effective even if the network call fails (the
+            //    server-side refresh-token revocation is best-effort).
+            realtimeSync.stop()
             runCatching { appInitializer.runOnSignOut() }
-            runCatching { authRepository.signOut() }
+            authRepository.signOut()  // returns Result<Unit>; ignored on failure
             // The session observer in MainActivity will transition
             // to Unauthenticated and the Compose tree will tear
             // down the HomeScreen + SettingsSheet automatically.
             // We don't need to dismiss the sheet ourselves.
-            _signingOut.value = false
         }
     }
 

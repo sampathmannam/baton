@@ -194,6 +194,7 @@ private fun PersonTimeline(
         item {
             PersonHeader(
                 person = person,
+                openInstructionCount = instructions.count { it.status == com.baton.app.data.instructions.Status.OPEN },
                 onOpenSensitive = onOpenPersonSensitive,
             )
         }
@@ -239,6 +240,7 @@ private fun PersonTimeline(
 @Composable
 private fun PersonHeader(
     person: com.baton.app.data.person.Person,
+    openInstructionCount: Int,
     onOpenSensitive: () -> Unit,
 ) {
     Column(
@@ -273,11 +275,22 @@ private fun PersonHeader(
             Text(if (person.isSensitive) "Remove sensitive flag" else "Mark as sensitive")
         }
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.person_detail_timeline_count, /* placeholder */ 0),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // v1.2 root-cause fix (F-03 in the UI audit): the previous
+        // version hardcoded `/* placeholder */ 0` here, so the user
+        // always saw "0 instructions" no matter how many were
+        // actually open. We now take the live count from the
+        // ViewModel and only render the line when the count is
+        // non-zero — the spec says "no counts shown when 0".
+        if (openInstructionCount > 0) {
+            Text(
+                text = stringResource(
+                    R.string.person_detail_timeline_count,
+                    openInstructionCount,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
