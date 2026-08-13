@@ -2,6 +2,7 @@
 
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import io.mockk.coEvery
@@ -55,6 +56,7 @@ class SettingsViewModelTest {
         val init: AppInitializer,
         val auth: AuthRepository,
         val realtime: RealtimeSync,
+        val syncEngine: SyncEngine,
         val vm: SettingsViewModel,
     )
 
@@ -62,13 +64,20 @@ class SettingsViewModelTest {
         val init = mockk<AppInitializer>(relaxed = true)
         val auth = mockk<AuthRepository>(relaxed = true)
         val realtime = mockk<RealtimeSync>(relaxed = true)
-        val vm = SettingsViewModel(auth, init, mockk<RoomTagRepository>(relaxed = true), realtime)
-        return VmMocks(init, auth, realtime, vm)
+        val syncEngine = mockk<SyncEngine>(relaxed = true)
+        val vm = SettingsViewModel(
+            authRepository = auth,
+            appInitializer = init,
+            tagRepository = mockk<RoomTagRepository>(relaxed = true),
+            realtimeSync = realtime,
+            syncEngine = syncEngine,
+        )
+        return VmMocks(init, auth, realtime, syncEngine, vm)
     }
 
     @Test
     fun `signOut closes realtime then wipes local DB then signs out of Supabase`() = runTest(testDispatcher) {
-        val (init, auth, realtime, vm) = mockVm()
+        val (init, auth, realtime, syncEngine, vm) = mockVm()
 
         vm.signOut()
         advanceUntilIdle()
@@ -85,7 +94,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `signOut flipping the signing-out flag is observable`() = runTest(testDispatcher) {
-        val (_, _, _, vm) = mockVm()
+        val (_, _, _, _, vm) = mockVm()
 
         assertFalse(vm.signingOut.value)
         vm.signOut()
@@ -98,7 +107,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `second signOut while in flight is a no-op`() = runTest(testDispatcher) {
-        val (init, auth, _, vm) = mockVm()
+        val (init, auth, _, _, vm) = mockVm()
 
         // Fire twice in a row before the first one completes.
         vm.signOut()
@@ -111,7 +120,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `signOut survives a thrown AppInitializer error`() = runTest(testDispatcher) {
-        val (init, auth, _, vm) = mockVm()
+        val (init, auth, _, _, vm) = mockVm()
         // AppInitializer wipes the DB best-effort; the VM must still
         // call auth.signOut even if the wipe throws (e.g. the file
         // is already gone). The user can still sign out.
@@ -125,7 +134,7 @@ class SettingsViewModelTest {
 
     @Test
     fun `signOut survives a thrown AuthRepository error`() = runTest(testDispatcher) {
-        val (init, auth, _, vm) = mockVm()
+        val (init, auth, _, _, vm) = mockVm()
         coEvery { auth.signOut() } returns Result.failure(RuntimeException("network down"))
 
         vm.signOut()
@@ -138,5 +147,28 @@ class SettingsViewModelTest {
         assertTrue(vm.signingOut.value)
         coVerify(exactly = 1) { init.runOnSignOut() }
         coVerify(exactly = 1) { auth.signOut() }
+    }
+
+    @Test
+    fun `retryStuckOutbox calls syncEngine retryPermanentlyFailed`() = runTest(testDispatcher) {
+        val (_, _, _, syncEngine, vm) = mockVm()
+        coEvery { syncEngine.retryPermanentlyFailed() } returns 3
+
+        vm.retryStuckOutbox()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { syncEngine.retryPermanentlyFailed() }
+    }
+
+    @Test
+    fun `retryStuckOutbox swallows a thrown syncEngine error`() = runTest(testDispatcher) {
+        val (_, _, _, syncEngine, vm) = mockVm()
+        coEvery { syncEngine.retryPermanentlyFailed() } throws RuntimeException("db locked")
+
+        // The VM runCatches — the exception must not propagate.
+        vm.retryStuckOutbox()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { syncEngine.retryPermanentlyFailed() }
     }
 }
