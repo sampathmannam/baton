@@ -58,12 +58,18 @@ object WorkManagerInitializer {
      * was backgrounded and never made another write would have
      * their outbox rows stay PENDING forever. We now call this
      * from [BatonApplication.onCreate].
+     *
+     * v1.2.1 (F-HIGH-13): add `setRequiresBatteryNotLow(true)` so
+     * the drain doesn't fire while the device is in low-power mode
+     * (where the user is trying to save battery for an emergency
+     * call). WorkManager will defer to the next battery-OK window.
      */
     fun enqueueSyncDrain(context: Context) {
         val request = OneTimeWorkRequestBuilder<SyncDrainWorker>()
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .setRequiresBatteryNotLow(true)
                     .build(),
             )
             .build()
@@ -80,6 +86,8 @@ object WorkManagerInitializer {
      * every 15 minutes when the device is online. The per-write
      * drain in the VMs remains the foreground path; this is the
      * "I was offline and now I'm not" safety net.
+     *
+     * v1.2.1 (F-HIGH-13): BATTERY_NOT_LOW constraint.
      */
     fun schedulePeriodicDrain(context: Context) {
         val request = PeriodicWorkRequestBuilder<SyncDrainWorker>(
@@ -88,6 +96,7 @@ object WorkManagerInitializer {
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .setRequiresBatteryNotLow(true)
                     .build(),
             )
             .build()

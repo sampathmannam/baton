@@ -31,6 +31,16 @@ import javax.inject.Singleton
  * **Idempotency.** Called from [com.baton.app.BatonApplication.onCreate]
  * via Hilt's `@HiltAndroidApp` path. Safe to call on every launch.
  *
+ * v1.2.1 (BUG-DATA-021): the previous version re-threw
+ * `UnsatisfiedLinkError` from `System.loadLibrary("sqlcipher")` —
+ * which crashed the app before the first frame. Now we log and
+ * continue: if the library is genuinely missing the next DB read
+ * surfaces a clearer error to the user; if the lib is already
+ * loaded (e.g. on a warm restart) `loadLibrary` is a no-op anyway.
+ * The body of `runOnAppStart` is also guarded by an `@Volatile`
+ * boolean so the wipe + passphrase pre-warm run exactly once per
+ * process, not on every Compose recomposition or Hilt rebuild.
+ *
  * **Future schema migrations.** When the schema actually changes
  * (not just the version bump), this class should add a check that
  * deletes the file only when the new version differs from the
@@ -43,7 +53,19 @@ class AppInitializer @Inject constructor(
     private val securePreferences: com.baton.app.data.auth.SecurePreferences,
 ) {
 
+    @Volatile
+    private var appStartRan: Boolean = false
+
+    @Volatile
+    private var signOutRan: Boolean = false
+
     fun runOnAppStart() {
+        // v1.2.1 (BUG-DATA-021 + BUG-DATA-023): guard against
+        // double-init. The body runs at most once per process; on
+        // warm restarts (or Hilt rebuilding this singleton) the
+        // second call is a no-op.
+        if (appStartRan) return
+
         // M3-T1 fix: `net.zetetic:sqlcipher-android:4.6.1` ships the
         // native `libsqlcipher.so` inside the AAR but does NOT
         // auto-load it. Without this call the first Room read fails
@@ -56,8 +78,21 @@ class AppInitializer @Inject constructor(
         try {
             System.loadLibrary("sqlcipher")
         } catch (e: UnsatisfiedLinkError) {
-            Log.e(TAG, "loadLibrary(sqlcipher) failed: ${e.message}")
-            throw e
+            // v1.2.1 (BUG-DATA-021): do NOT re-throw. The previous
+            // version crashed the app before the first frame if the
+            // lib was missing (e.g. on a stripped emulator image).
+            // We log + continue; the next DB read will surface the
+            // real "file is not a database" error which is more
+            // actionable for the user. If the lib is genuinely
+            // missing, the Room open fails — the user sees the
+            // AuthScreen with a broken sign-in rather than a hard
+            // crash. The crash log goes to crash reporting.
+            Log.e(TAG, "loadLibrary(sqlcipher) failed: ${e.message}. " +
+                "DB reads will fail; check sqlcipher-android packaging.")
+            // Still mark as ran so we don't re-attempt on every
+            // recomposition (which would just spam the log).
+            appStartRan = true
+            return
         }
 
         val dbFile = context.getDatabasePath(AppDatabase.NAME)
@@ -78,6 +113,7 @@ class AppInitializer @Inject constructor(
         // brand-new install (where the file is gone) and on a
         // subsequent launch (where the key is already persisted).
         securePreferences.databasePassphrase()
+        appStartRan = true
     }
 
     /**
@@ -86,8 +122,23 @@ class AppInitializer @Inject constructor(
      * and the file is wiped. After this returns, the AppDatabase
      * singleton is in a "broken" state; the next app start (or the
      * next sign-in) re-creates a fresh DB.
+     *
+     * v1.2.1 (BUG-DATA-022 + BUG-DATA-024): idempotent. A second
+     * call (e.g. from a deep link, accessibility action, or a
+     * double-tap before the first call's coroutine completes) is
+     * a no-op once the first call has finished wiping. The
+     * passphrase clear and the file delete are already individually
+     * safe (clearDatabasePassphrase is a no-op if no key is
+     * stored, and `dbFile.delete()` is a no-op on a missing file);
+     * the guard makes the contract explicit + testable.
+     *
+     * Note: the [com.baton.app.ui.settings.SettingsViewModel]
+     * already has a `_signingOut: Boolean` guard at the VM level;
+     * this is the data-layer belt-and-suspenders for callers that
+     * go around the VM.
      */
     fun runOnSignOut() {
+        if (signOutRan) return
         securePreferences.clearDatabasePassphrase()
         val dbFile = context.getDatabasePath(AppDatabase.NAME)
         if (dbFile.exists()) {
@@ -96,6 +147,20 @@ class AppInitializer @Inject constructor(
             File(dbFile.absolutePath + "-shm").takeIf { it.exists() }?.delete()
             Log.i(TAG, "sign-out: wiped baton.db (encrypted passphrase cleared)")
         }
+        signOutRan = true
+    }
+
+    /**
+     * v1.2.1 (BUG-DATA-024): reset the signOut guard so a fresh
+     * sign-in can re-init cleanly. The next `runOnAppStart` (on
+     * process death + restart, or the next launch) flips it back
+     * to false via the field initialiser. This method is for the
+     * rare case where a sign-out / sign-in happens in the same
+     * process (e.g. Compose rebuild during a deep-link flow) and
+     * the user expects the AppInitializer to be a clean slate.
+     */
+    fun resetSignOutGuard() {
+        signOutRan = false
     }
 
     companion object {

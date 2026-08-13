@@ -2,6 +2,8 @@ package com.baton.app.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppDao
 import com.baton.app.data.local.AppDatabase
@@ -44,6 +46,16 @@ import javax.inject.Singleton
  * and is filled from Supabase on the first
  * [com.baton.app.data.local.RoomPersonRepository.refreshFromNetwork]
  * call after sign-in.
+ *
+ * **v1.2.1 (BUG-DATA-009) PRAGMA foreign_keys = ON.** SQLite's
+ * `PRAGMA foreign_keys` is OFF by default for every connection
+ * (it's a runtime, per-connection setting, not a schema flag).
+ * Without it, `ON DELETE CASCADE` is silently ignored and a deleted
+ * parent leaves orphan rows. We enable it on every `onOpen` via a
+ * [RoomDatabase.Callback]. This is a SQLite-level best practice
+ * that Room doesn't enable on its own; without it, the v1.1 cascade
+ * delete on `instruction_tags` (when an instruction is deleted)
+ * doesn't fire.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -62,12 +74,27 @@ object DatabaseModule {
         passphrase.fill(0)
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
             .openHelperFactory(factory)
+            .addCallback(foreignKeysCallback())
             // M2-T6: destructive migration is fine because the local
             // cache is reconstructible from Supabase on the next
             // refresh. Replace with real Migrations once the schema
             // stabilises beyond M3.
             .fallbackToDestructiveMigration()
             .build()
+    }
+
+    /**
+     * v1.2.1 (BUG-DATA-009): `PRAGMA foreign_keys = ON` on every
+     * connection open. Exposed as a separate factory so the unit
+     * test can verify the callback without standing up the full
+     * SQLCipher-backed [AppDatabase] (which fails in Robolectric
+     * because the native lib isn't packaged there).
+     */
+    fun foreignKeysCallback(): RoomDatabase.Callback = object : RoomDatabase.Callback() {
+        override fun onOpen(db: SupportSQLiteDatabase) {
+            super.onOpen(db)
+            db.execSQL("PRAGMA foreign_keys = ON")
+        }
     }
 
     @Provides
