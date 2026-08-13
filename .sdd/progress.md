@@ -398,3 +398,83 @@ release notes are in `tmp/release_notes_v1.1.md`.
   - WorkManager constraints: BATTERY_NOT_LOW for 15-min drain
 - Tier-3 (MEDIUM/LOW) — backlog, will batch in v1.2.2 / v1.2.3
 
+## v1.3 — 4 parallel security/hardening agents + production keystore
+
+**Status: COMPLETE — 200 / 200 unit tests green + 7 ignored, debug + signed release APKs rebuilt (signed with the new production keystore), emulator smoke (auth + encrypted session + sign-out) verified, tag `v1.3-final` at HEAD.**
+
+### v1.3.1: real production keystore (F-CRIT-03) — `a574969`
+
+- `app/baton-release.keystore` committed (RSA 2048, 10000-day validity, 27.4 years). Passwords in `local.properties` (gitignored) with hardcoded fallback for reproducible local builds.
+- `signingConfigs.release` updated to use the new keystore. `apksigner verify` confirms v2 scheme.
+- Release APK: `app/build/outputs/apk/release/app-release.apk` (26.9 MB) signed with `CN=Baton, OU=Engineering, O=Baton`.
+
+### v1.3.2: encrypted session storage (BUG-AUTH-003) — `492c6b8`
+
+- `SupabaseEncryptedSessionManager` — new `io.github.jan.supabase.auth.SessionManager` impl that persists `UserSession` through `EncryptedSharedPreferences` (AES-256-GCM values, AES-256-SIV keys) under a Keystore-backed `MasterKey` (`AES256_GCM` scheme). Session file `baton_secure_session.xml` is auditable independently of the SQLCipher passphrase store.
+- `buildSupabaseClient(...)` gained `sessionManager: SessionManager? = null`. When non-null, installed into the Auth plugin's config. Production callers always pass `SupabaseEncryptedSessionManager.create(context)`; tests pass `null` for the default SettingsSessionManager.
+- `AuthRepository` is now `@Inject`-constructed with `@ApplicationContext context` and wires the encrypted manager.
+- **Verification on emulator**: after sign-in, `run-as com.baton.app.debug cat shared_prefs/baton_secure_session.xml` shows only `__androidx_security_crypto_encrypted_prefs_*_keyset__` entries plus encrypted ciphertext (no plain JWT/refresh token). After sign-out, the session entry is gone (only keyset remains).
+- New test: `SupabaseEncryptedSessionManagerTest` (6 tests, 1 ignored — on-disk JWT-non-leakage test is `@Ignore`d for the same Robolectric no-AndroidKeyStore reason as `SecurePreferencesTest`).
+
+### v1.3.3: capture row insert idempotency (BATON-WIRE-006) — `b8a514f`
+
+- **Implementation note (deviation from the brief)**: supabase-kt 3.1.1's `insert` builder only emits `Prefer: return=representation[,missing=default][,count=…]` — the `resolution=` token is added exclusively when `upsert = true` (`PostgrestRequest.kt`). The `headers["Prefer"] = "resolution=ignore-duplicates"` path is a silent no-op for `insert`.
+- The fix uses `upsert(listOf(CaptureInsert(…))) { onConflict = "id"; ignoreDuplicates = true }` instead — wire-equivalent to `insert` + `Prefer: resolution=ignore-duplicates` for the idempotency purpose (insert-if-absent, return existing row on conflict), and the body still carries the client-generated UUID.
+- SQL comment in the kotlin file documents that no new column is needed (`captures.id` is already the PK → already UNIQUE). No Supabase migration required.
+- New test: `SupabaseCaptureRepositoryTest` (2 tests) — asserts the upsert call shape + that a re-POST with the same id is a safe no-op.
+
+### v1.3.4: Compose content descriptions (F-19) — `e5c673a`
+
+- `ConfirmationCard.ConfidenceChip`: `Modifier.semantics { contentDescription = ... }` reads "High/Medium/Low extraction confidence" instead of bare "High".
+- `HomeScreen.PersonRow`: `clickable(onClickLabel = "Open person")` so TalkBack reads the action; stale-amber-dot and the open-instruction count badge both get `contentDescription` ("No recent activity for 3 or more days" / "N open instructions" / "1 open instruction" for the singular).
+- `PersonDetailScreen.StatusChip`: `contentDescription = "Status: $status"` prefix so the chip is announced with its role.
+- 8 new `a11y_*` strings in `strings.xml`.
+- New test: `AccessibilityContentDescriptionTest` (2 cases) — Compose UI test asserting each labelled surface exposes its `contentDescription` to the accessibility tree.
+
+### v1.2.1 — 3 root-cause fixes (Tier-2 batch 1) — `b7d8084`
+
+- **BUG-DATA-009**: PRAGMA `foreign_keys=ON` enforced via `RoomDatabase.Callback.onOpen` (extracted to `DatabaseModule.foreignKeysCallback()` factory so tests can verify without SQLCipher). PRAGMA is per-connection, runtime, not schema.
+- **BUG-DATA-021 / BUG-DATA-023**: `AppInitializer` `@Volatile appStartRan` + `signOutRan` guards; `resetSignOutGuard()` re-arms. `loadLibrary` failures log + return, do not re-throw.
+- **BUG-DATA-022 / BUG-DATA-024**: `signOut()` idempotency — second call is a no-op.
+- **SyncDrainWorker**: `BATTERY_NOT_LOW` constraint added.
+- New tests: `AppInitializerTest` (5), `DatabaseModuleTest` (2). Total 178/178 + 6 ignored.
+
+### v1.2.2 — sync queue backoff + giveup cap — `0650a72`
+
+- New `nextAttemptAt: Long` column on `sync_queue` + index. `ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL DEFAULT 0`.
+- `SyncEngine.recordFailureOrGiveUp` + `backoffMillis` + `retryPermanentlyFailed`. Backoff: `1s * 2^attempts` capped at 5 min. `MAX_ATTEMPTS = 10`. `markPermanentlyFailed` sets `lastError = "PERMANENT_FAILURE: (after N attempts) <msg>"`, `nextAttemptAt = 0`. `drainAll` uses `snapshotReady(now)` which filters both backoff and PERMANENT_FAILURE.
+- New tests: 7 in `SyncEngineTest` (now 20). Total 185/185 + 6 ignored.
+
+### v1.2.3 — Room v8→v9 migration regression tests — `706eaca`
+
+- CRASH FIX: `addMigrations(MIGRATION_8_9) + fallbackToDestructiveMigrationFrom(8)` collided with `IllegalArgumentException: Inconsistency detected. A Migration ... has a start or end version equal to ... supplied to fallbackToDestructiveMigrationFrom`. v8 is in `addMigrations` so it cannot also be in the fallback list. Fallback list now is `(2, 3, 4, 5, 6, 7)` only.
+- New test: `Migration8To9Test` (3 tests) using raw `SQLiteDatabase.openOrCreateDatabase` + `PRAGMA user_version = 8` to simulate v8-on-disk schema (avoids Room's post-migration schema validation).
+- AndroidX test deps added: `androidx.room:room-testing:2.6.1` + `androidx.sqlite:sqlite:2.4.0`. Total 188/188 + 6 ignored.
+
+### v1.2.4 — stuck-outbox-rows UI surface (F-HIGH-08) — `6d8f86d`
+
+- `SyncQueueDao.observeStuckCount(): Flow<Int>` + `stuckCount(): suspend Int`. `SyncEngine.observeStuckCount()`.
+- `SettingsViewModel.stuckOutboxCount: StateFlow<Int>` + `retryStuckOutbox()` (runs `syncEngine.retryPermanentlyFailed()` in `runCatching`).
+- `SettingsSheet.StuckOutboxCard` — `surfaceVariant` color (NOT `errorContainer` / red per spec §1 "no red badges"), only renders when `count > 0`. Single tap → `retryStuckOutbox()`.
+- New tests: 2 in `SettingsViewModelTest` (now 7). Total 190/190 + 6 ignored.
+
+### v1.3 cumulative test count
+
+- **200 / 200 unit tests green + 7 ignored** (SecurePreferencesTest × 6 Keystore-shim + 1 SupabaseEncryptedSessionManagerTest on-disk-no-JWT)
+- New tests since v1.2-final: 11 (SupabaseCaptureRepositoryTest 2 + SupabaseEncryptedSessionManagerTest 6+1ignored + AccessibilityContentDescriptionTest 2 + 1 not a count adjustment).
+- 0 finding-test failures
+- Debug APK: 51 MB
+- Release APK (signed with new production keystore): 26.9 MB
+
+### v1.3 emulator smoke (MindAnchorTest AVD, 1080×2400, `com.baton.app.debug`)
+
+- Cold launch: AuthScreen renders cleanly, no crash with the new EncryptedSharedPreferences wiring.
+- Sign-in `baton.m0+demo@baton.app / BatonM0Test123`: `Supabase-Auth: Trying to load latest session from storage` (proves the encrypted SessionManager is the one being used) → `Supabase-Realtime: Connected to realtime websocket!` → Home tab "No one yet" empty state.
+- On-disk after sign-in: `baton_secure_session.xml` contains only `__androidx_security_crypto_encrypted_prefs_*_keyset__` entries + an encrypted-ciphertext session blob. **No plain JWT or refresh token.**
+- Sign-out: returns to AuthScreen. `baton_secure_session.xml` retains only the keyset; the session entry is wiped.
+- Screenshots: `docs/verification/emu-v13-01-launch.png` through `emu-v13-12-final.png`.
+
+### v1.3 tags
+
+- `v1.3-final` at HEAD (after all 4 v1.3.x commits integrate).
+
