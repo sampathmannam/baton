@@ -67,6 +67,20 @@ class BriefNotifier @Inject constructor(
 
     fun schedule(hourOfDay: Int = 7, minute: Int = 30) {
         ensureChannel()
+        // v1.4 (PHONE-FINDING-10 / F-02): on Android 13+ we MUST
+        // hold POST_NOTIFICATIONS at schedule time, not just at
+        // post time. The v1.0–v1.3 schedule always enqueued the
+        // work and relied on postNotification() to silently
+        // no-op. Now we skip enqueueing entirely on TIRAMISU+
+        // when the runtime permission isn't held. MainActivity
+        // re-calls `schedule()` after a successful permission
+        // grant, so this no-op is self-healing.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) return
+        }
         val now = Instant.now()
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
