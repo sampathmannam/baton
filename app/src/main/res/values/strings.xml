@@ -59,4 +59,17 @@
     <string name="person_detail_back">Back</string>
     <string name="person_detail_timeline_count">%1$d instructions</string>
     <string name="person_detail_empty">No instructions yet. Tap the note bar to start.</string>
+
+    <!-- v1.3: TalkBack content descriptions for accessibility.
+         The values below are read aloud by screen readers on
+         icon-only surfaces, decorative dots, and other non-text
+         interactive elements (F-19 in the SOTA audit). -->
+    <string name="a11y_person_row_open">Open person</string>
+    <string name="a11y_person_count_badge">%1$d open instructions</string>
+    <string name="a11y_person_count_badge_one">1 open instruction</string>
+    <string name="a11y_person_stale_indicator">No recent activity for 3 or more days</string>
+    <string name="a11y_status_chip">Status: %1$s</string>
+    <string name="a11y_confidence_high">High extraction confidence</string>
+    <string name="a11y_confidence_medium">Medium extraction confidence</string>
+    <string name="a11y_confidence_low">Low extraction confidence</string>
 </resources>

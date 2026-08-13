@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.baton.app.R
 
@@ -106,9 +108,21 @@ private fun ConfidenceChip(confidence: Double) {
         confidence >= 0.5 -> "Medium" to MaterialTheme.colorScheme.tertiary
         else -> "Low" to MaterialTheme.colorScheme.outline
     }
+    // v1.3 (F-19): the chip is non-interactive (onClick = {}) but
+    // still a labelled status indicator. Without a content
+    // description, TalkBack would read just the word "High" /
+    // "Medium" / "Low" with no context. The semantics modifier
+    // tells the user this is the extraction confidence and what
+    // the value means.
+    val confidenceDesc = when {
+        confidence >= 0.8 -> stringResource(R.string.a11y_confidence_high)
+        confidence >= 0.5 -> stringResource(R.string.a11y_confidence_medium)
+        else -> stringResource(R.string.a11y_confidence_low)
+    }
     AssistChip(
         onClick = {},
         label = { Text(label) },
+        modifier = Modifier.semantics { contentDescription = confidenceDesc },
         colors = AssistChipDefaults.assistChipColors(
             labelColor = color,
             containerColor = Color.Transparent,

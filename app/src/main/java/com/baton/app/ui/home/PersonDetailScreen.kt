@@ -35,6 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -521,14 +523,21 @@ private fun StatusChip(status: Status) {
         Status.DROPPED ->
             MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val statusLabel = status.name.replace('_', ' ').lowercase()
+        .replaceFirstChar { it.uppercase() }
+    // v1.3 (F-19): the chip is decorative; the rendered text is
+    // already the status name. We add a `Status: …` prefix via
+    // semantics so TalkBack announces the role (this is a status
+    // label) and not just the bare word "Open" or "Carried over".
+    val statusDesc = stringResource(R.string.a11y_status_chip, statusLabel)
     androidx.compose.material3.Surface(
         color = bg,
         contentColor = fg,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+        modifier = Modifier.semantics { contentDescription = statusDesc },
     ) {
         Text(
-            text = status.name.replace('_', ' ').lowercase()
-                .replaceFirstChar { it.uppercase() },
+            text = statusLabel,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
         )
