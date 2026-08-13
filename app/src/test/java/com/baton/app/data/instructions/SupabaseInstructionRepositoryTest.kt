@@ -181,4 +181,86 @@ class SupabaseInstructionRepositoryTest {
             dueAt = null,
         )
     }
+
+    /**
+     * v1.1.1 regression guard: `update()` PATCHes the lifecycle
+     * triplet (status, completed_at, dropped_reason, is_sensitive)
+     * even when some values are null. The v1.1 implementation used
+     * a @Serializable [InstructionUpdate] data class, and
+     * supabase-kt's `update(...)` call serializes that and OMITS
+     * null fields from the PATCH body. Result: re-opening a DROPPED
+     * instruction left the server's `dropped_reason` column holding
+     * the old text — a real audit-trail bug.
+     *
+     * We now use a raw map (like [markDone] / [markDropped] already
+     * do) so the wire call always includes every key. This test
+     * asserts the body has `"completed_at":null` and
+     * `"dropped_reason":null` for an OPEN re-open.
+     */
+    @Test
+    fun `update PATCH always includes the lifecycle triplet, even for nulls (v1_1_1 fix)`() = runTest {
+        var capturedMethod: HttpMethod? = null
+        var capturedPath: String? = null
+        var capturedBody: String? = null
+        val engine = MockEngine { request ->
+            capturedMethod = request.method
+            capturedPath = request.url.fullPath
+            capturedBody = request.body.toByteArray().decodeToString()
+            respond(
+                content = ByteReadChannel(
+                    """
+                    [{"id":"ins-1","person_id":null,"direction":"OUTGOING","status":"OPEN",
+                      "source":"TEXT","priority":"NORMAL",
+                      "title":"x","raw_text":"x",
+                      "captured_at":"2026-08-11T12:00:00+00:00",
+                      "created_at":"2026-08-11T12:00:00+00:00",
+                      "updated_at":"2026-08-13T00:00:00+00:00",
+                      "is_sensitive":false,
+                      "completed_at":null,"dropped_reason":null}]
+                    """.trimIndent(),
+                ),
+                status = HttpStatusCode.OK,
+                headers = headersOf("Content-Type", "application/json"),
+            )
+        }
+        val httpClient = HttpClient(engine)
+        val repo = SupabaseInstructionRepository(
+            httpClient = httpClient,
+            url = "https://test.supabase.co",
+            key = "sb_publishable_test",
+            withAuth = false,
+        )
+
+        // Re-open a previously DROPPED row: status=OPEN, no
+        // completedAt, no droppedReason.
+        val updated = repo.update(
+            id = "ins-1",
+            status = Status.OPEN,
+            completedAt = null,
+            droppedReason = null,
+            isSensitive = false,
+        )
+
+        // Wire shape
+        assertEquals(HttpMethod.Patch, capturedMethod)
+        assertTrue(
+            "path must start with /rest/v1/instructions, was: $capturedPath",
+            capturedPath.orEmpty().startsWith("/rest/v1/instructions"),
+        )
+        assertNotNull(capturedBody)
+        val body = capturedBody!!
+        // The status flip is present.
+        assertTrue("body must contain status:OPEN: $body", body.contains("\"status\":\"OPEN\""))
+        // **The v1.1.1 fix**: null fields are explicitly serialised
+        // so the server sets the columns to NULL on the PATCH.
+        // v1.1 would have omitted these keys, leaving the old
+        // dropped_reason on the server.
+        assertTrue("body must contain completed_at:null: $body", body.contains("\"completed_at\":null"))
+        assertTrue("body must contain dropped_reason:null: $body", body.contains("\"dropped_reason\":null"))
+        assertTrue("body must contain is_sensitive:false: $body", body.contains("\"is_sensitive\":false"))
+        // Domain row reflects the server's mirrored state.
+        assertEquals(Status.OPEN, updated.status)
+        assertNull(updated.completedAt)
+        assertNull(updated.droppedReason)
+    }
 }
