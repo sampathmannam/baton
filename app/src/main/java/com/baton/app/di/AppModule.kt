@@ -1,5 +1,6 @@
 package com.baton.app.di
 
+import android.content.Context
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.captures.CaptureRepository
 import com.baton.app.data.captures.SupabaseCaptureRepository
@@ -10,6 +11,7 @@ import com.baton.app.data.person.SupabasePersonRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
 import okhttp3.OkHttpClient
@@ -63,8 +65,10 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(httpClient: HttpClient): AuthRepository =
-        AuthRepository(httpClient)
+    fun provideAuthRepository(
+        httpClient: HttpClient,
+        @ApplicationContext context: Context,
+    ): AuthRepository = AuthRepository(httpClient, context)
 
     /** M1-T3: OkHttp is used by ModelManager to download the GGUF model. */
     @Provides

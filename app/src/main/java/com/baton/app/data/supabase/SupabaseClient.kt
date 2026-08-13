@@ -2,6 +2,7 @@ package com.baton.app.data.supabase
 
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.SessionManager
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
@@ -31,19 +32,39 @@ import io.ktor.client.HttpClient
  * manager) and is not available in pure-JVM unit tests. Production code
  * uses the default `true`; tests pass `false` to install just the
  * data-plane plugins. M0 doesn't need Auth anyway — that's Task 7.
+ *
+ * [sessionManager] is the v1.3 [BUG-AUTH-003] wire-up: when `withAuth`
+ * is `true` the caller passes an encrypted session manager (see
+ * [com.baton.app.data.auth.SupabaseEncryptedSessionManager]) so the
+ * JWT + refresh tokens are persisted under the Keystore-backed
+ * master key instead of the device's plain-text
+ * `supabase_auth.xml` SharedPreferences. Passing `null` falls back
+ * to supabase-kt's default `SettingsSessionManager` — only intended
+ * for unit tests that don't have an Android Context to build a
+ * real [SessionManager]. Production callers always pass a real
+ * instance built via [com.baton.app.data.auth.SupabaseEncryptedSessionManager.create].
  */
 fun buildSupabaseClient(
     url: String,
     key: String,
     httpClient: HttpClient,
     withAuth: Boolean = true,
+    sessionManager: SessionManager? = null,
 ): SupabaseClient = createSupabaseClient(
     supabaseUrl = url,
     supabaseKey = key,
 ) {
     httpEngine = httpClient.engine
     install(Postgrest)
-    if (withAuth) install(Auth)
+    if (withAuth) {
+        if (sessionManager != null) {
+            install(Auth) {
+                this.sessionManager = sessionManager
+            }
+        } else {
+            install(Auth)
+        }
+    }
     install(Functions)
     install(Realtime)
     install(Storage)
