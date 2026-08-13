@@ -85,11 +85,15 @@ object DatabaseModule {
             // COLUMN` is a fast, online, lossless operation in
             // SQLite (the file is rewritten but no data is read
             // or copied; existing rows get the DEFAULT value).
+            //
+            // Note: v8 is NOT in the fallback list below — Room
+            // throws IllegalArgumentException if a migration's
+            // start version (8) is also in fallbackToDestructive.
+            // v2 -> v7 still fall back to destructive (the pre-M3
+            // versions had no outbox in production use, so there
+            // was nothing to preserve).
             .addMigrations(MIGRATION_8_9)
-            // v2 -> v8 still fall back to destructive (the
-            // pre-M3 versions had no outbox in production use,
-            // so there was nothing to preserve).
-            .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7, 8)
+            .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
     }
 
