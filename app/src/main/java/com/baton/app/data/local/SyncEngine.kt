@@ -1,5 +1,6 @@
 package com.baton.app.data.local
 
+import android.util.Log
 import com.baton.app.data.local.entities.SyncConflictEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
 import com.baton.app.data.local.entities.SyncStatus
@@ -32,10 +33,19 @@ import javax.inject.Singleton
  * time. A single in-flight drain at a time — a [Mutex] guards
  * against a second per-write trigger piling on.
  *
- * **Failure policy:** on exception, the entry's `attempts` is
- * incremented and `lastError` is recorded. The entry stays in
- * the queue and the engine moves on to the next entry. The next
- * drain (next write or next app start) will retry it.
+ * **v1.2.2 (F-HIGH-07) Failure policy (exponential backoff +
+ * permanent-failure cap):** on exception, the entry's `attempts`
+ * is incremented, `lastError` is recorded, and `nextAttemptAt`
+ * is set to `now() + backoff(attempts)` where backoff is
+ * `1s * 2^attempts` capped at 5 minutes. The next drain skips
+ * the entry until `nextAttemptAt` is in the past. After
+ * [MAX_ATTEMPTS] consecutive failures, the entry is marked
+ * `lastError = "PERMANENT_FAILURE: <msg>"` and the drain skips
+ * it forever (until the user explicitly calls
+ * [retryPermanentlyFailed] from Settings). The per-write path
+ * uses the same backoff; the user-perceived latency on a normal
+ * online write is unaffected (first attempt runs immediately,
+ * `nextAttemptAt` starts at 0).
  *
  * **M2-T8 conflict resolution:** on an `OP_UPDATE`, the engine
  * reads the server's `updated_at` (via [SupabasePersonRepository.findById])
@@ -64,16 +74,21 @@ class SyncEngine @Inject constructor(
 
     /**
      * Drain the full queue. Called from the app-startup hook and
-     * the WorkManager periodic drain (deferred to T6.1).
+     * the WorkManager periodic drain.
+     *
+     * v1.2.2: only entries with `nextAttemptAt <= now()` are
+     * considered. Entries in the backoff window or marked
+     * `PERMANENT_FAILURE:*` are skipped silently.
      */
     suspend fun drainAll() = mutex.withLock {
-        val entries = syncQueueDao.snapshot()
+        val now = System.currentTimeMillis()
+        val entries = syncQueueDao.snapshotReady(now)
         for (entry in entries) {
             try {
                 processEntry(entry)
                 syncQueueDao.deleteById(entry.id)
             } catch (e: Exception) {
-                syncQueueDao.recordFailure(entry.id, e.message ?: e.toString())
+                recordFailureOrGiveUp(entry, e)
             }
         }
     }
@@ -83,18 +98,86 @@ class SyncEngine @Inject constructor(
      * repositories immediately after they enqueue, so the user
      * sees the local change synchronously and the network round-
      * trip happens in the background.
+     *
+     * v1.2.2: if the entry's `nextAttemptAt` is in the future
+     * (i.e. a previous attempt failed and the backoff hasn't
+     * expired), the per-write path silently returns — the
+     * background drain will pick it up. This prevents a hot
+     * user action from triggering a tight retry loop on a
+     * downed server.
      */
     suspend fun drainOne(rowId: String, table: String, op: String) {
         mutex.withLock {
             val entry = syncQueueDao.findPending(table, rowId, op) ?: return
+            val now = System.currentTimeMillis()
+            if (entry.nextAttemptAt > now) {
+                // In the backoff window. The periodic drain will retry.
+                return
+            }
+            if (entry.lastError?.startsWith(PERMANENT_FAILURE_PREFIX) == true) {
+                // Already given up. The user must explicitly retry.
+                return
+            }
             try {
                 processEntry(entry)
                 syncQueueDao.deleteById(entry.id)
             } catch (e: Exception) {
-                syncQueueDao.recordFailure(entry.id, e.message ?: e.toString())
+                recordFailureOrGiveUp(entry, e)
             }
         }
     }
+
+    /**
+     * v1.2.2: handle a drain failure. If the entry has hit
+     * [MAX_ATTEMPTS], mark it permanently failed (the drain
+     * skips it on every future pass). Otherwise, apply the
+     * exponential backoff and let the next drain try again.
+     */
+    private suspend fun recordFailureOrGiveUp(entry: SyncQueueEntity, e: Exception) {
+        val newAttempts = entry.attempts + 1
+        val errorMsg = e.message ?: e.toString()
+        if (newAttempts >= MAX_ATTEMPTS) {
+            Log.w(
+                TAG,
+                "sync_queue entry ${entry.id} (${entry.table}/${entry.op}/${entry.rowId}) " +
+                    "hit MAX_ATTEMPTS=$MAX_ATTEMPTS — giving up. Last error: $errorMsg",
+            )
+            syncQueueDao.markPermanentlyFailed(
+                entry.id,
+                newAttempts,
+                "$PERMANENT_FAILURE_PREFIX (after $newAttempts attempts) $errorMsg",
+            )
+        } else {
+            val nextAttemptAt = System.currentTimeMillis() + backoffMillis(newAttempts)
+            syncQueueDao.recordFailureWithBackoff(entry.id, errorMsg, nextAttemptAt)
+        }
+    }
+
+    /**
+     * v1.2.2: exponential backoff. `1s * 2^attempts`, capped at
+     * 5 minutes. So the backoff schedule is:
+     *  attempts=1 -> 2s, 2 -> 4s, 3 -> 8s, 4 -> 16s, 5 -> 32s,
+     *  6 -> 64s, 7 -> 128s, 8 -> 256s, 9+ -> 300s (capped).
+     * 9 attempts total worst-case before permanent failure, so
+     * the user waits at most ~9 minutes before the entry is
+     * flagged as stuck and surfaced in Settings.
+     */
+    private fun backoffMillis(attempts: Int): Long {
+        val baseMs = 1_000L  // 1 second
+        val shift = attempts.coerceIn(0, 30)  // guard against shift overflow
+        val raw = baseMs shl shift
+        return raw.coerceAtMost(MAX_BACKOFF_MS)
+    }
+
+    /**
+     * v1.2.2: reset all `PERMANENT_FAILURE:*` rows so the next
+     * drain tries them again. Returns the number of rows reset.
+     *
+     * Wired from Settings → "Retry stuck outbox entries". A user
+     * who fixes a problem (e.g. updates the network) can poke
+     * the outbox without reinstalling.
+     */
+    suspend fun retryPermanentlyFailed(): Int = syncQueueDao.resetPermanentlyFailed()
 
     private suspend fun processEntry(entry: SyncQueueEntity) {
         when (entry.table) {
@@ -280,6 +363,18 @@ class SyncEngine @Inject constructor(
 
     companion object {
         const val REASON_SERVER_NEWER = "server_newer"
+        /**
+         * v1.2.2 (F-HIGH-07): after this many consecutive drain
+         * failures, the entry is marked `PERMANENT_FAILURE:*` and
+         * skipped on every future drain until the user calls
+         * [retryPermanentlyFailed]. 10 attempts = ~9 minutes of
+         * backoff (1+2+4+8+16+32+64+128+256 = 511s ≈ 8.5 min)
+         * before the entry is flagged as stuck.
+         */
+        const val MAX_ATTEMPTS = 10
+        const val PERMANENT_FAILURE_PREFIX = "PERMANENT_FAILURE:"
+        private const val MAX_BACKOFF_MS = 5L * 60L * 1000L  // 5 minutes
+        private const val TAG = "BatonSync"
     }
 }
 

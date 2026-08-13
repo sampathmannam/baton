@@ -26,11 +26,21 @@ import com.baton.app.data.local.entities.TagEntity
  *    the M2 plain DB is wiped on the M2 -> M3 transition)
  *  - v4 M3-T7 added tags + instruction_tags
  *  - v5 M4-T6 added app_state
+ *  - v6 v1.0 nudge_drafts added (M5)
+ *  - v7 v1.0 is_sensitive added on persons
+ *  - v8 v1.1 lifecycle (completedAt, droppedReason) on instructions
+ *  - v9 v1.2.2 sync_queue.nextAttemptAt (exponential backoff)
  *
- * The M3 -> M4 transition is the same as every previous transition:
- * `fallbackToDestructiveMigration` keeps the upgrade simple because
- * the local cache is reconstructible from Supabase on the next
- * refresh.
+ * v8 -> v9 is the first non-destructive migration in the project:
+ * `ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL
+ * DEFAULT 0`. PENDING outbox rows are preserved across the upgrade
+ * (BUG-DATA-001 was the audit finding that every previous bump
+ * nuked pending writes).
+ *
+ * v3 -> v4 -> v5 -> v6 -> v7 -> v8 are all `fallbackToDestructiveMigration`
+ * transitions — the local cache is reconstructible from Supabase on
+ * the next refresh, and there were no PENDING writes to lose
+ * (M2-T6 + M3-T1 wipe before the outbox was in production use).
  *
  * **Encryption:** the database is opened via SQLCipher (see
  * [com.baton.app.di.DatabaseModule]); the key is held in
@@ -49,7 +59,7 @@ import com.baton.app.data.local.entities.TagEntity
         AppStateEntity::class,
         NudgeDraftEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
