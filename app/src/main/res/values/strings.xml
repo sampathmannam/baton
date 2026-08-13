@@ -72,4 +72,18 @@
     <string name="a11y_confidence_high">High extraction confidence</string>
     <string name="a11y_confidence_medium">Medium extraction confidence</string>
     <string name="a11y_confidence_low">Low extraction confidence</string>
+
+    <!-- v1.4 (PHONE-FINDING-6): offline pill. -->
+    <string name="offline_pill_label">Offline</string>
+    <string name="offline_pill_a11y">You\'re offline. Local changes will sync when network returns.</string>
+
+    <!-- v1.4 (PHONE-FINDING-10 / F-02): POST_NOTIFICATIONS rationale. -->
+    <string name="notifications_rationale">Allow notifications so Baton can show your morning brief.</string>
+
+    <!-- v1.4 (PHONE-FINDING-8): the inline "you need a person
+         first" card on the capture sheet. The message is short,
+         action-oriented, and non-shame per the no-red / no-shame
+         spec rule. The Add Person button uses the same
+         home_add_person string as the Home screen entry point. -->
+    <string name="capture_needs_person_message">Add a person first to capture instructions.</string>
 </resources>
