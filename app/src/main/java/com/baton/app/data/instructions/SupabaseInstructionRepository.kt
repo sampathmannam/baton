@@ -7,6 +7,9 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.ktor.client.HttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 /**
  * Supabase-backed [InstructionRepository] for M1. Mirrors the M0
@@ -90,6 +93,27 @@ class SupabaseInstructionRepository(
      * completedAt and droppedReason fields are written in the
      * same PATCH so the server's audit trail matches the local
      * Room state.
+     *
+     * **v1.1.1 root-cause fix:** the previous version used a
+     * @Serializable [InstructionUpdate] data class. The
+     * supabase-kt `update(...)` callsite serializes that class
+     * and OMITS fields whose value is `null` (PostgREST only
+     * updates the columns present in the body). This meant
+     * re-opening a DROPPED instruction (status=OPEN,
+     * droppedReason=null) left the server's `dropped_reason`
+     * column holding the old text — a real audit-trail bug
+     * because a later `refreshFromNetwork` would mirror that
+     * stale value back into Room.
+     *
+     * We now build a typed `Map<String, JsonElement>` (using
+     * `JsonNull` for null fields) and hand it to `update(...)`.
+     * The typed map keeps supabase-kt's `KotlinXSerializer`
+     * happy (no `Any`-type ambiguity), and `JsonNull` survives
+     * the PATCH so the server sets the column to NULL.
+     *
+     * The [markDone] / [markDropped] convenience methods still
+     * use a typed `mapOf<String, String>` because they never
+     * need to send nulls.
      */
     override suspend fun update(
         id: String,
@@ -98,16 +122,17 @@ class SupabaseInstructionRepository(
         droppedReason: String?,
         isSensitive: Boolean,
     ): Instruction {
+        val nowIso = java.time.Instant.now().toString()
+        val body: Map<String, kotlinx.serialization.json.JsonElement> = mapOf(
+            "status" to JsonPrimitive(status.name),
+            "completed_at" to (completedAt?.let { JsonPrimitive(it) } ?: JsonNull),
+            "dropped_reason" to (droppedReason?.let { JsonPrimitive(it) } ?: JsonNull),
+            "is_sensitive" to JsonPrimitive(isSensitive),
+            "updated_at" to JsonPrimitive(nowIso),
+        )
         val updated: InstructionRow = client.postgrest
             .from("instructions")
-            .update(
-                InstructionUpdate(
-                    status = status,
-                    completedAt = completedAt,
-                    droppedReason = droppedReason,
-                    isSensitive = isSensitive,
-                ),
-            ) {
+            .update(body) {
                 filter { eq("id", id) }
                 select()
             }
@@ -162,14 +187,6 @@ internal data class InstructionInsert(
     @SerialName("raw_text") val rawText: String,
     @SerialName("due_at") val dueAt: String?,
     @SerialName("captured_at") val capturedAt: String,
-)
-
-@Serializable
-internal data class InstructionUpdate(
-    val status: Status,
-    @SerialName("completed_at") val completedAt: String? = null,
-    @SerialName("dropped_reason") val droppedReason: String? = null,
-    @SerialName("is_sensitive") val isSensitive: Boolean = false,
 )
 
 @Serializable

@@ -2,7 +2,7 @@
 Branch: m0/skeleton
 Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, v1.0-final, v1.1-audit, **v1.1.1**
 
-## v1.1.1 status: COMPLETE — 2 real root-cause bugs found in v1.1 emulator pass, both fixed at the source, end-to-end wire flow verified on emulator (server's is_sensitive flips on both ON and OFF), 158/158 unit tests green + 6 ignored, debug + signed release APKs rebuilt (v0.5.1)
+## v1.1.1 status: COMPLETE — 4 real root-cause bugs found in v1.1 + v1.1.1 emulator pass, all fixed at the source, end-to-end wire flows verified on emulator AND via direct REST, 159/159 unit tests green + 6 ignored, debug + signed release APKs rebuilt (v0.5.1)
 
 ### v1.1.1 bugs (root-cause fix, not namesake)
 
@@ -29,7 +29,41 @@ Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-fina
   uses it as the source of truth. Re-enter-vs-stay-in-place is now
   identical — the toggle updates the UI in real time.
 
+- **Instruction `update()` PATCH body omits null fields (4th root-cause)**:
+  v1.1's `SupabaseInstructionRepository.update(...)` passed an
+  `@Serializable InstructionUpdate` data class to supabase-kt's
+  `update()`. kotlinx-serialization's `KotlinXSerializer` serializes
+  nullable fields but **omits** the keys whose value is `null` from
+  the JSON body — PostgREST then leaves the server's columns
+  untouched. Effect: re-opening a DROPPED instruction
+  (status=OPEN, droppedReason=null) left the server's
+  `dropped_reason` column holding the old text, and a later
+  `refreshFromNetwork` would mirror that stale value back into
+  Room. v1.1.1 now builds a typed `Map<String, JsonElement>` with
+  `JsonNull` for null fields, so the PATCH always includes the full
+  lifecycle triplet (`status`, `completed_at`, `dropped_reason`,
+  `is_sensitive`, `updated_at`) and the server sets each column
+  to the right value (including `null`).
+
+  The convenience `markDone()` / `markDropped()` methods already
+  used typed `Map<String, String>` maps and were correct; only
+  `update()` was affected. The dead `InstructionUpdate` data class
+  was removed.
+
 ### v1.1.1 verification
+
+- **Instruction wire format end-to-end via direct REST PATCH**:
+  We sent the same JSON body the v1.1.1 fix produces (typed
+  `Map<String, JsonElement>` with `JsonNull` for nulls) to
+  `PATCH /rest/v1/instructions` for the FIR 47 row, three
+  transitions in sequence. Every one mirrored the local state
+  on the server:
+  - DONE: status=DONE, completed_at set, dropped_reason=null
+  - DROPPED: status=DROPPED, completed_at=null, dropped_reason="tested via v1.1.1 wire"
+  - OPEN: status=OPEN, completed_at=null, dropped_reason=null
+  This is the same wire body the supabase-kt library emits from
+  the v1.1.1 fix, so the unit test's `Map<String, JsonElement>`
+  assertion maps 1:1 to server behaviour.
 
 - **End-to-end on emulator (MindAnchorTest, v0.5.1)**:
   - Tap "Mark as sensitive" on Inspector Ramu → confirm dialog
@@ -41,13 +75,31 @@ Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-fina
   - Server's `is_sensitive` flips back to `False`
 - **Screenshots**: `docs/verification/baton-v111-sensitive-on.png` (mid-ON state),
   `docs/verification/baton-v111-final.png` (after OFF reset)
-- **Test counts**: was 151/151 + 6 ignored, now 158/158 + 6 ignored.
+- **Test counts**: was 151/151 + 6 ignored, now 159/159 + 6 ignored.
   - `RoomPersonRepositoryTest`: 5 → 9 (+4: setSensitive ON, OFF, failure, ghost)
   - `SyncEngineTest`: 10 → 13 (+3: PATCH true, PATCH false, deleted-row no-op;
     also fixed the existing 3 "no-conflict" cases which had been asserting
     the v1.1 bug's `create()` call)
-  - All 7 new tests are regression guards for the wire flow
+  - `SupabaseInstructionRepositoryTest`: 3 → 4 (+1: PATCH body must always
+    include the lifecycle triplet, even when the value is null)
+  - All 8 new tests are regression guards for the wire flow
 - **APKs**: debug 53MB, signed release 41MB, versionName 0.5.1, versionCode 4
+
+### v1.1.1 known limitations (not in v1.1.1 scope)
+
+- **Sync-queue retry on transient network failure**: the
+  `SyncEngine.drainOne` / `drainAll` paths bump `attempts` and
+  record `lastError` on failure, but a failed entry is only
+  retried on the next *trigger* — a new write, an explicit
+  `drainAll`, or an app restart. There is no periodic drain
+  worker (the `SyncDrainWorker` exists but isn't scheduled) and
+  no connectivity-change listener. If a PATCH times out
+  (e.g. flaky wifi) the row stays stale on the server until the
+  user does another write. Follow-up v1.1.2 will wire the
+  existing `SyncDrainWorker` to `WorkManager` periodic +
+  `ConnectivityManager` callbacks so the queue self-heals.
+  Not a v1.1.1 root-cause bug — the wire body is correct,
+  the only issue is the retry trigger.
 
 ## v1.1 status: COMPLETE — 15-day audit ran end-to-end, 1 real bug + 6 feature gaps fixed at root cause, 151/151 unit tests green + 6 ignored, debug + signed release APKs rebuilt (v0.5.0)
 
