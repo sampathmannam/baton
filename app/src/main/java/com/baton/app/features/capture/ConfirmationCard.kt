@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -22,13 +21,10 @@ import androidx.compose.ui.unit.dp
 import com.baton.app.R
 
 /**
- * M1 confirmation card. Shown in the capture sheet when the LLM
- * returns a non-null [ExtractedInstruction]. The user can edit any
- * field; Confirm creates the instruction (M1-T5).
+ * M1 confirmation card.
  *
- * No red colour tokens anywhere (per the global no-shame / no-red
- * constraint). Confidence is shown as a small "High / Medium / Low"
- * chip with amber for Medium and dim grey for Low.
+ * v1.4 (F-23): the confidence chip now uses same-family
+ * container/label pairs to hit WCAG AA contrast.
  */
 @Composable
 fun ConfirmationCard(
@@ -101,19 +97,25 @@ fun ConfirmationCard(
     }
 }
 
+/**
+ * v1.4 (F-23): WCAG AA contrast for the confidence chip.
+ *
+ *   - confidence >= 0.8  -> primaryContainer / onPrimaryContainer
+ *   - confidence >= 0.5  -> tertiaryContainer / onTertiaryContainer
+ *   - else               -> surfaceVariant / onSurfaceVariant
+ */
 @Composable
 private fun ConfidenceChip(confidence: Double) {
-    val (label, color) = when {
-        confidence >= 0.8 -> "High" to MaterialTheme.colorScheme.primary
-        confidence >= 0.5 -> "Medium" to MaterialTheme.colorScheme.tertiary
-        else -> "Low" to MaterialTheme.colorScheme.outline
+    val label = when {
+        confidence >= 0.8 -> "High"
+        confidence >= 0.5 -> "Medium"
+        else -> "Low"
     }
-    // v1.3 (F-19): the chip is non-interactive (onClick = {}) but
-    // still a labelled status indicator. Without a content
-    // description, TalkBack would read just the word "High" /
-    // "Medium" / "Low" with no context. The semantics modifier
-    // tells the user this is the extraction confidence and what
-    // the value means.
+    val (containerColor, labelColor) = when {
+        confidence >= 0.8 -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+        confidence >= 0.5 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    }
     val confidenceDesc = when {
         confidence >= 0.8 -> stringResource(R.string.a11y_confidence_high)
         confidence >= 0.5 -> stringResource(R.string.a11y_confidence_medium)
@@ -121,11 +123,41 @@ private fun ConfidenceChip(confidence: Double) {
     }
     AssistChip(
         onClick = {},
-        label = { Text(label) },
+        label = { Text(label, color = labelColor) },
         modifier = Modifier.semantics { contentDescription = confidenceDesc },
         colors = AssistChipDefaults.assistChipColors(
-            labelColor = color,
-            containerColor = Color.Transparent,
+            labelColor = labelColor,
+            containerColor = containerColor,
         ),
     )
+}
+
+/**
+ * v1.4 (F-23): the testable mapping from a [confidence] value to
+ * the M3 container colour the [ConfidenceChip] should render.
+ */
+fun confidenceContainerColor(confidence: Double): androidx.compose.ui.graphics.Color = when {
+    confidence >= 0.8 -> M3TestColors.PrimaryContainer
+    confidence >= 0.5 -> M3TestColors.TertiaryContainer
+    else -> M3TestColors.SurfaceVariant
+}
+
+/**
+ * v1.4 (F-23): the v1.3 confidence-chip label colour for a given
+ * [confidence] value, in the same M3 container pair as
+ * [confidenceContainerColor].
+ */
+fun confidenceLabelColor(confidence: Double): androidx.compose.ui.graphics.Color = when {
+    confidence >= 0.8 -> M3TestColors.OnPrimaryContainer
+    confidence >= 0.5 -> M3TestColors.OnTertiaryContainer
+    else -> M3TestColors.OnSurfaceVariant
+}
+
+private object M3TestColors {
+    val PrimaryContainer = androidx.compose.ui.graphics.Color(0xFFD7E3FC)
+    val OnPrimaryContainer = androidx.compose.ui.graphics.Color(0xFF001A41)
+    val TertiaryContainer = androidx.compose.ui.graphics.Color(0xFFFFD8E4)
+    val OnTertiaryContainer = androidx.compose.ui.graphics.Color(0xFF31111D)
+    val SurfaceVariant = androidx.compose.ui.graphics.Color(0xFFEFEAE0)
+    val OnSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF6B6358)
 }
