@@ -236,7 +236,9 @@ class CaptureViewModelTest {
         person: FakePersonRepository,
         ins: FakeInstructionRepository,
         tags: RoomTagRepository = fakeTagRepo(),
+        savedStateHandle: androidx.lifecycle.SavedStateHandle = androidx.lifecycle.SavedStateHandle(),
     ): CaptureViewModel = CaptureViewModel(
+        savedStateHandle = savedStateHandle,
         processor = processor,
         captureRepository = repo,
         personRepository = person,
@@ -256,13 +258,47 @@ class CaptureViewModelTest {
     }
 
     @Test
-    fun `dismissSheet resets to idle`() = runTest(testDispatcher) {
+    fun `dismissSheet hides the sheet but preserves the in-flight draft (F-09)`() = runTest(testDispatcher) {
         val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
         val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
         vm.openSheet()
         vm.onTextChanged("hello")
         vm.dismissSheet()
+        // v1.4 (F-09): dismissSheet only hides the sheet, NOT
+        // wipe the draft. The text is preserved so a re-open
+        // restores it.
+        assertFalse(vm.state.value.isVisible)
+        assertEquals("hello", vm.state.value.text)
+    }
+
+    @Test
+    fun `clearDraft wipes the in-flight draft (F-09)`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val vm = makeVm(CaptureProcessor { null }, repo, person, ins)
+        vm.openSheet()
+        vm.onTextChanged("hello")
+        vm.clearDraft()
         assertEquals(CaptureUiState(), vm.state.value)
+    }
+
+    @Test
+    fun `saved text survives a state-handoff (F-09 SavedStateHandle)`() = runTest(testDispatcher) {
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val handle = androidx.lifecycle.SavedStateHandle()
+        val vm1 = makeVm(CaptureProcessor { null }, repo, person, ins, savedStateHandle = handle)
+        vm1.openSheet()
+        vm1.onTextChanged("persistent note")
+        // v1.4 (F-09): the init { _state.collect { ... } } block in
+        // CaptureViewModel writes text/mode/selectedTagIds to the
+        // SavedStateHandle. That collector is launched in
+        // viewModelScope, which uses the test dispatcher, so we
+        // need to advance the scheduler to let it run before
+        // creating the second VM. Without advanceUntilIdle(), the
+        // collector is still pending and the handle is empty.
+        testScheduler.advanceUntilIdle()
+        // Simulate process death + relaunch: new VM, same handle.
+        val vm2 = makeVm(CaptureProcessor { null }, repo, person, ins, savedStateHandle = handle)
+        assertEquals("persistent note", vm2.state.value.text)
     }
 
     @Test

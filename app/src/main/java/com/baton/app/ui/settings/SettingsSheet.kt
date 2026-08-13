@@ -1,5 +1,6 @@
 package com.baton.app.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -49,15 +51,6 @@ import com.baton.app.features.tags.colorForKind
 import com.baton.app.features.tags.parseHex
 import kotlinx.coroutines.launch
 
-/**
- * M3-T4: Settings bottom sheet. Now also hosts the M3-T7 tag
- * management surface (a list of existing tags grouped by kind +
- * a free-form entry to add a new one).
- *
- * **No nav graph yet** for M3. The Today tab is M4. So Settings
- * stays as a sheet; the tag list and the sign-out action live
- * side-by-side.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSheet(
@@ -84,16 +77,11 @@ fun SettingsSheet(
                 style = MaterialTheme.typography.headlineSmall,
             )
 
-            // M3-T7: tags section.
             TagsSection(
                 tags = tags,
                 onAdd = viewModel::addFreeTag,
             )
 
-            // v1.2.4 (F-HIGH-08): stuck-outbox-row indicator.
-            // Hidden when count is 0; shows a single row with
-            // the count + a "Retry" button when there are stuck
-            // rows.
             val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()
             if (stuckCount > 0) {
                 StuckOutboxCard(
@@ -113,6 +101,11 @@ fun SettingsSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
+            // v1.4 (PHONE-FINDING-2): the previous version used
+            // colorScheme.errorContainer (bright red). Replaced
+            // with surfaceVariant/onSurfaceVariant + a subtle
+            // border and a lock icon to communicate "destructive"
+            // without colour.
             Button(
                 onClick = {
                     scope.launch {
@@ -122,10 +115,17 @@ fun SettingsSheet(
                 enabled = !signingOut,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.size(8.dp))
                 Text(
                     text = if (signingOut) {
                         stringResource(R.string.settings_signing_out)
@@ -139,18 +139,6 @@ fun SettingsSheet(
     }
 }
 
-/**
- * v1.2.4 (F-HIGH-08): card showing the count of outbox rows
- * stuck at `PERMANENT_FAILURE:*` + a "Retry" button. The retry
- * action calls [SettingsViewModel.retryStuckOutbox] which
- * resets the rows so the next drain can try them again.
- *
- * v1.2.4 design note: we deliberately use a non-error color
- * (surfaceVariant) for the card. The rows are not necessarily
- * the user's fault (server RLS denial, supabase outage, etc.)
- * — the spec §1 says "no red badges". The user-action surface
- * here is informational + actionable, not a warning.
- */
 @Composable
 private fun StuckOutboxCard(
     count: Int,
@@ -195,12 +183,6 @@ private fun StuckOutboxCard(
     }
 }
 
-/**
- * M3-T7: tags sub-section in the settings sheet. A scrollable list
- * grouped by [TagKind]. Each row is a small chip showing the kind
- * dot + the name. The "+ #tag" affordance at the bottom of the list
- * creates a new FREE tag through the VM.
- */
 @Composable
 private fun TagsSection(
     tags: List<Tag>,
@@ -260,7 +242,6 @@ private fun TagsSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            // Group by kind in display order.
             val groups = TagKind.values().mapNotNull { kind ->
                 val list = tags.filter { it.kind == kind }
                 if (list.isEmpty()) null else kind to list

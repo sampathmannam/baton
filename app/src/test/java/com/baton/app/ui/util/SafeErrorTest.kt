@@ -1,5 +1,6 @@
 package com.baton.app.ui.util
 
+import com.baton.app.features.capture.ErrorType
 import io.github.jan.supabase.exceptions.BadRequestRestException
 import io.github.jan.supabase.exceptions.HttpRequestException
 import io.github.jan.supabase.exceptions.UnauthorizedRestException
@@ -13,6 +14,9 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 
@@ -163,6 +167,170 @@ class SafeErrorTest {
         val e = IllegalStateException() // null message
         val msg = SafeError.forUser(e, "Default works.")
         assertEquals("Default works.", msg)
+    }
+
+    // -----------------------------------------------------------------
+    // v1.4 (PHONE-FINDING-7): save-context mapper.
+    // -----------------------------------------------------------------
+
+    @Test
+    fun `v14 forUserSave - RestException 401 returns session expired string`() = runBlocking {
+        val response = fakeResponse(HttpStatusCode.Unauthorized, withLeakyBody = "x")
+        val e = UnauthorizedRestException("jwt expired $secretUrl", response, "ignored")
+        val msg = SafeError.forUserSave(e, "ignored")
+        assertEquals("Your session expired. Please sign in again.", msg)
+        assertSafe(msg)
+    }
+
+    @Test
+    fun `v14 forUserSave - RestException 403 returns session expired string`() = runBlocking {
+        val response = fakeResponse(HttpStatusCode.Forbidden, withLeakyBody = "x")
+        val e = BadRequestRestException("forbidden $secretUrl", response, "ignored")
+        val msg = SafeError.forUserSave(e, "ignored")
+        assertEquals("Your session expired. Please sign in again.", msg)
+        assertSafe(msg)
+    }
+
+    @Test
+    fun `v14 forUserSave - RestException 429 returns rate limit string`() = runBlocking {
+        val response = fakeResponse(HttpStatusCode.TooManyRequests, withLeakyBody = "x")
+        val e = BadRequestRestException("rate limited $secretUrl", response, "ignored")
+        val msg = SafeError.forUserSave(e, "ignored")
+        assertEquals("Too many saves. Try again in a minute.", msg)
+        assertSafe(msg)
+    }
+
+    @Test
+    fun `v14 forUserSave - RestException 500 range returns unavailable string`() = runBlocking {
+        for (status in listOf(HttpStatusCode.InternalServerError, HttpStatusCode.BadGateway, HttpStatusCode.ServiceUnavailable, HttpStatusCode.GatewayTimeout)) {
+            val response = fakeResponse(status, withLeakyBody = "x")
+            val e = BadRequestRestException("server boom $secretUrl $secretJwt", response, "ignored")
+            val msg = SafeError.forUserSave(e, "ignored")
+            assertEquals("Save service unavailable. Try again later.", msg)
+            assertSafe(msg)
+        }
+    }
+
+    @Test
+    fun `v14 forUserSave - RestException unknown status returns default`() = runBlocking {
+        val response = fakeResponse(HttpStatusCode.fromValue(418), withLeakyBody = "x")
+        val e = BadRequestRestException("weird status $secretUrl", response, "ignored")
+        val msg = SafeError.forUserSave(e, "Custom save default.")
+        assertEquals("Custom save default.", msg)
+        assertSafe(msg)
+    }
+
+    @Test
+    fun `v14 forUserSave - HttpRequestException returns no-connection string`() {
+        val builder = io.ktor.client.request.HttpRequestBuilder().apply {
+            url.host = "example.invalid"
+            url.protocol = io.ktor.http.URLProtocol.HTTPS
+        }
+        val e = HttpRequestException("Failed to connect to $secretUrl: $secretClientInfo", builder)
+        val msg = SafeError.forUserSave(e, "ignored")
+        assertEquals("No connection. Check your network.", msg)
+        assertSafe(msg)
+    }
+
+    @Test
+    fun `v14 forUserSave - IOException returns no-connection string`() {
+        val e = IOException("Connection timed out reaching $secretUrl")
+        val msg = SafeError.forUserSave(e, "ignored")
+        assertEquals("No connection. Check your network.", msg)
+        assertSafe(msg)
+    }
+
+    @Test
+    fun `v14 forUserSave - unknown throwable returns default and never leaks e_message`() = runBlocking {
+        val rawMsg = "something at $secretUrl with $secretJwt and $secretApikey and $secretClientInfo"
+        val msg = SafeError.forUserSave(IllegalStateException(rawMsg), "Safe save fallback.")
+        assertEquals("Safe save fallback.", msg)
+        assertSafe(msg)
+    }
+
+    @Test
+    fun `v14 forUserSave - null throwable message still returns default`() {
+        val e = IllegalStateException() // null message
+        val msg = SafeError.forUserSave(e, "Save default works.")
+        assertEquals("Save default works.", msg)
+    }
+
+    /**
+     * v1.4 (PHONE-FINDING-7): the user-facing string for the
+     * NEEDS_PERSON_FIRST error type is locked here.
+     */
+    @Test
+    fun `v14 forCaptureErrorType - NEEDS_PERSON_FIRST returns the locked fallback text`() {
+        val s = SafeError.forCaptureErrorType(ErrorType.NEEDS_PERSON_FIRST)
+        assertNotNull(s)
+        assertTrue(
+            "NEEDS_PERSON_FIRST message must start with 'Save failed.' (no 'Could not...')",
+            s!!.startsWith("Save failed."),
+        )
+        assertTrue(
+            "NEEDS_PERSON_FIRST message must guide the user ('Add a person first')",
+            s.contains("Add a person first", ignoreCase = true),
+        )
+        assertSafe(s)
+    }
+
+    @Test
+    fun `v14 forCaptureErrorType - NONE returns null so the sheet renders nothing`() {
+        assertNull(SafeError.forCaptureErrorType(ErrorType.NONE))
+    }
+
+    @Test
+    fun `v14 forCaptureErrorType - NETWORK and PERMISSION and UNKNOWN return null (VM owns the message)`() {
+        assertNull(SafeError.forCaptureErrorType(ErrorType.NETWORK_UNAVAILABLE))
+        assertNull(SafeError.forCaptureErrorType(ErrorType.PERMISSION_DENIED))
+        assertNull(SafeError.forCaptureErrorType(ErrorType.UNKNOWN))
+    }
+
+    @Test
+    fun `v14 classifyForCapture - HttpRequestException is NETWORK_UNAVAILABLE`() {
+        val builder = io.ktor.client.request.HttpRequestBuilder().apply {
+            url.host = "example.invalid"
+            url.protocol = io.ktor.http.URLProtocol.HTTPS
+        }
+        val e = HttpRequestException("connect failed", builder)
+        assertEquals(ErrorType.NETWORK_UNAVAILABLE, SafeError.classifyForCapture(e))
+    }
+
+    @Test
+    fun `v14 classifyForCapture - IOException is NETWORK_UNAVAILABLE`() {
+        assertEquals(ErrorType.NETWORK_UNAVAILABLE, SafeError.classifyForCapture(IOException("disk full")))
+    }
+
+    @Test
+    fun `v14 classifyForCapture - RestException 5xx is NETWORK_UNAVAILABLE`() = runBlocking {
+        for (status in listOf(HttpStatusCode.InternalServerError, HttpStatusCode.BadGateway, HttpStatusCode.ServiceUnavailable, HttpStatusCode.GatewayTimeout)) {
+            val response = fakeResponse(status, withLeakyBody = "x")
+            val e = BadRequestRestException("server boom", response, "ignored")
+            assertEquals(
+                "RestException $status should classify to NETWORK_UNAVAILABLE",
+                ErrorType.NETWORK_UNAVAILABLE,
+                SafeError.classifyForCapture(e),
+            )
+        }
+    }
+
+    @Test
+    fun `v14 classifyForCapture - RestException 4xx is UNKNOWN`() = runBlocking {
+        for (status in listOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden, HttpStatusCode.TooManyRequests, HttpStatusCode.fromValue(422))) {
+            val response = fakeResponse(status, withLeakyBody = "x")
+            val e = BadRequestRestException("user error", response, "ignored")
+            assertEquals(
+                "RestException $status should classify to UNKNOWN",
+                ErrorType.UNKNOWN,
+                SafeError.classifyForCapture(e),
+            )
+        }
+    }
+
+    @Test
+    fun `v14 classifyForCapture - any other throwable is UNKNOWN`() {
+        assertEquals(ErrorType.UNKNOWN, SafeError.classifyForCapture(IllegalStateException("boom")))
+        assertEquals(ErrorType.UNKNOWN, SafeError.classifyForCapture(RuntimeException()))
     }
 }
 

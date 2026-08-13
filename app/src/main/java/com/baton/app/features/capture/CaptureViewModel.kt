@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.ResultReceiver
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.captures.CaptureMode
@@ -39,6 +40,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class CaptureViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
     private val processor: CaptureProcessor,
     private val captureRepository: CaptureRepository,
     private val personRepository: PersonRepository,
@@ -46,8 +48,62 @@ class CaptureViewModel @Inject constructor(
     private val tagRepository: RoomTagRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(CaptureUiState())
+    /**
+     * v1.4 (F-09): initial state is read from [SavedStateHandle] so
+     * a process death + relaunch restores the partial capture note
+     * instead of silently losing it. We persist text / mode /
+     * selectedTagIds via an [init] observer below; the Bundle only
+     * holds plain types (String, Int, ArrayList<String>) — the
+     * typed [ExtractedInstruction] proposal is NOT persisted (a
+     * relaunched user can re-tap Extract to repopulate it).
+     */
+    private val _state: MutableStateFlow<CaptureUiState> = MutableStateFlow(
+        CaptureUiState(
+            text = savedStateHandle.get<String>(KEY_TEXT) ?: "",
+            mode = savedStateHandle.get<String>(KEY_MODE)
+                ?.let { runCatching { CaptureMode.valueOf(it) }.getOrNull() }
+                ?: CaptureMode.TEXT,
+            selectedTagIds = (
+                savedStateHandle.get<ArrayList<String>>(KEY_SELECTED_TAG_IDS)
+                    ?: arrayListOf()
+                ).toSet(),
+        ),
+    )
     val state: StateFlow<CaptureUiState> = _state.asStateFlow()
+
+    init {
+        // v1.4 (F-09): auto-persist on every state change. This
+        // hooks the in-memory state to the Bundle via the
+        // SavedStateHandle that Hilt provides. The onSave success
+        // path calls [clearDraft] to wipe; [dismissSheet] now
+        // preserves the draft.
+        viewModelScope.launch {
+            _state.collect { current ->
+                savedStateHandle[KEY_TEXT] = current.text
+                savedStateHandle[KEY_MODE] = current.mode.name
+                savedStateHandle[KEY_SELECTED_TAG_IDS] = ArrayList(current.selectedTagIds)
+            }
+        }
+    }
+
+    /**
+     * v1.4 (F-09): explicit wipe of the in-flight draft. Called by
+     * the Save success path ([onConfirm], [onSaveRaw]). Unlike
+     * [dismissSheet], this clears the SavedStateHandle-backed fields
+     * so a process death + relaunch does not restore a stale draft.
+     */
+    fun clearDraft() {
+        savedStateHandle.remove<String>(KEY_TEXT)
+        savedStateHandle.remove<String>(KEY_MODE)
+        savedStateHandle.remove<ArrayList<String>>(KEY_SELECTED_TAG_IDS)
+        _state.value = CaptureUiState()
+    }
+
+    private companion object {
+        const val KEY_TEXT = "capture.text"
+        const val KEY_MODE = "capture.mode"
+        const val KEY_SELECTED_TAG_IDS = "capture.selectedTagIds"
+    }
 
     /**
      * v1.4 (PHONE-FINDING-8): the capture sheet now refuses to
@@ -127,8 +183,14 @@ class CaptureViewModel @Inject constructor(
         _state.update { it.copy(isVisible = true) }
     }
 
+    /**
+     * v1.4 (F-09): dismiss the sheet WITHOUT wiping the draft. The
+     * X / scrim / BACK path must preserve the partial note so a
+     * re-open restores it. Use [clearDraft] for the explicit
+     * "wipe the draft" path (called from the Save success path).
+     */
     fun dismissSheet() {
-        _state.value = CaptureUiState()
+        _state.update { it.copy(isVisible = false) }
     }
 
     /**
@@ -461,7 +523,9 @@ class CaptureViewModel @Inject constructor(
                         )
                     }
                 }
-                dismissSheet()
+                // v1.4 (F-09): success path wipes the in-flight draft
+                // so the next capture starts from a clean slate.
+                clearDraft()
             }.onFailure { e ->
                 _state.update {
                     it.copy(
@@ -528,7 +592,8 @@ class CaptureViewModel @Inject constructor(
                         )
                     }
                 }
-                dismissSheet()
+                // v1.4 (F-09): success path wipes the in-flight draft.
+                clearDraft()
             }.onFailure { e ->
                 _state.update {
                     it.copy(
