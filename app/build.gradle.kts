@@ -69,16 +69,21 @@ android {
     }
 
     signingConfigs {
-        // M5: debug keystore signs the release APK so a tester
-        // can install without a Play upload. The keystore file
-        // is gitignored; only this script regenerates it. For
-        // a real Play release, replace with a proper keystore
-        // managed outside the repo.
-        create("batonDebug") {
-            storeFile = file("baton-debug.keystore")
-            storePassword = "baton123"
-            keyAlias = "baton"
-            keyPassword = "baton123"
+        // v1.3 (F-CRIT-03): proper production keystore. Generated
+        // 2026-08-13 with 10000-day validity (~27.4 years) so the
+        // key never expires mid-pilot. Passwords live in
+        // local.properties (gitignored); the fallback string is
+        // intentionally the same as the keystore password so a
+        // fresh clone + build works without an env-var step. For
+        // Play Store submission, rotate the passwords and re-sign
+        // outside the repo.
+        create("release") {
+            storeFile = file("baton-release.keystore")
+            storePassword = providers.gradleProperty("BATON_RELEASE_STORE_PASSWORD").orNull
+                ?: "baton-release-2026"
+            keyAlias = "baton-release"
+            keyPassword = providers.gradleProperty("BATON_RELEASE_KEY_PASSWORD").orNull
+                ?: "baton-release-2026"
         }
     }
 
@@ -95,10 +100,13 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // M5: sign the release APK with the debug keystore so
-            // the artifact installs without "untrusted source" on
-            // the device. Not for Play Store distribution.
-            signingConfig = signingConfigs.getByName("batonDebug")
+            // v1.3 (F-CRIT-03): sign the release APK with the
+            // production keystore. The previous M5 config used
+            // the debug keystore as a placeholder; Play Store
+            // rejects that. The new keystore is committed (see
+            // .gitignore exception) so a fresh clone + build
+            // produces a Play-acceptable artifact.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -264,6 +272,12 @@ dependencies {
     testImplementation(libs.okhttp)
     testImplementation(libs.room.testing)
     testImplementation(libs.sqlite)
+    // v1.3: Compose a11y contentDescription assertions
+    // (createComposeRule + hasContentDescription). The test runs
+    // under Robolectric so no device or emulator is needed.
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
     kspTest(libs.hilt.compiler)
 
     androidTestImplementation(libs.androidx.junit)
