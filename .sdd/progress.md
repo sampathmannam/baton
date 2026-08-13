@@ -1,6 +1,6 @@
 # Baton progress ledger
 Branch: m0/skeleton
-Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, v1.0-final, v1.1-audit, **v1.1.1**
+Tags: m0-skeleton, m0-final, m1-capture, m2-capture, m2-final, m3-final, m4-final, v1.0-final, v1.1-audit, v1.1.1-final, **v1.2-final**
 
 ## v1.1.1 status: COMPLETE — 4 real root-cause bugs found in v1.1 + v1.1.1 emulator pass, all fixed at the source, end-to-end wire flows verified on emulator AND via direct REST, 159/159 unit tests green + 6 ignored, debug + signed release APKs rebuilt (v0.5.1)
 
@@ -326,4 +326,75 @@ origin; the user can create the release from the GitHub web UI
 APKs from `app/build/outputs/apk/debug/app-debug.apk` (51 MB) and
 `app/build/outputs/apk/release/app-release.apk` (39 MB). The
 release notes are in `tmp/release_notes_v1.1.md`.
+
+## v1.2 — SOTA bug-hunt campaign + 6 critical root-cause fixes
+
+### SOTA audit: 6 parallel general-purpose agents
+- Data layer: 47 findings (11 CRITICAL, 13 HIGH, 18 MEDIUM, 5 LOW)
+- Auth: 30 findings (5 CRITICAL, 7 HIGH, 8 MEDIUM, 10 LOW)
+- Capture/AI: 50 findings (0 CRITICAL, 12 HIGH, 17 MEDIUM, 21 LOW)
+- UI: 50 findings (0 CRITICAL, 11 HIGH, 17 MEDIUM, 22 LOW)
+- Wire: 39 findings (9 CRITICAL, 14 HIGH, 12 MEDIUM, 4 LOW)
+- Build: 54 findings (7 CRITICAL, 12 HIGH, 20 MEDIUM, 15 LOW)
+- **~270 unique findings, ~32 CRITICAL, ~67 HIGH** logged in
+  `docs/audit/audit-v1.2-sota-campaign.md`
+
+### v1.2 root-cause fixes (Tier-1, all shipped in commit `d2bd759`)
+
+| ID | Layer | Symptom | Root cause | Fix |
+|---|---|---|---|---|
+| **BEAU-NEW-01** | UI/Auth | HomeViewModel surfaces full URL + JWT + apikey + X-Client-Info in error overlay | 4 `e.message` calls in HomeViewModel (Flow.catch, createPerson, refreshFromNetwork, refreshInstructionsFromNetwork) | Extracted shared `com.baton.app.ui.util.SafeError.forUser(e, default)` mapper (was `internal` in AuthViewModel). Applied to all 4 HomeViewModel sites. AuthViewModel already used it. |
+| **BUG-AUTH-023** | UI | Settings "Sign out" button stays disabled after a network failure | `SettingsViewModel.signOut()` never reset `_signingOut` on `Result.failure` | `AuthRepository.signOut()` now returns `Result<Unit>` via `runCatching`; VM wires `onSuccess`/`onFailure` |
+| **BATON-WIRE-002 / BUG-AUTH-002** | Sync | Sign-out leaves the previous user's Realtime channels subscribed, leaking data on re-sign-in | `RealtimeSync` had no `stop()` method | Added idempotent `RealtimeSync.stop()` (cancels `startJob`, `scope.launch(Dispatchers.IO) { unsubscribe(); close() }`). `SettingsViewModel.signOut()` calls it **first** (before DB wipe, before Supabase signOut) |
+| **BATON-WIRE-007** | Wire | Server-side `updated_at` wrong when device clock is off; incremental sync breaks | `SupabaseInstructionRepository.update()`/`markDone()`/`markDropped()` sent device-clock `updated_at` in PATCH body | Removed `updated_at` from PATCH body. Server's `BEFORE UPDATE` trigger owns the timestamp |
+| **BUG-SETTINGS-NOOP** | UI | Settings tab icon does nothing | `MainActivity` passed `onSettingsClick: () -> Unit` but `BottomNav` didn't accept it | `BottomNav` now accepts the lambda; Settings sheet opens |
+| **BATON-PERSON-005** | UI | `PersonHeader` ignored `openInstructionCount` | param present in signature but not rendered | `PersonHeader` now takes `openInstructionCount: Int`, renders only when `> 0` |
+| **BUG-BRIEF-001** | Brief | Brief notification count disagrees with the People-list badge | BriefNotifierWorker computed its own count | Extracted `OpenCountProvider` (@Singleton) — single source of truth |
+
+### Platform / store-readiness fixes (also in `d2bd759`)
+
+| ID | What | Why |
+|---|---|---|
+| BUG-BUILD-001 | 16 KB page-size alignment in `app/src/main/cpp/CMakeLists.txt` | Google Play requires arm64-v8a 16 KB-aligned libs from Nov 1 2025 |
+| BUG-BUILD-002 | `targetSdk`/`compileSdk` 34 → 35, `versionCode` 4 → 5, `versionName` 0.5.1 → 1.2.0 | 34 is below current Play Store minimum |
+| BUG-BUILD-003 | New `app/proguard-rules.pro` + `isMinifyEnabled` + `isShrinkResources` on release | Without rules, R8 strips Hilt/Room/Compose/sqldelight/serialization |
+| BUG-BUILD-004 | `ndkVersion = libs.versions.ndk.get()` | Reproducible builds + 16 KB alignment |
+| BUG-MANIFEST-001 | `<queries>` for Calendar, Share text/image, Camera | Android 11+ package visibility |
+| BUG-MANIFEST-002 | `res/xml/network_security_config.xml` + `android:networkSecurityConfig` | No cleartext + domain whitelist (supabase.co, supabase.in) |
+| BUG-MANIFEST-003 | `android:enableOnBackInvokedCallback="true"` on MainActivity | Android 14+ predictive back |
+| BUG-NOTIF-001 | New `ic_voice_notification.xml` (monochrome 24dp) + `VoiceCaptureService` uses it | Launcher icon shows blank square at notification small size |
+| BUG-WORK-001 | `SyncDrainWorker` re-throws `CancellationException` | WorkManager cancellation now works cleanly |
+| BUG-WORK-002 | `WorkManagerInitializer.schedulePeriodicDrain()` (15-min, KEEP, CONNECTED) + called from `BatonApplication.onCreate` | Sync queue drains on a schedule, not just on Realtime events |
+
+### Test results
+- **171 / 171 unit tests green** (was 159/159 before this commit)
+- 6 ignored (SecurePreferencesTest — pre-existing)
+- New tests:
+  - `SafeErrorTest` (11 tests) — locks the no-URL/JWT/apikey/SDK property for every mapped exception type
+  - `HomeViewModelTest.BEAU-NEW-01` — real Ktor `MockEngine` + `BadRequestRestException` + `flow { emit + throw }` — asserts surfaced string contains none of: `supabase.co`, `/rest/v1/`, `eyJ`, `Bearer`, `sb_publishable`, `supabase-kt`, `X-Client-Info`, `/3.1.1`
+
+### Emulator verification (MindAnchorTest AVD, 1080x2400, `com.baton.app.debug`)
+- 16 KB alignment: no `UnalignedApk` warning on install
+- 3 tabs navigate (Home / Today / Settings)
+- Settings sheet opens (was no-op before)
+- Sign out works: local DB wiped → AuthScreen with "Welcome back!"
+- Sign-in error path shows "Invalid email or password." with NO URL, NO JWT, NO apikey, NO X-Client-Info (SafeError fix verified live)
+- People list loads 8 people, "Inspector Ramu" shows "1" badge
+
+### GitHub release
+- Tag `v1.2-final` at `d2bd759`
+- 26 files changed, 1474 insertions(+), 113 deletions(-)
+
+### What remains from the ~270 findings
+- Tier-2 (HIGH) — to be addressed in v1.2.1 (1-2 weeks):
+  - PRAGMA foreign_keys = ON enforcement
+  - Room migration v8→v9 (no destructive)
+  - AppInitializer idempotency
+  - Sign-out idempotency
+  - JWT refresh-on-401
+  - Sync queue retry with exponential backoff
+  - Real keystore for release (debug.keystore is a placeholder)
+  - Compose screen-reader content descriptions on every interactive
+  - WorkManager constraints: BATTERY_NOT_LOW for 15-min drain
+- Tier-3 (MEDIUM/LOW) — backlog, will batch in v1.2.2 / v1.2.3
 
