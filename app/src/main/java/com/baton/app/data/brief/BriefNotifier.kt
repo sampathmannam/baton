@@ -125,6 +125,13 @@ class BriefNotifier @Inject constructor(
  * v1.0: the worker that fires the morning brief notification.
  * Uses HiltWorker so it can inject the notifier and the brief
  * generator.
+ *
+ * **v1.2 root-cause fix (F-01 in the capture/AI audit):** the v1.1
+ * pass hardcoded `instructions = emptyList()` here, so the
+ * generated brief was always empty and the notification always
+ * said "Nothing on your plate." The actual count now comes from
+ * the instruction repository (the same source the Today tab
+ * uses), filtered to the three "needs attention" statuses.
  */
 @HiltWorker
 class BriefNotifierWorker @AssistedInject constructor(
@@ -132,21 +139,12 @@ class BriefNotifierWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val briefGenerator: BriefGenerator,
     private val notifier: BriefNotifier,
+    private val openCountProvider: OpenCountProvider,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         notifier.ensureChannel()
-        val today = LocalDate.now(ZoneId.systemDefault())
-        val brief = briefGenerator.build(
-            type = BriefType.MORNING,
-            date = today,
-            instructions = emptyList(),  // The build with emptyList is a stub; the real
-            // count comes from the Today screen's brief which the
-            // notification text mirrors. The notification is "tap to
-            // open the brief", so the count here is a small hint.
-        )
-        val openCount = brief.needsYouToday.size + brief.waitingOnOthers.size +
-            brief.carriedOver.size
+        val openCount = openCountProvider.todayOpenCount()
         notifier.postMorningBrief(openCount)
         return Result.success()
     }

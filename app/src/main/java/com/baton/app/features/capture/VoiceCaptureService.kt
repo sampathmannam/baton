@@ -215,7 +215,11 @@ class VoiceCaptureService : Service() {
         val notif: Notification = Notification.Builder(this, channelId)
             .setContentTitle(getString(R.string.voice_capture_title))
             .setContentText(getString(R.string.voice_capture_text))
-            .setSmallIcon(R.mipmap.ic_launcher)
+            // v1.2 (F-MED-19): use a vector monochrome small icon,
+            // not the launcher mipmap. The system tints the small
+            // icon; a launcher mipmap renders as a coloured blob
+            // (or invisible on some launchers).
+            .setSmallIcon(R.drawable.ic_voice_notification)
             .setOngoing(true)
             .setContentIntent(tapIntent)
             .addAction(0, getString(R.string.voice_capture_stop), stopIntent)

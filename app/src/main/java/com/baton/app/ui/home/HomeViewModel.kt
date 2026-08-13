@@ -9,6 +9,7 @@ import com.baton.app.data.local.PersonStaleAge
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
+import com.baton.app.ui.util.SafeError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,7 +57,7 @@ class HomeViewModel @Inject constructor(
                     )
                 }
             }
-                .catch { e -> _state.value = HomeUiState.Error(e.message ?: "Unknown error") }
+                .catch { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not load people.")) }
                 .collect { _state.value = it }
         }
         // M2-T6: kick off an initial pull on first VM creation.
@@ -102,7 +103,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { personRepository.create(name, designation, station) }
                 .onFailure { e ->
-                    _state.value = HomeUiState.Error(e.message ?: "Could not create person")
+                    _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not create person."))
                 }
             // Success path: the Flow's `collect` block re-emits
             // when Room gets the new row, so no explicit refresh
@@ -115,7 +116,7 @@ class HomeViewModel @Inject constructor(
             runCatching { personRepository.refreshFromNetwork() }
                 .onFailure { e ->
                     // Non-fatal: the local copy is still authoritative.
-                    _state.value = HomeUiState.Error(e.message ?: "Could not refresh from network")
+                    _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not refresh people."))
                 }
         }
     }
@@ -134,7 +135,7 @@ class HomeViewModel @Inject constructor(
                 .onFailure { e ->
                     // Non-fatal: badge will undercount, no crash.
                     _state.value = HomeUiState.Error(
-                        e.message ?: "Could not refresh instructions from network",
+                        SafeError.forUser(e, "Could not refresh instructions."),
                     )
                 }
         }

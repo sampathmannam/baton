@@ -30,14 +30,19 @@ if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
 
 android {
     namespace = "com.baton.app"
-    compileSdk = 34
+    compileSdk = 35
+    // v1.2: pin NDK for reproducible builds + first-class 16 KB
+    // page-size support. The version catalog (libs.versions.toml)
+    // declares the same version; we read it here so gradle.properties
+    // overrides propagate.
+    ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
         applicationId = "com.baton.app"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 4
-        versionName = "0.5.1"
+        targetSdk = 35
+        versionCode = 5
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
@@ -83,7 +88,12 @@ android {
             isDebuggable = true
         }
         release {
-            isMinifyEnabled = false
+            // v1.2: enable R8 minify + resource shrink for release
+            // APKs. Saves ~30% size and forces a clean proguard-rules.pro
+            // (was missing in v1.1.1; now mandatory). Debug build is
+            // unaffected.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // M5: sign the release APK with the debug keystore so
             // the artifact installs without "untrusted source" on

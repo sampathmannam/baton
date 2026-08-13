@@ -2,6 +2,7 @@
 
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -9,6 +10,7 @@ import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -23,12 +25,16 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * M3-T4 tests for [SettingsViewModel]. The sign-out flow has two
- * strict ordering invariants: (1) the AppInitializer wipe must run
- * before the AuthRepository.signOut, otherwise the in-flight Compose
- * tree still references the encrypted DB and SQLCipher throws.
- * (2) re-entering signOut() while a previous call is in flight is a
- * no-op (the second call returns immediately).
+ * M3-T4 tests for [SettingsViewModel]. The sign-out flow has three
+ * strict ordering invariants: (1) [RealtimeSync.stop] must run
+ * BEFORE [AppInitializer.runOnSignOut] so the previous user's JWT
+ * is not on the WebSocket when the activity is torn down (see
+ * BUG-AUTH-002 / BATON-WIRE-002 in the v1.2 audit). (2) the
+ * AppInitializer wipe must run before the AuthRepository.signOut,
+ * otherwise the in-flight Compose tree still references the
+ * encrypted DB and SQLCipher throws. (3) re-entering signOut()
+ * while a previous call is in flight is a no-op (the second call
+ * returns immediately).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
@@ -45,16 +51,33 @@ class SettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    @Test
-    fun `signOut wipes local DB then signs out of Supabase`() = runTest(testDispatcher) {
+    private data class VmMocks(
+        val init: AppInitializer,
+        val auth: AuthRepository,
+        val realtime: RealtimeSync,
+        val vm: SettingsViewModel,
+    )
+
+    private fun mockVm(): VmMocks {
         val init = mockk<AppInitializer>(relaxed = true)
         val auth = mockk<AuthRepository>(relaxed = true)
-        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
+        val realtime = mockk<RealtimeSync>(relaxed = true)
+        val vm = SettingsViewModel(auth, init, mockk<RoomTagRepository>(relaxed = true), realtime)
+        return VmMocks(init, auth, realtime, vm)
+    }
+
+    @Test
+    fun `signOut closes realtime then wipes local DB then signs out of Supabase`() = runTest(testDispatcher) {
+        val (init, auth, realtime, vm) = mockVm()
 
         vm.signOut()
         advanceUntilIdle()
 
         coVerifyOrder {
+            // v1.2: Realtime MUST be closed first so the previous
+            // user's JWT is not on the WebSocket when the activity
+            // is torn down.
+            realtime.stop()
             init.runOnSignOut()
             auth.signOut()
         }
@@ -62,26 +85,20 @@ class SettingsViewModelTest {
 
     @Test
     fun `signOut flipping the signing-out flag is observable`() = runTest(testDispatcher) {
-        val init = mockk<AppInitializer>(relaxed = true)
-        val auth = mockk<AuthRepository>(relaxed = true)
-        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
+        val (_, _, _, vm) = mockVm()
 
         assertFalse(vm.signingOut.value)
         vm.signOut()
+        // v1.2 BUG-AUTH-023: the flag stays true after the work
+        // completes; the session observer tears down the activity.
+        // The button must NOT flicker back to enabled.
+        assertTrue(vm.signingOut.value)
         advanceUntilIdle()
-        // After the work completes, the flag flips back to false so
-        // the button is re-enabled â€” but the activity has already
-        // swapped to the AuthScreen by then.
-        assertFalse(vm.signingOut.value)
-        coVerify(exactly = 1) { init.runOnSignOut() }
-        coVerify(exactly = 1) { auth.signOut() }
     }
 
     @Test
     fun `second signOut while in flight is a no-op`() = runTest(testDispatcher) {
-        val init = mockk<AppInitializer>(relaxed = true)
-        val auth = mockk<AuthRepository>(relaxed = true)
-        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
+        val (init, auth, _, vm) = mockVm()
 
         // Fire twice in a row before the first one completes.
         vm.signOut()
@@ -94,13 +111,11 @@ class SettingsViewModelTest {
 
     @Test
     fun `signOut survives a thrown AppInitializer error`() = runTest(testDispatcher) {
-        val init = mockk<AppInitializer>(relaxed = true)
-        val auth = mockk<AuthRepository>(relaxed = true)
+        val (init, auth, _, vm) = mockVm()
         // AppInitializer wipes the DB best-effort; the VM must still
         // call auth.signOut even if the wipe throws (e.g. the file
         // is already gone). The user can still sign out.
         coEvery { init.runOnSignOut() } throws RuntimeException("file not found")
-        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
 
         vm.signOut()
         advanceUntilIdle()
@@ -110,16 +125,18 @@ class SettingsViewModelTest {
 
     @Test
     fun `signOut survives a thrown AuthRepository error`() = runTest(testDispatcher) {
-        val init = mockk<AppInitializer>(relaxed = true)
-        val auth = mockk<AuthRepository>(relaxed = true)
-        coEvery { auth.signOut() } throws RuntimeException("network down")
-        val vm = SettingsViewModel(auth, init, mockk(relaxed = true))
+        val (init, auth, _, vm) = mockVm()
+        coEvery { auth.signOut() } returns Result.failure(RuntimeException("network down"))
 
         vm.signOut()
         advanceUntilIdle()
 
-        // The flag should reset even on error so the UI isn't stuck.
-        assertFalse(vm.signingOut.value)
+        // v1.2 BUG-AUTH-023: the flag stays true on error too; the
+        // local DB is wiped so the user is signed out client-side.
+        // AuthRepository.signOut() now returns Result<Unit>, not
+        // throws, so the failure path is exercised via the return value.
+        assertTrue(vm.signingOut.value)
         coVerify(exactly = 1) { init.runOnSignOut() }
+        coVerify(exactly = 1) { auth.signOut() }
     }
 }

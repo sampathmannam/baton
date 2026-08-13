@@ -41,8 +41,22 @@ class AuthRepository(httpClient: HttpClient) {
         Unit
     }
 
-    suspend fun signOut() {
+    /**
+     * v1.2 root-cause fix (BATON-WIRE-008): signOut was a bare
+     * suspend that propagated every exception. The SettingsViewModel
+     * wrapped it in `runCatching`, but a future caller (deep link,
+     * accessibility action, instrumentation test) would have crashed
+     * the activity on a network failure during sign-out (e.g.
+     * supabase-kt signOut requires a server round-trip to invalidate
+     * the refresh token). We now wrap in `runCatching` and return
+     * a `Result` so the caller decides what to do. The local DB wipe
+     * (`AppInitializer.runOnSignOut()`) is already done by the caller
+     * BEFORE this call, so the user is effectively signed out
+     * client-side regardless of the network result.
+     */
+    suspend fun signOut(): Result<Unit> = runCatching {
         client.auth.signOut()
+        Unit
     }
 
     /**
