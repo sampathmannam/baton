@@ -35,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -256,10 +258,14 @@ private fun PersonList(
 
 @Composable
 private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick: () -> Unit) {
+    // v1.3 (F-19): the row is a clickable list item — TalkBack needs
+    // to know it opens the person detail screen. onClickLabel replaces
+    // the generic "double-tap to activate" with the action name.
+    val openPersonLabel = stringResource(R.string.a11y_person_row_open)
     androidx.compose.foundation.layout.Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .clickable(onClickLabel = openPersonLabel) { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -275,8 +281,14 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
                 // "this has been quiet".
                 if (isStale) {
                     Spacer(Modifier.size(8.dp))
+                    // v1.3 (F-19): the stale dot is a pure visual
+                    // cue; TalkBack should announce what it means
+                    // (no activity for 3+ days), not "dot".
+                    val staleDesc = stringResource(R.string.a11y_person_stale_indicator)
                     Surface(
-                        modifier = Modifier.size(8.dp),
+                        modifier = Modifier
+                            .size(8.dp)
+                            .semantics { contentDescription = staleDesc },
                         color = androidx.compose.ui.graphics.Color(0xFFD9A05B),
                         contentColor = androidx.compose.ui.graphics.Color.Transparent,
                         shape = androidx.compose.foundation.shape.CircleShape,
@@ -293,11 +305,23 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             }
         }
         if (openCount > 0) {
+            // v1.3 (F-19): the count badge is just a number on a
+            // tinted background. TalkBack would read "3" without
+            // context; the semantics modifier replaces that with
+            // "3 open instructions" so the user knows what the
+            // number is counting.
+            val countDesc = if (openCount == 1) {
+                stringResource(R.string.a11y_person_count_badge_one)
+            } else {
+                stringResource(R.string.a11y_person_count_badge, openCount)
+            }
             Surface(
                 color = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 shape = androidx.compose.foundation.shape.CircleShape,
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .semantics { contentDescription = countDesc },
             ) {
                 Text(
                     text = openCount.toString(),
