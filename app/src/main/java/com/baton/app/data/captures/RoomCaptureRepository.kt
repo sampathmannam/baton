@@ -76,6 +76,7 @@ import javax.inject.Singleton
 class RoomCaptureRepository @Inject constructor(
     private val dao: CaptureDao,
     private val syncQueueDao: SyncQueueDao,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
 ) : CaptureRepository {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -113,6 +114,12 @@ class RoomCaptureRepository @Inject constructor(
                 createdAt = now(),
             )
         )
+        // v1.4.4: per-write one-shot sync. The 15-min periodic in
+        // BatonApplication is the safety net; this is the foreground
+        // path that gives the user "saved to server" within a few
+        // seconds of tapping Save (instead of up to 15 min).
+        com.baton.app.data.work.WorkManagerInitializer
+            .enqueueCaptureSync(context)
         return local.toDomain()
     }
 
@@ -144,6 +151,9 @@ class RoomCaptureRepository @Inject constructor(
                 createdAt = now(),
             )
         )
+        // v1.4.4: per-write one-shot sync for the UPDATE too.
+        com.baton.app.data.work.WorkManagerInitializer
+            .enqueueCaptureSync(context)
     }
 
     private fun nowIso(): String = java.time.Instant.now().toString()

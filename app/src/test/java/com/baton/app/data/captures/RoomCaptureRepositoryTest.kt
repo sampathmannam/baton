@@ -1,7 +1,10 @@
 package com.baton.app.data.captures
 
+import android.util.Log
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.SyncQueueDao
@@ -65,6 +68,25 @@ class RoomCaptureRepositoryTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        // v1.4.4: RoomCaptureRepository.create() and markProcessed()
+        // now call WorkManagerInitializer.enqueueCaptureSync(context)
+        // after enqueuing the sync_queue row. Baton disables
+        // WorkManager's auto-init ContentProvider in the manifest
+        // (see tools:node="remove" on
+        // androidx.work.WorkManagerInitializer in AndroidManifest.xml)
+        // so a bare WorkManager.getInstance(context) call would throw
+        // IllegalStateException("WorkManager is not initialized
+        // properly"). Initialize a test WorkManager here so the
+        // per-write enqueue is a no-op (the work is enqueued into the
+        // test driver; we don't assert it actually ran, just that
+        // the call doesn't throw). Mirrors the pattern in
+        // WorkManagerInitializerCaptureSyncTest.
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            context,
+            Configuration.Builder()
+                .setMinimumLoggingLevel(Log.DEBUG)
+                .build(),
+        )
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -73,6 +95,13 @@ class RoomCaptureRepositoryTest {
         repo = RoomCaptureRepository(
             dao = captureDao,
             syncQueueDao = syncQueueDao,
+            // v1.4.4: pass the test context so the per-write
+            // enqueueCaptureSync call has something to call
+            // WorkManager.getInstance on. The WorkManager test
+            // driver initialised above makes the call a no-op
+            // (the work is enqueued into the driver, not the
+            // real scheduler) and asserts the call didn't throw.
+            context = context,
         )
     }
 
