@@ -2,6 +2,7 @@ package com.baton.app.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import com.baton.app.data.local.entities.AppStateEntity
 import com.baton.app.data.local.entities.CaptureEntity
 import com.baton.app.data.local.entities.InstructionEntity
@@ -30,12 +31,28 @@ import com.baton.app.data.local.entities.TagEntity
  *  - v7 v1.0 is_sensitive added on persons
  *  - v8 v1.1 lifecycle (completedAt, droppedReason) on instructions
  *  - v9 v1.2.2 sync_queue.nextAttemptAt (exponential backoff)
+ *  - v10 v1.4.2 sync_queue UNIQUE INDEX on (op, table, rowId)
+ *         (DATA-FINDING-04: dedup the outbox so a double-tap of
+ *         `markDone` doesn't enqueue two UPDATE rows for the
+ *         same instruction)
  *
  * v8 -> v9 is the first non-destructive migration in the project:
  * `ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL
  * DEFAULT 0`. PENDING outbox rows are preserved across the upgrade
  * (BUG-DATA-001 was the audit finding that every previous bump
  * nuked pending writes).
+ *
+ * v9 -> v10 (DATA-FINDING-04) is also non-destructive:
+ * `CREATE UNIQUE INDEX ... ON sync_queue (op, table, rowId)`.
+ * The migration dedupes any pre-existing duplicate rows first
+ * (keeping the row with the highest `id`, i.e. the latest
+ * enqueue) so the CREATE INDEX doesn't fail on legacy data.
+ * If a user has duplicate `(op, table, rowId)` rows from a
+ * double-tap before this upgrade, the drain would have done the
+ * right thing anyway (re-PATCH is idempotent for `is_sensitive`,
+ * and the instruction status PATCH is the latest-write-wins
+ * because the server side just overwrites). Collapsing to a
+ * single row on upgrade is the right cleanup.
  *
  * v3 -> v4 -> v5 -> v6 -> v7 -> v8 are all `fallbackToDestructiveMigration`
  * transitions — the local cache is reconstructible from Supabase on
@@ -59,7 +76,7 @@ import com.baton.app.data.local.entities.TagEntity
         AppStateEntity::class,
         NudgeDraftEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -75,5 +92,49 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "baton.db"
+
+        /**
+         * v1.4.2 (DATA-FINDING-04): add the UNIQUE INDEX on
+         * `(op, table, rowId)` that [SyncQueueEntity] declares
+         * and that [SyncQueueDao.enqueue] relies on for
+         * dedup-on-conflict. The index column order matches the
+         * @Entity declaration so Room's post-migration schema
+         * validation accepts it.
+         *
+         * Pre-step: collapse any pre-existing duplicate rows
+         * (one per `(op, table, rowId)` group, keeping the
+         * latest by `id`) so the CREATE INDEX doesn't fail on
+         * legacy data. The non-aggregating DELETE + correlated
+         * subquery form is intentional — `DELETE ... WHERE id
+         * NOT IN (SELECT MAX(id) ...)` does the dedupe in a
+         * single statement.
+         *
+         * Production wiring: `DatabaseModule.provideDatabase`
+         * should add this to its `addMigrations(...)` call,
+         * matching the v8 -> v9 pattern. The migration is
+         * exposed here as a public companion constant for that
+         * one-line wiring change.
+         */
+        val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Dedupe any pre-existing duplicate outbox rows
+                // before adding the unique constraint. Keeps the
+                // row with the highest `id` per
+                // (op, table, rowId) — i.e. the latest enqueue.
+                db.execSQL(
+                    "DELETE FROM sync_queue WHERE id NOT IN (" +
+                        "SELECT MAX(id) FROM sync_queue " +
+                        "GROUP BY `op`, `table`, rowId" +
+                        ")",
+                )
+                // Add the unique index. `IF NOT EXISTS` so a
+                // partially-completed prior run is idempotent.
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                        "`index_sync_queue_op_table_rowId` " +
+                        "ON sync_queue (`op`, `table`, rowId)",
+                )
+            }
+        }
     }
 }
