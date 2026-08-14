@@ -272,6 +272,10 @@ dependencies {
     testImplementation(libs.okhttp)
     testImplementation(libs.room.testing)
     testImplementation(libs.sqlite)
+    // v1.4.3 (F-09/F-20 wiring): WorkManagerTestInitHelper so the
+    // WorkManagerInitializer unit tests can exercise enqueue without
+    // an actual WorkManager runtime.
+    testImplementation(libs.work.testing)
     // v1.3: Compose a11y contentDescription assertions
     // (createComposeRule + hasContentDescription). The test runs
     // under Robolectric so no device or emulator is needed.
