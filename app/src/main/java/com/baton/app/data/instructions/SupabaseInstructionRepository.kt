@@ -4,6 +4,7 @@ import com.baton.app.BuildConfig
 import com.baton.app.data.supabase.buildSupabaseClient
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 import io.ktor.client.HttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -85,6 +86,37 @@ class SupabaseInstructionRepository(
         return rows
             .filter { !it.isSensitive }
             .map { it.toDomain() }
+    }
+
+    /**
+     * v1.4.2 (DATA-FINDING-02): mirror
+     * [com.baton.app.data.person.SupabasePersonRepository.findById].
+     * Used by [com.baton.app.data.local.SyncEngine]'s last-write-wins
+     * conflict check on `OP_UPDATE`: it reads the server's `updated_at`
+     * and compares against the local row's `updated_at` before applying
+     * the PATCH. Returns `null` if the row no longer exists on the
+     * server (RLS hides it, or it was deleted by another device); the
+     * sync engine treats a `null` server row as "no conflict" and
+     * proceeds with the PATCH (mirroring the persons path's policy).
+     */
+    suspend fun findById(id: String): Instruction? {
+        val rows: List<InstructionRow> = client.postgrest
+            .from("instructions")
+            .select(
+                columns = Columns.list(
+                    "id", "person_id", "direction", "status", "source",
+                    "priority", "title", "raw_text", "due_at", "captured_at",
+                    "created_at", "updated_at", "is_sensitive",
+                    "completed_at", "dropped_reason",
+                ),
+            ) {
+                filter {
+                    eq("id", id)
+                }
+                limit(1)
+            }
+            .decodeList()
+        return rows.firstOrNull()?.toDomain()
     }
 
     /**
