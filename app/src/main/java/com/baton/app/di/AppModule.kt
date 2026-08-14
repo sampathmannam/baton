@@ -57,7 +57,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideCaptureRepository(impl: SupabaseCaptureRepository): CaptureRepository = impl
+    fun provideCaptureRepository(impl: com.baton.app.data.captures.RoomCaptureRepository): CaptureRepository = impl
 
     @Provides
     @Singleton
