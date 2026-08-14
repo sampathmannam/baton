@@ -41,7 +41,20 @@ interface SyncQueueDao {
     @Query("SELECT * FROM sync_queue WHERE `table` = :table AND rowId = :rowId AND op = :op LIMIT 1")
     suspend fun findPending(table: String, rowId: String, op: String): SyncQueueEntity?
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    /**
+     * v1.4.2 (DATA-FINDING-04): on conflict REPLACE so a
+     * double-tap of the same UI action (e.g. `markDone`) that
+     * enqueues two `UPDATE` rows for the same `(table, rowId)`
+     * collapses to a single row holding the latest payload.
+     * The unique index on `(op, table, rowId)` (declared on
+     * [SyncQueueEntity]) is what raises the conflict. The new
+     * row is assigned a fresh auto-generated `id`, so any
+     * external references to the old id (e.g. an in-flight
+     * `recordFailureWithBackoff` from the drain) become stale —
+     * the new row's failure / backoff counters start at zero,
+     * which is the intended "fresh attempt" semantics.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun enqueue(entry: SyncQueueEntity): Long
 
     @Query("DELETE FROM sync_queue WHERE id = :id")
