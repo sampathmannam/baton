@@ -16,7 +16,7 @@ import org.robolectric.annotation.Config
 /**
  * v1.2.1 regression test (BUG-DATA-009).
  *
- * Locks the property that [DatabaseModule.foreignKeysCallback]
+ * Locks the property that [DatabaseModule.onOpenPragmaCallback]
  * (which is wired into [DatabaseModule.provideDatabase]) sets
  * `PRAGMA foreign_keys = ON` on every Room open. SQLite's
  * `PRAGMA foreign_keys` is OFF by default for every connection
@@ -24,13 +24,18 @@ import org.robolectric.annotation.Config
  * Without it, `ON DELETE CASCADE` is silently ignored and a
  * deleted parent leaves orphan rows.
  *
- * The test installs [DatabaseModule.foreignKeysCallback] on an
+ * The test installs [DatabaseModule.onOpenPragmaCallback] on an
  * in-memory Room database (no SQLCipher — Robolectric doesn't
  * package the native lib) and asserts that the resulting database
  * reports `PRAGMA foreign_keys = 1` (on).
  *
  * If anyone removes the `execSQL("PRAGMA foreign_keys = ON")`
- * call in [DatabaseModule.foreignKeysCallback], this test fails.
+ * call in [DatabaseModule.onOpenPragmaCallback], this test fails.
+ *
+ * **v1.4.3:** this callback now also runs `PRAGMA
+ * cipher_memory_security = OFF` (F-37). That statement is
+ * SQLCipher-only; the sibling test in
+ * [DatabaseModuleForeignKeysCallbackTest] covers it.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -43,7 +48,7 @@ class DatabaseModuleTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
-            .addCallback(DatabaseModule.foreignKeysCallback())
+            .addCallback(DatabaseModule.onOpenPragmaCallback())
             .build()
     }
 
@@ -74,7 +79,7 @@ class DatabaseModuleTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db2 = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
-            .addCallback(DatabaseModule.foreignKeysCallback())
+            .addCallback(DatabaseModule.onOpenPragmaCallback())
             .build()
         try {
             val cursor = db2.openHelper.readableDatabase.query("PRAGMA foreign_keys")

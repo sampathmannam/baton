@@ -57,6 +57,17 @@ import javax.inject.Singleton
  * that Room doesn't enable on its own; without it, the v1.1 cascade
  * delete on `instruction_tags` (when an instruction is deleted)
  * doesn't fire.
+ *
+ * **v1.4.3 (F-37) PRAGMA cipher_memory_security = OFF.** SQLCipher
+ * defaults to `cipher_memory_security = ON`, which calls `mlock()`
+ * on the database file to prevent it being paged to disk. Android
+ * restricts `mlock` (returns `ENOMEM=12`), so every DB open logs
+ * 8+ "mlock() returned -1 errno=12" warnings. We turn the mlock
+ * off — encryption is unchanged, only the (unachievable on Android)
+ * mlock-guarantee is dropped. The passphrase is still in
+ * EncryptedSharedPreferences (Keystore-backed), so this is the
+ * correct trade-off. See
+ * https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_memory_security
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -75,7 +86,7 @@ object DatabaseModule {
         passphrase.fill(0)
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
             .openHelperFactory(factory)
-            .addCallback(foreignKeysCallback())
+            .addCallback(onOpenPragmaCallback())
             // v1.2.2 (BUG-DATA-001): the first non-destructive
             // migration in the project. v8 -> v9 adds
             // `nextAttemptAt` to sync_queue. All previous bumps
@@ -111,16 +122,32 @@ object DatabaseModule {
     }
 
     /**
-     * v1.2.1 (BUG-DATA-009): `PRAGMA foreign_keys = ON` on every
-     * connection open. Exposed as a separate factory so the unit
-     * test can verify the callback without standing up the full
-     * SQLCipher-backed [AppDatabase] (which fails in Robolectric
-     * because the native lib isn't packaged there).
+     * Per-connection `PRAGMA`s run on every Room open. Exposed as
+     * a separate factory so the unit test can verify the callback
+     * without standing up the full SQLCipher-backed [AppDatabase]
+     * (which fails in Robolectric because the native lib isn't
+     * packaged there).
+     *
+     * **v1.2.1 (BUG-DATA-009): `PRAGMA foreign_keys = ON`.** SQLite
+     * default is OFF per-connection; without it, `ON DELETE CASCADE`
+     * is silently ignored and a deleted parent leaves orphan rows.
+     *
+     * **v1.4.3 (F-37): `PRAGMA cipher_memory_security = OFF`.**
+     * SQLCipher's default tries to `mlock()` the database file in
+     * memory. Android restricts `mlock` (returns `ENOMEM=12`), so
+     * SQLCipher logs 8+ mlock warnings on every DB open. We turn
+     * the mlock off — encryption is unchanged, only the (unachievable
+     * on Android) mlock-guarantee is dropped. See
+     * https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_memory_security
      */
-    fun foreignKeysCallback(): RoomDatabase.Callback = object : RoomDatabase.Callback() {
+    fun onOpenPragmaCallback(): RoomDatabase.Callback = object : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {
             super.onOpen(db)
             db.execSQL("PRAGMA foreign_keys = ON")
+            // v1.4.3 (F-37): see class-level KDoc. The passphrase
+            // is still in EncryptedSharedPreferences (Keystore-backed)
+            // so dropping the (Android-unachievable) mlock is safe.
+            db.execSQL("PRAGMA cipher_memory_security = OFF")
         }
     }
 
