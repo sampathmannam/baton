@@ -154,19 +154,36 @@ class SyncEngine @Inject constructor(
     }
 
     /**
-     * v1.2.2: exponential backoff. `1s * 2^attempts`, capped at
-     * 5 minutes. So the backoff schedule is:
-     *  attempts=1 -> 2s, 2 -> 4s, 3 -> 8s, 4 -> 16s, 5 -> 32s,
-     *  6 -> 64s, 7 -> 128s, 8 -> 256s, 9+ -> 300s (capped).
-     * 9 attempts total worst-case before permanent failure, so
-     * the user waits at most ~9 minutes before the entry is
-     * flagged as stuck and surfaced in Settings.
+     * v1.4.1 (DATA-FINDING-01): table-driven backoff matching the
+     * v1.4 spec — `1s, 2s, 4s, 8s, 16s, 32s, 60s, 120s, 240s, 300s,
+     * 300s`. The pre-v1.4 schedule (`1s * 2^attempts` capped at
+     * 300s) produced `2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 300s,
+     * 300s, 300s` — off-by-one on the first retry (2s vs 1s) and
+     * mid-range 64s/128s/256s instead of the spec's 60s/120s/240s.
+     * The user paid 3 extra retries + 4 extra seconds for a real
+     * outage (e.g. Jio 4G down for 4 minutes). After attempt
+     * index 10 we cap at 300s.
      */
     private fun backoffMillis(attempts: Int): Long {
-        val baseMs = 1_000L  // 1 second
-        val shift = attempts.coerceIn(0, 30)  // guard against shift overflow
-        val raw = baseMs shl shift
-        return raw.coerceAtMost(MAX_BACKOFF_MS)
+        val idx = (attempts - 1).coerceAtLeast(0)
+        val schedule = longArrayOf(
+            1_000L,     // 1   s — first retry
+            2_000L,     // 2   s
+            4_000L,     // 4   s
+            8_000L,     // 8   s
+            16_000L,    // 16  s
+            32_000L,    // 32  s
+            60_000L,    // 60  s — spec
+            120_000L,   // 120 s — spec
+            240_000L,   // 240 s — spec
+            300_000L,   // 300 s — cap
+            300_000L,   // 300 s — cap (last entry of spec)
+        )
+        return if (idx < schedule.size) {
+            schedule[idx]
+        } else {
+            schedule.last()  // any attempt > 11 caps at 300s
+        }
     }
 
     /**
