@@ -14,6 +14,7 @@ import com.baton.app.data.instructions.Priority
 import com.baton.app.data.instructions.Source
 import com.baton.app.data.person.PersonRepository
 import com.baton.app.data.tags.RoomTagRepository
+import com.baton.app.ui.util.SafeError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -349,12 +350,15 @@ class CaptureViewModel @Inject constructor(
         viewModelScope.launch {
             val capture = runCatching {
                 captureRepository.create(rawText = text, mode = CaptureMode.TEXT)
-            }.getOrNull()
-            if (capture == null) {
+            }.getOrElse { e ->
                 _state.update {
                     it.copy(
                         isExtracting = false,
-                        error = "Could not save note. Try again.",
+                        error = SafeError.forUserSave(
+                            e = e,
+                            default = "Could not save note. Try again.",
+                        ),
+                        errorType = SafeError.classifyForCapture(e),
                     )
                 }
                 return@launch
@@ -385,7 +389,11 @@ class CaptureViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             isExtracting = false,
-                            error = e.message ?: "Could not extract instruction.",
+                            error = SafeError.forUserSave(
+                                e = e,
+                                default = "Could not extract instruction.",
+                            ),
+                            errorType = SafeError.classifyForCapture(e),
                         )
                     }
                 }
@@ -439,7 +447,11 @@ class CaptureViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             isExtracting = false,
-                            error = e.message ?: "Could not extract instruction.",
+                            error = SafeError.forUserSave(
+                                e = e,
+                                default = "Could not extract instruction.",
+                            ),
+                            errorType = SafeError.classifyForCapture(e),
                         )
                     }
                 }
@@ -530,7 +542,11 @@ class CaptureViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         isSaving = false,
-                        error = e.message ?: "Could not save instruction.",
+                        error = SafeError.forUserSave(
+                            e = e,
+                            default = "Could not save instruction.",
+                        ),
+                        errorType = SafeError.classifyForCapture(e),
                     )
                 }
             }
@@ -598,7 +614,11 @@ class CaptureViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         isSaving = false,
-                        error = e.message ?: "Could not save raw note.",
+                        error = SafeError.forUserSave(
+                            e = e,
+                            default = "Could not save raw note.",
+                        ),
+                        errorType = SafeError.classifyForCapture(e),
                     )
                 }
             }
