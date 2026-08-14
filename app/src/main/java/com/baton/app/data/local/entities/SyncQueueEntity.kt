@@ -37,14 +37,30 @@ import androidx.room.PrimaryKey
  * generated), which is monotonic with `createdAt`. The drain
  * reads in this order, preserving the causal order of writes.
  *
- * **Per-row singleton invariant:** at most one non-deleted entry
- * per `(table, rowId, op)` at a time. The repository checks
- * before enqueueing.
+ * **Per-row singleton invariant (v1.4.2, DATA-FINDING-04):**
+ * at most one entry per `(op, table, rowId)` at a time. Enforced
+ * by a UNIQUE INDEX on `(op, table, rowId)` — the previous
+ * repository-layer "check before enqueue" was racy (e.g. a user
+ * who taps `markDone` twice in quick succession enqueued two
+ * UPDATE rows for the same instruction, which the drain would
+ * then re-PATCH twice against Supabase). With the unique
+ * constraint in place, the second enqueue of an identical
+ * `(op, table, rowId)` collides on the index and
+ * [com.baton.app.data.local.SyncQueueDao.enqueue] is configured
+ * with `OnConflictStrategy.REPLACE` so the latest payload wins
+ * (and the failure / backoff state resets to a fresh attempt).
+ * The index column order is `(op, table, rowId)` per the
+ * DATA-FINDING-04 spec; `findPending`'s all-equality
+ * `WHERE table = ? AND rowId = ? AND op = ?` still uses it as
+ * a covering seek.
  */
 @Entity(
     tableName = "sync_queue",
     indices = [
-        Index(value = ["table", "rowId", "op"]),
+        // v1.4.2 (DATA-FINDING-04): UNIQUE — see "Per-row
+        // singleton invariant" above. Replaces the v1.2.2
+        // non-unique `(table, rowId, op)` index.
+        Index(value = ["op", "table", "rowId"], unique = true),
         // v1.2.2: index on nextAttemptAt so the drain's
         // "WHERE nextAttemptAt <= :now" scan is O(log n), not O(n).
         Index(value = ["nextAttemptAt"]),
