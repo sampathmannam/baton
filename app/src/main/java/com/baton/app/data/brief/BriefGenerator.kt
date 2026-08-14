@@ -65,10 +65,18 @@ open class BriefGenerator @Inject constructor(
         val carried = instructions
             .filter { it.carriedOver(now) }
             .sortedBy { it.updatedAt }  // oldest first
+        // DATA-FINDING-03: carriedOver (8-30d INCOMING OPEN) and
+        // needsYouToday (the >7d rule) overlap on rows 8-30d old.
+        // Without this dedup the same row appears in both sections
+        // of the Today list. Carried is the "older" bucket, so we
+        // drop the overlap from needs before assembling the brief.
+        val carriedIds = carried.mapTo(mutableSetOf()) { it.id }
+        val needsDeduped = if (carriedIds.isEmpty()) needs
+            else needs.filterNot { it.id in carriedIds }
         return DailyBrief(
             date = date.toString(),
             type = type,
-            needsYouToday = needs,
+            needsYouToday = needsDeduped,
             waitingOnOthers = waiting,
             carriedOver = carried,
         )
