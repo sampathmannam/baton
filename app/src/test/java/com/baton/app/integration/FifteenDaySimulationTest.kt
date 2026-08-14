@@ -202,16 +202,29 @@ class FifteenDaySimulationTest {
         seedFifteenDays()
         val brief = briefGenerator.build(BriefType.MORNING, today, collectInstructions())
         val needsYouIds = brief.needsYouToday.map { it.id }.toSet()
+        val carriedIds = brief.carriedOver.map { it.id }.toSet()
 
         // Today's INCOMING HIGH + INCOMING due today + SELF HIGH should be in.
         assertTrue("today-1 (INCOMING HIGH) must be in needs-you", "i-today-1" in needsYouIds)
         assertTrue("today-2 (INCOMING due today) must be in needs-you", "i-today-2" in needsYouIds)
         assertTrue("today-4 (SELF HIGH) must be in needs-you", "i-today-4" in needsYouIds)
-        // 7-day-old INCOMING OPEN — should also be in needs-you (>7 days rule)
-        assertTrue("edge-7 (INCOMING 7 days) should be in needs-you (boundary)",
-            "i-edge-7" in needsYouIds || "i-edge-8" in needsYouIds)
-        // 10-day-old INCOMING OPEN — must be in needs-you (>7 days)
-        assertTrue("co-1 (INCOMING 12 days) must be in needs-you", "i-co-1" in needsYouIds)
+        // 7-day boundary: 7 is NOT in needs-you (strict > 7); 8-day i-edge-8
+        // is in carriedOver (8..30) and dedup'd from needs-you (DATA-FINDING-03).
+        assertFalse("edge-7 (INCOMING 7 days) NOT in needs-you (boundary strict > 7)",
+            "i-edge-7" in needsYouIds)
+        assertFalse("edge-8 (INCOMING 8 days) NOT in needs-you (dedup'd to carried)",
+            "i-edge-8" in needsYouIds)
+        assertTrue("edge-8 (INCOMING 8 days) in carried-over",
+            "i-edge-8" in carriedIds)
+        // 12-day and 10-day INCOMING/SELF — in carried-over only (dedup'd from needs-you)
+        assertFalse("co-1 (INCOMING 12 days) NOT in needs-you (dedup'd to carried)",
+            "i-co-1" in needsYouIds)
+        assertTrue("co-1 (INCOMING 12 days) in carried-over",
+            "i-co-1" in carriedIds)
+        assertFalse("co-2 (SELF 10 days) NOT in needs-you (dedup'd to carried)",
+            "i-co-2" in needsYouIds)
+        assertTrue("co-2 (SELF 10 days) in carried-over",
+            "i-co-2" in carriedIds)
         // OUTGOING must NOT be in needs-you
         assertFalse("OUTGOING never in needs-you",
             needsYouIds.any { it.startsWith("i-stale") || it.startsWith("i-fresh") || it.startsWith("i-today-3") })

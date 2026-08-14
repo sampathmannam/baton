@@ -483,12 +483,13 @@ class SyncEngineTest {
         val entry = queue[0]
         assertEquals(1, entry.attempts)
         assertEquals("offline", entry.lastError)
-        // Backoff for attempts=1 is 2s (1s * 2^1). The entry's
-        // nextAttemptAt must be at least 2s in the future and at
-        // most 2s + (after - before) — i.e. "some time in the
-        // expected backoff window".
-        val expectedLow = before + 2_000L
-        val expectedHigh = after + 2_000L
+        // Backoff for attempts=1 is 1s (v1.4.2 DATA-FINDING-01 spec:
+        // table-driven schedule starts at 1s, not 2s like the
+        // pre-v1.4.2 `1s * 2^attempts` formula). The entry's
+        // nextAttemptAt must be at least 1s in the future and at
+        // most 1s + (after - before).
+        val expectedLow = before + 1_000L
+        val expectedHigh = after + 1_000L
         assertTrue("nextAttemptAt ${entry.nextAttemptAt} should be >= $expectedLow", entry.nextAttemptAt >= expectedLow)
         assertTrue("nextAttemptAt ${entry.nextAttemptAt} should be <= $expectedHigh", entry.nextAttemptAt <= expectedHigh)
     }
