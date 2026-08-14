@@ -32,6 +32,17 @@ class BatonApplication : Application(), Configuration.Provider {
         // foreground path; this is the "I was offline and now I'm
         // not" safety net.
         WorkManagerInitializer.schedulePeriodicDrain(this)
+        // v1.4.3 (F-09 / F-20 wiring): schedule a periodic
+        // capture-sync worker. v1.4.2-final added
+        // [com.baton.app.data.sync.CaptureSyncWorker] but never
+        // registered it with WorkManager, so every capture that
+        // [com.baton.app.data.captures.RoomCaptureRepository] wrote
+        // with `syncStatus = PENDING_INSERT` stayed dirty forever.
+        // The 5-minute interval is intentionally faster than the
+        // 15-minute sync drain above: captures are time-sensitive
+        // (the user is waiting on the "synced" badge) and a dirty
+        // capture row only blocks that one row, not the whole outbox.
+        WorkManagerInitializer.schedulePeriodicCaptureSync(this)
     }
 
     /**
