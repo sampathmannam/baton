@@ -8,6 +8,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.builtin.OTP
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.Flow
@@ -67,20 +68,26 @@ class AuthRepository @Inject constructor(
     /**
      * v1.4.5 passwordless sign-in step 1: send a one-time code (or
      * magic link, depending on the Supabase Auth provider config) to
-     * the user's email. The user's note is sent as the OTP — if the
-     * Supabase Auth provider has "Email OTP" or "Magic link" enabled,
-     * Supabase dispatches it. If neither is enabled, the server
-     * returns 422 and we surface a [SafeError] to the UI.
+     * the user's email.
      *
-     * Note: we call `signInWith(Email)` with **no password** — that's
-     * the supabase-kt 3.x contract for "send OTP / magic link" via the
-     * Email provider. Calling `signInWith(Email) { password = "..." }`
-     * would silently attempt password auth and 401 on a fresh user.
+     * **Why the [OTP] provider, not the [Email] one.** v1.4.5
+     * originally called `signInWith(Email) { email }` and shipped a
+     * SafeError "Invalid email or password" on every tap. The
+     * emulator smoke test caught it: the [Email] provider's
+     * `grant_type=password` endpoint always 400s when the password
+     * field is blank, regardless of what the server is configured to
+     * do. The right path is `signInWith(OTP) { email, createUser }`
+     * which hits Supabase's `/auth/v1/otp` endpoint and dispatches
+     * the configured email template (6-digit code or magic link).
+     *
+     * [createUser] is set to `true` so a brand-new email is
+     * auto-registered — matches the v1.1.1 passwordless
+     * "magic-link-creates-account" UX (no separate sign-up step).
      */
     suspend fun sendOtp(email: String): Result<Unit> = runCatching {
-        client.auth.signInWith(Email) {
+        client.auth.signInWith(OTP) {
             this.email = email
-            // No password = OTP / magic link dispatch.
+            this.createUser = true
         }
         Unit
     }
