@@ -5,6 +5,7 @@ import com.baton.app.BuildConfig
 import com.baton.app.data.supabase.buildSupabaseClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -28,6 +29,12 @@ import javax.inject.Inject
  * the same place the client itself is built — to keep the KMP-AAR
  * out of the Hilt graph (see the note in
  * [com.baton.app.data.supabase.SupabaseClient]).
+ *
+ * v1.4.5: added [sendOtp] / [verifyOtp] for passwordless email OTP
+ * sign-in (the alternative the user picked over Google OAuth). The
+ * user types an email, gets a one-time code (or magic link) in their
+ * inbox, types the code back, and the [SupabaseEncryptedSessionManager]
+ * persists the session just like password sign-in.
  */
 class AuthRepository @Inject constructor(
     httpClient: HttpClient,
@@ -54,6 +61,47 @@ class AuthRepository @Inject constructor(
             this.email = email
             this.password = password
         }
+        Unit
+    }
+
+    /**
+     * v1.4.5 passwordless sign-in step 1: send a one-time code (or
+     * magic link, depending on the Supabase Auth provider config) to
+     * the user's email. The user's note is sent as the OTP — if the
+     * Supabase Auth provider has "Email OTP" or "Magic link" enabled,
+     * Supabase dispatches it. If neither is enabled, the server
+     * returns 422 and we surface a [SafeError] to the UI.
+     *
+     * Note: we call `signInWith(Email)` with **no password** — that's
+     * the supabase-kt 3.x contract for "send OTP / magic link" via the
+     * Email provider. Calling `signInWith(Email) { password = "..." }`
+     * would silently attempt password auth and 401 on a fresh user.
+     */
+    suspend fun sendOtp(email: String): Result<Unit> = runCatching {
+        client.auth.signInWith(Email) {
+            this.email = email
+            // No password = OTP / magic link dispatch.
+        }
+        Unit
+    }
+
+    /**
+     * v1.4.5 passwordless sign-in step 2: verify the one-time code
+     * the user typed from their email. On success supabase-kt sets
+     * the session; the [SupabaseEncryptedSessionManager] persists it
+     * under the Keystore-backed master key, and the app's
+     * `observeSessionStatus()` flow flips to
+     * [AuthSessionState.Authenticated] which navigates the user out
+     * of the auth screen.
+     *
+     * [OtpType.Email.MAGIC_LINK] is the type the Supabase server
+     * stamps on the email regardless of whether the delivery is a
+     * 6-digit code or a tap-link — they're the same verification
+     * path on the server side. (See Supabase docs:
+     * "Email OTP / Magic link both verify with type=magiclink".)
+     */
+    suspend fun verifyOtp(email: String, token: String): Result<Unit> = runCatching {
+        client.auth.verifyEmailOtp(OtpType.Email.MAGIC_LINK, email, token)
         Unit
     }
 
