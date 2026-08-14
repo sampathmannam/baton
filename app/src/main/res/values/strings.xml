@@ -86,4 +86,20 @@
          spec rule. The Add Person button uses the same
          home_add_person string as the Home screen entry point. -->
     <string name="capture_needs_person_message">Add a person first to capture instructions.</string>
+
+    <!-- v1.4.2 (F-10): first-run on-device LLM model download.
+         The copy is neutral and non-shaming per spec §1. Errors
+         are rendered in onSurfaceVariant, never in the error
+         colour. The "~1 GB" hint in the button label is rounded
+         up; the actual Qwen 3 1.7B Q4_K_M GGUF is closer to
+         1.1 GB but "1 GB" is the human-friendly round number. -->
+    <string name="model_download_title">Download on-device model</string>
+    <string name="model_download_subtitle">Baton runs its AI on this device. The first run downloads the model (~1 GB) so everything after that works offline.</string>
+    <string name="model_download_button">Download model (~1 GB)</string>
+    <string name="model_download_percent">Downloading… %1$d%%</string>
+    <string name="model_download_ready">Model ready</string>
+    <string name="model_download_size_mb">%1$d MB on disk</string>
+    <string name="model_download_continue">Continue</string>
+    <string name="model_download_failed_reason">Download didn\'t finish: %1$s</string>
+    <string name="model_download_retry">Retry</string>
 </resources>
