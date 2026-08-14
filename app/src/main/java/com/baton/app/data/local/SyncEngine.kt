@@ -13,6 +13,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -307,16 +309,62 @@ class SyncEngine @Inject constructor(
                 instructionDao.setSyncStatus(entry.rowId, SyncStatus.SYNCED)
             }
             SyncQueueEntity.OP_UPDATE -> {
-                // v1.1: read the local row's current state and PATCH
-                // it on the server. The payload is the row's
-                // lifecycle fields (status, completedAt, droppedReason,
-                // isSensitive) — the server already knows the rest.
+                // v1.4.2 (DATA-FINDING-02): LWW via updated_at,
+                // mirroring `processPersonEntry`. Read the server's
+                // current row and compare its `updated_at` to the
+                // local row's `updated_at`. If the server is newer,
+                // drop the local PATCH, log a conflict, and mirror
+                // the server's state into Room so the UI shows the
+                // authoritative value.
+                //
+                // Equal timestamps = local wins (matches the
+                // `isServerNewer` strict-`>` rule used by the persons
+                // path; deterministic and matches the
+                // `no conflict when updated_at equal` person test).
+                //
+                // v1.1: when no conflict, read the local row's
+                // current state and PATCH it on the server. The
+                // payload is the row's lifecycle fields (status,
+                // completedAt, droppedReason, isSensitive) — the
+                // server already knows the rest.
                 val row = instructionDao.getById(entry.rowId)
                     ?: run {
-                        // Row was deleted before the drain ran. Drop the
-                        // entry quietly; nothing to push.
+                        // Row was deleted before the drain ran. Drop
+                        // the entry quietly; nothing to push.
                         return
                     }
+                val serverRow = instructionRemote.findById(entry.rowId)
+                if (serverRow != null && isServerNewer(serverRow.updatedAt, row.updatedAt)) {
+                    // Conflict: server is newer. Drop local, log
+                    // audit, mirror server.
+                    Log.w(
+                        TAG,
+                        "LWW drop: server newer for instructions/${entry.rowId} " +
+                            "(server=${serverRow.updatedAt}, local=${row.updatedAt})",
+                    )
+                    syncConflictDao.insert(
+                        SyncConflictEntity(
+                            tableName = "instructions",
+                            rowId = entry.rowId,
+                            localPayload = json.encodeToString(
+                                InstructionConflictPayload.serializer(),
+                                row.toInstructionConflictPayload(),
+                            ),
+                            serverPayload = json.encodeToString(
+                                InstructionConflictPayload.serializer(),
+                                serverRow.toInstructionConflictPayload(),
+                            ),
+                            reason = REASON_SERVER_NEWER,
+                            detectedAt = System.currentTimeMillis(),
+                        )
+                    )
+                    instructionDao.upsert(
+                        serverRow.toInstructionEntity().copy(syncStatus = SyncStatus.SYNCED)
+                    )
+                    return
+                }
+                // No conflict (or server has no copy): PATCH the
+                // server's lifecycle fields to match the local row.
                 instructionRemote.update(
                     id = row.id,
                     status = com.baton.app.data.instructions.Status.valueOf(row.status),
@@ -370,6 +418,85 @@ class SyncEngine @Inject constructor(
             phone = phone,
             userId = "",  // Server's user_id isn't in the Person domain
             updatedAt = updatedAt,
+        )
+
+    /**
+     * v1.4.2 (DATA-FINDING-02): JSON-serialisable snapshot of an
+     * [com.baton.app.data.instructions.Instruction] row at the
+     * moment of a conflict. Stored in
+     * `sync_conflicts.localPayload` / `serverPayload` so the user
+     * can review what was lost and what won. Mirrors the
+     * [PersonConflictPayload] shape used by the persons sync path.
+     *
+     * Only the lifecycle fields the LWW PATCH would have written
+     * (status, completedAt, droppedReason, isSensitive) are
+     * captured — the rest of the row (title, rawText, etc.) is the
+     * same on local and server, so a snapshot of those would just
+     * bloat the audit table.
+     */
+    @Serializable
+    private data class InstructionConflictPayload(
+        val id: String,
+        val status: String,
+        @SerialName("completed_at") val completedAt: String? = null,
+        @SerialName("dropped_reason") val droppedReason: String? = null,
+        @SerialName("is_sensitive") val isSensitive: Boolean = false,
+        @SerialName("updated_at") val updatedAt: String? = null,
+    )
+
+    private fun com.baton.app.data.local.entities.InstructionEntity.toInstructionConflictPayload(): InstructionConflictPayload =
+        InstructionConflictPayload(
+            id = id,
+            status = status,
+            completedAt = completedAt,
+            droppedReason = droppedReason,
+            isSensitive = isSensitive,
+            updatedAt = updatedAt,
+        )
+
+    private fun com.baton.app.data.instructions.Instruction.toInstructionConflictPayload(): InstructionConflictPayload =
+        InstructionConflictPayload(
+            id = id,
+            status = status.name,
+            completedAt = completedAt,
+            droppedReason = droppedReason,
+            isSensitive = isSensitive,
+            updatedAt = updatedAt,
+        )
+
+    /**
+     * v1.4.2 (DATA-FINDING-02): mirror of
+     * [com.baton.app.data.instructions.RoomInstructionRepository]'s
+     * private `Instruction.toEntity()`. Used by the LWW drop path
+     * to overwrite the local Room row with the server's
+     * authoritative state. Kept private to this file because
+     * SyncEngine is the only caller — the Room repository's own
+     * converter stays the source of truth for the in-app lifecycle
+     * writes.
+     */
+    private fun com.baton.app.data.instructions.Instruction.toInstructionEntity(): com.baton.app.data.local.entities.InstructionEntity =
+        com.baton.app.data.local.entities.InstructionEntity(
+            id = id,
+            personId = personId,
+            direction = direction.name,
+            status = status.name,
+            source = source.name,
+            priority = priority.name,
+            title = title,
+            rawText = rawText,
+            dueAt = dueAt,
+            capturedAt = capturedAt,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            isSensitive = isSensitive,
+            // v1.1 lifecycle fields: the LWW drop must mirror
+            // every server field, not just the ones the PATCH
+            // was about to write. Otherwise the local row would
+            // lose e.g. `completedAt` even though the server
+            // still has it.
+            completedAt = completedAt,
+            droppedReason = droppedReason,
+            syncStatus = SyncStatus.SYNCED,
         )
 
     companion object {
