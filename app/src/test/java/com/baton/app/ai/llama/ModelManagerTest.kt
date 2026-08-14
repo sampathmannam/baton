@@ -1,6 +1,7 @@
 package com.baton.app.ai.llama
 
 import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.first
@@ -12,10 +13,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.File
 import java.nio.file.Files
 
@@ -40,8 +47,48 @@ import java.nio.file.Files
  * test-injectable without a Hilt binding change, which is out of
  * scope for this task). With a fake interceptor the IO work
  * finishes within a few milliseconds; the test is hermetic.
+ *
+ * v1.4.3 (F-10): the class is now annotated with
+ * `@RunWith(RobolectricTestRunner::class)` so the new
+ * model-picker tests can resolve a real [Context] from
+ * `ApplicationProvider` and exercise the
+ * `SharedPreferences`-backed persistence. The pre-existing
+ * download-flow tests still use `mockk<Context>(relaxed = true)`
+ * and pass it directly to the [ModelManager] constructor, so
+ * they don't touch Robolectric's Application context — the
+ * runner change is transparent to them.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class ModelManagerTest {
+
+    /**
+     * v1.4.3 (F-10): clear the `model_prefs` SharedPreferences
+     * before each test so the persisted model id from a previous
+     * test doesn't leak into the next one. The pre-existing
+     * download-flow tests don't read this preference, so the
+     * `@Before` is a safe no-op for them.
+     */
+    @Before
+    fun clearModelPrefs() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        ctx.getSharedPreferences("model_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+    }
+
+    @After
+    fun cleanupModelPrefs() {
+        // Belt-and-braces: also clear after the test so a later
+        // test class that doesn't @Before-clear doesn't see
+        // stale state.
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        ctx.getSharedPreferences("model_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+    }
 
     /**
      * Spec test (1): a fresh [ModelManager] whose target `filesDir`
@@ -260,6 +307,170 @@ class ModelManagerTest {
         assertEquals(0.42f, d.progress, 0.0001f)
         val unknown = ModelState.Downloading(-1f)
         assertTrue(unknown.progress < 0f)
+    }
+
+    // ---------------------------------------------------------------
+    // v1.4.3 (F-10): model-picker tests.
+    //
+    // These tests exercise [ModelManager.availableModels],
+    // [ModelManager.currentModel], and [ModelManager.selectModel].
+    // They use a real [Context] from `ApplicationProvider` (via
+    // Robolectric) so the `SharedPreferences`-backed persistence
+    // path is real. The pre-existing download-flow tests above
+    // keep using `mockk<Context>(relaxed = true)` and are
+    // unaffected — the [ModelManager]'s `prefs` field is
+    // `by lazy` and the relaxed mock's `getSharedPreferences`
+    // returns a relaxed mock that yields `null` for
+    // `getString`, so the default model is selected without
+    // throwing.
+    // ---------------------------------------------------------------
+
+    /**
+     * v1.4.3 (F-10): [ModelManager.availableModels] must be
+     * non-empty and must contain the default model (the first
+     * entry, Qwen 3 1.7B Q4_K_M). The current model on a fresh
+     * install must equal the default.
+     */
+    @Test
+    fun `availableModels is non-empty and contains the current default`() {
+        val models = ModelManager.availableModels
+        assertTrue(
+            "availableModels must not be empty; was $models",
+            models.isNotEmpty(),
+        )
+        val default = models.first()
+        assertEquals(
+            "first model must be the Qwen 3 1.7B default",
+            "qwen3-1.7b-q4_k_m",
+            default.id,
+        )
+        // Every model must have a non-blank id, a non-blank
+        // displayName, a non-blank description, a URL that looks
+        // like HTTPS, and a positive sizeBytes.
+        models.forEach { m ->
+            assertTrue("id must be non-blank for $m", m.id.isNotBlank())
+            assertTrue("displayName must be non-blank for $m", m.displayName.isNotBlank())
+            assertTrue("description must be non-blank for $m", m.description.isNotBlank())
+            assertTrue(
+                "url must be HTTPS for $m; was ${m.url}",
+                m.url.startsWith("https://"),
+            )
+            assertTrue("sizeBytes must be positive for $m", m.sizeBytes > 0)
+        }
+    }
+
+    /**
+     * v1.4.3 (F-10): [ModelManager.selectModel] must update
+     * [ModelManager.currentModel] and delete the on-disk file
+     * of the previously-selected model so the next
+     * `ensureModel()` will re-download.
+     */
+    @Test
+    fun `selectModel updates currentModel and clears the on-disk file`() = runBlocking<Unit> {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        // Use a dedicated filesDir for this test so we don't
+        // collide with other tests. Robolectric's Application
+        // provides a real filesDir; we write into a sub-dir
+        // under it.
+        val tempDir = newTempFilesDir()
+        // Point the manager at our temp dir by overriding
+        // filesDir on a thin wrapper Context. Robolectric's
+        // Application doesn't let us redirect filesDir directly,
+        // so we work in the manager's own filesDir/models/
+        // subdirectory instead and clean up after.
+        val mm = ModelManager(
+            context = ctx,
+            httpClient = OkHttpClient(),
+        )
+
+        // Touch the lazy initialisation so currentModel is
+        // resolved before we read it below.
+        val initial = mm.currentModel.value
+        assertEquals(
+            "default model must be Qwen 3 1.7B on a fresh install",
+            "qwen3-1.7b-q4_k_m",
+            initial.id,
+        )
+
+        // Pre-populate the on-disk file for the initial model
+        // (as if it had been previously downloaded). This is
+        // what `selectModel` is expected to delete.
+        val modelsDir = File(ctx.filesDir, "models")
+        modelsDir.mkdirs()
+        val oldFile = File(modelsDir, "${initial.id}.gguf")
+        oldFile.writeBytes("fake-payload".toByteArray())
+        assertTrue("old model file must exist before selectModel", oldFile.exists())
+
+        // Pick a different model from the catalogue.
+        val newModel = ModelManager.availableModels
+            .first { it.id != initial.id }
+
+        mm.selectModel(newModel)
+
+        assertEquals(
+            "currentModel must be the newly-selected model",
+            newModel,
+            mm.currentModel.value,
+        )
+        assertFalse(
+            "old model file must be deleted after selectModel",
+            oldFile.exists(),
+        )
+        // The new model's file must NOT exist (it hasn't been
+        // downloaded yet).
+        val newFile = File(modelsDir, "${newModel.id}.gguf")
+        assertFalse(
+            "new model file must not exist yet (only re-downloaded on next ensureModel)",
+            newFile.exists(),
+        )
+
+        tempDir.deleteRecursively()
+        // Clean up any files we wrote into the real filesDir.
+        oldFile.delete()
+        newFile.delete()
+    }
+
+    /**
+     * v1.4.3 (F-10): [ModelManager.selectModel] must persist
+     * the choice to `SharedPreferences` so a freshly-
+     * instantiated [ModelManager] reads back the same model.
+     * This is the "survives process restarts" contract.
+     */
+    @Test
+    fun `selectModel persists the choice across ModelManager re-instantiation`() {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val first = ModelManager(
+            context = ctx,
+            httpClient = OkHttpClient(),
+        )
+        // Touch the lazy init so the default is resolved and
+        // the prefs are read.
+        assertEquals(
+            "first manager must start at the default",
+            "qwen3-1.7b-q4_k_m",
+            first.currentModel.value.id,
+        )
+
+        val pick = ModelManager.availableModels
+            .first { it.id != "qwen3-1.7b-q4_k_m" }
+        first.selectModel(pick)
+        assertEquals(
+            "first manager must reflect the new selection",
+            pick.id,
+            first.currentModel.value.id,
+        )
+
+        // A second manager against the same Context must read
+        // the persisted choice back from SharedPreferences.
+        val second = ModelManager(
+            context = ctx,
+            httpClient = OkHttpClient(),
+        )
+        assertEquals(
+            "second manager must pick up the persisted selection",
+            pick.id,
+            second.currentModel.value.id,
+        )
     }
 
     // ---------------------------------------------------------------

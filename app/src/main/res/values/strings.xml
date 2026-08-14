@@ -102,4 +102,30 @@
     <string name="model_download_continue">Continue</string>
     <string name="model_download_failed_reason">Download didn\'t finish: %1$s</string>
     <string name="model_download_retry">Retry</string>
+
+    <!-- v1.4.3 (F-10): model picker. The dialog lets the user
+         choose one of 3-4 GGUF model variants. The display names
+         and descriptions are short — the dialog is a leaf surface
+         and should be scannable in a few seconds. The same
+         non-shaming copy rules apply (no "you should pick the
+         bigger one" framing). -->
+    <string name="model_picker_title">Choose a model</string>
+    <string name="model_picker_switch">Switch model</string>
+    <string name="model_picker_cancel">Cancel</string>
+    <string name="model_picker_confirm">Switch</string>
+
+    <!-- v1.4.3 (F-10): one name + description pair per model in
+         the catalogue. The ids in code map to these resource
+         names via `modelNameRes` / `modelDescRes` in
+         `ModelDownloadScreen.kt`. Sizes in the descriptions are
+         the human-friendly rounded values (actual `sizeBytes`
+         on each `ModelOption` is more precise). -->
+    <string name="model_qwen3_1_7b_q4_k_m_name">Qwen 3 1.7B (Q4_K_M)</string>
+    <string name="model_qwen3_1_7b_q4_k_m_description">~1.1 GB — fast on most devices, good for short instructions.</string>
+    <string name="model_llama_3_2_3b_instruct_q4_k_m_name">Llama 3.2 3B Instruct (Q4_K_M)</string>
+    <string name="model_llama_3_2_3b_instruct_q4_k_m_description">~2.0 GB — stronger reasoning, slower on low-RAM devices.</string>
+    <string name="model_gemma_2_2b_it_q4_k_m_name">Gemma 2 2B IT (Q4_K_M)</string>
+    <string name="model_gemma_2_2b_it_q4_k_m_description">~1.6 GB — balanced quality, friendly safety profile.</string>
+    <string name="model_phi_3_5_mini_3_8b_q4_k_m_name">Phi-3.5 mini 3.8B (Q4_K_M)</string>
+    <string name="model_phi_3_5_mini_3_8b_q4_k_m_description">~2.3 GB — strong on structured extraction, largest of the four.</string>
 </resources>

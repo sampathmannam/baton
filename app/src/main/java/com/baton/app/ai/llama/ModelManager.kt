@@ -1,6 +1,7 @@
 package com.baton.app.ai.llama
 
 import android.content.Context
+import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +22,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Downloads the Qwen 3 1.7B Q4_K_M GGUF model on first run.
+ * Downloads the on-device LLM model (GGUF) on first run and manages
+ * which model variant is currently selected.
  *
  * v1.4.2 (F-10): the original `downloadModel()` flow (read URL +
  * SHA-256 from `assets/`, stream to a `.part` file, verify, rename)
@@ -32,18 +34,26 @@ import javax.inject.Singleton
  * [ModelState] that the [com.baton.app.ui.llama.ModelDownloadScreen]
  * composable subscribes to and renders as a progress card.
  *
- * The stateful API uses a **hard-coded placeholder URL** (see
- * [DEFAULT_MODEL_URL]) instead of reading `assets/model_url.txt` —
- * the first-run screen is wired at code level so a fresh checkout
- * knows where the model is hosted without a build-time asset swap.
- * The real production URL still lives in `model_url.txt` and is
- * used by the legacy `downloadModel()` flow.
+ * v1.4.3 (F-10): extended with a small model picker. [availableModels]
+ * lists 3-4 GGUF options; [currentModel] is a [StateFlow] of the
+ * user's selection; [selectModel] updates the choice, persists it to
+ * `SharedPreferences` ("model_prefs"), and deletes the on-disk file
+ * of the previously-selected model so the next [ensureModel] will
+ * re-download the new one. The stateful download API now uses
+ * `currentModel.value.url` and `currentModel.value.id` instead of the
+ * hard-coded placeholder constants from v1.4.2.
  *
- * **Model file location:** `filesDir/models/qwen3-1.7b-q4_k_m.gguf`
+ * The hard-coded placeholder URL that previously lived as
+ * [DEFAULT_MODEL_URL] is gone — the first model in [availableModels]
+ * (Qwen 3 1.7B Q4_K_M) is the new default. Its URL points at a
+ * Qwen release on Hugging Face as a stand-in for the production URL.
+ * The real production URL still lives in `assets/model_url.txt` and
+ * is used by the legacy `downloadModel()` flow (unchanged).
+ *
+ * **Model file location:** `filesDir/models/${currentModel.id}.gguf`
  * (gitignored). The file name follows the project's existing
  * convention used by the legacy `downloadModel()` flow and the
- * [Extractor]. The placeholder URL points at a different Qwen
- * release on purpose — it's a stand-in for the production URL.
+ * [Extractor].
  */
 @Singleton
 open class ModelManager @Inject constructor(
@@ -71,14 +81,46 @@ open class ModelManager @Inject constructor(
     val state: StateFlow<ModelState> = _state.asStateFlow()
 
     /**
+     * Lazily-initialised [SharedPreferences] handle for the model
+     * picker. The lookup is wrapped in [runCatching] so a test
+     * that injects a mock [Context] (e.g. the existing
+     * `ModelManagerTest` cases that use `mockk<Context>(relaxed = true)`)
+     * can still construct the manager without throwing — the
+     * preferences handle just resolves to `null` and we fall back
+     * to the in-memory default. Tests that exercise persistence
+     * use Robolectric to get a real [Context] (see
+     * `ModelManagerTest`).
+     */
+    private val prefs: SharedPreferences? by lazy {
+        runCatching {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        }.getOrNull()
+    }
+
+    private val _currentModel: MutableStateFlow<ModelOption> by lazy {
+        val savedId = prefs?.getString(KEY_MODEL_ID, null)
+        val initial = availableModels.firstOrNull { it.id == savedId }
+            ?: availableModels.first()
+        MutableStateFlow(initial)
+    }
+
+    /**
+     * The model currently selected by the user. Persists across
+     * process restarts via `SharedPreferences`. The initial value
+     * is the first entry in [availableModels] (Qwen 3 1.7B Q4_K_M)
+     * unless a previous selection was saved.
+     */
+    val currentModel: StateFlow<ModelOption> by lazy { _currentModel.asStateFlow() }
+
+    /**
      * First-run entry point used by [com.baton.app.ui.llama.ModelDownloadScreen].
      *
      * Returns the same [state] flow the screen already collects.
-     * Calling this method scans [modelFile]; if the file exists
-     * and is non-empty, the state is promoted to [ModelState.Ready]
-     * (idempotent). Otherwise the state stays at [ModelState.NotStarted]
-     * and the screen renders the "Download model" button which
-     * calls [download].
+     * Calling this method scans [modelFile] for the **current**
+     * model; if the file exists and is non-empty, the state is
+     * promoted to [ModelState.Ready] (idempotent). Otherwise the
+     * state stays at [ModelState.NotStarted] and the screen renders
+     * the "Download model" button which calls [download].
      */
     @Synchronized
     fun ensureModel(): StateFlow<ModelState> {
@@ -91,9 +133,10 @@ open class ModelManager @Inject constructor(
     }
 
     /**
-     * Kicks off a background download. Fire-and-forget — the call
-     * returns immediately and the state is updated via [state] as
-     * the download progresses.
+     * Kicks off a background download for the **current** model
+     * ([currentModel.value]). Fire-and-forget — the call returns
+     * immediately and the state is updated via [state] as the
+     * download progresses.
      *
      * Idempotent: a second call while a download is in flight is a
      * no-op, and a call when the model is already [ModelState.Ready]
@@ -113,11 +156,46 @@ open class ModelManager @Inject constructor(
         workScope.launch { runDownload() }
     }
 
+    /**
+     * Switch to a different model. Updates [currentModel], persists
+     * the choice to `SharedPreferences`, and deletes the on-disk
+     * file of the previously-selected model so the next
+     * [ensureModel] call (triggered when the screen re-attaches)
+     * will re-download the new one.
+     *
+     * The download state is reset to [ModelState.NotStarted] so the
+     * screen shows the "Download model" button for the new model.
+     * If a download was in flight for the old model, it will still
+     * write to the old file (which we just deleted) and the
+     * [runDownload] failure path will catch the error and surface
+     * it as [ModelState.Failed] — the user can then retry with the
+     * new model selected.
+     *
+     * No-op if [option] is already the current model.
+     */
+    @Synchronized
+    fun selectModel(option: ModelOption) {
+        if (option.id == _currentModel.value.id) return
+        val previous = _currentModel.value
+        prefs?.edit()?.putString(KEY_MODEL_ID, option.id)?.apply()
+        val oldFile = File(context.filesDir, "models/${previous.id}.gguf")
+        if (oldFile.exists()) {
+            oldFile.delete()
+        }
+        val oldPart = File(context.filesDir, "models/${previous.id}.gguf.part")
+        if (oldPart.exists()) {
+            oldPart.delete()
+        }
+        _currentModel.value = option
+        _state.value = ModelState.NotStarted
+    }
+
     private suspend fun runDownload() {
-        val target = modelFile()
+        val current = _currentModel.value
+        val target = File(context.filesDir, "models/${current.id}.gguf")
         target.parentFile?.mkdirs()
         val tmp = File(target.parentFile, target.name + ".part")
-        val request = Request.Builder().url(DEFAULT_MODEL_URL).build()
+        val request = Request.Builder().url(current.url).build()
         try {
             _state.value = ModelState.Downloading(0f)
             httpClient.newCall(request).execute().use { resp ->
@@ -206,7 +284,13 @@ open class ModelManager @Inject constructor(
         emit(DownloadProgress.Done(target))
     }.flowOn(Dispatchers.IO)
 
-    open fun modelFile(): File = File(context.filesDir, "models/qwen3-1.7b-q4_k_m.gguf")
+    /**
+     * Resolves the on-disk path for the **current** model's GGUF
+     * file. The path is `filesDir/models/${currentModel.id}.gguf`.
+     * Used by both the new stateful download API and the legacy
+     * `downloadModel()` flow consumed by [Extractor].
+     */
+    open fun modelFile(): File = File(context.filesDir, "models/${_currentModel.value.id}.gguf")
 
     private fun verify(file: File, expectedSha: String? = null): Boolean {
         if (!file.exists()) return false
@@ -232,18 +316,68 @@ open class ModelManager @Inject constructor(
 
     companion object {
         /**
-         * v1.4.2 (F-10): placeholder URL for the first-run download.
-         * Points at the Qwen2.5-1.5B-Instruct GGUF on Hugging Face.
-         * The real production URL for the project's chosen Qwen3 1.7B
-         * model lives in `assets/model_url.txt` and is used by the
-         * legacy [downloadModel] flow. This placeholder exists so the
-         * first-run UX has a real, reachable URL without depending
-         * on a build-time asset swap.
+         * v1.4.3 (F-10): the catalogue of models the user can pick
+         * from. The first entry is the default (used when no
+         * preference has been persisted yet). All four are
+         * GGUF Q4_K_M quantisations sized to fit comfortably on
+         * modern mid-range devices; the URLs are placeholder
+         * Hugging Face resolve links that point at the canonical
+         * community quantisations. The real production URLs (and
+         * their SHA-256 manifests, used by the legacy
+         * `downloadModel()` flow) live in `assets/`.
          */
-        const val DEFAULT_MODEL_URL: String =
-            "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+        val availableModels: List<ModelOption> = listOf(
+            ModelOption(
+                id = "qwen3-1.7b-q4_k_m",
+                displayName = "Qwen 3 1.7B (Q4_K_M)",
+                description = "~1.1 GB, fast on most devices, good for short instructions",
+                url = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/qwen3-1.7b-q4_k_m.gguf",
+                sizeBytes = 1_100_000_000L,
+            ),
+            ModelOption(
+                id = "llama-3.2-3b-instruct-q4_k_m",
+                displayName = "Llama 3.2 3B Instruct (Q4_K_M)",
+                description = "~2.0 GB, stronger reasoning, slower on low-RAM devices",
+                url = "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+                sizeBytes = 2_000_000_000L,
+            ),
+            ModelOption(
+                id = "gemma-2-2b-it-q4_k_m",
+                displayName = "Gemma 2 2B IT (Q4_K_M)",
+                description = "~1.6 GB, balanced quality, friendly safety profile",
+                url = "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+                sizeBytes = 1_600_000_000L,
+            ),
+            ModelOption(
+                id = "phi-3.5-mini-3.8b-q4_k_m",
+                displayName = "Phi-3.5 mini 3.8B (Q4_K_M)",
+                description = "~2.3 GB, strong on structured extraction, largest of the four",
+                url = "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
+                sizeBytes = 2_300_000_000L,
+            ),
+        )
+
+        private const val PREFS_NAME = "model_prefs"
+        private const val KEY_MODEL_ID = "selected_model_id"
     }
 }
+
+/**
+ * v1.4.3 (F-10): a single pickable model option. The `id` is the
+ * stable identifier persisted to `SharedPreferences` and used as
+ * the on-disk file basename (`filesDir/models/${id}.gguf`). The
+ * `url` is the download endpoint (a Hugging Face resolve link in
+ * the v1.4.3 placeholder catalogue). The `sizeBytes` is the
+ * approximate download size; the screen displays it as a
+ * human-readable "~N GB" hint.
+ */
+data class ModelOption(
+    val id: String,
+    val displayName: String,
+    val description: String,
+    val url: String,
+    val sizeBytes: Long,
+)
 
 /**
  * v1.4.2 (F-10): sealed surface for the on-device model download
