@@ -41,13 +41,12 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.5.1 vault mode: no login, no cloud sync. The local
-        // Room DB is the only store, SQLCipher-encrypted at rest.
-        // The capture path now lands in Room directly (PENDING_INSERT
-        // + sync_queue row) instead of hitting Supabase PostgREST
-        // without a JWT.
-        versionCode = 12
-        versionName = "1.5.1"
+        // v1.5.2 vault mode: app renamed to "Kaavalan note"
+        // (user-facing strings only — package id, class names,
+        // and internal identifiers are unchanged so the existing
+        // install and DB schema carry over).
+        versionCode = 13
+        versionName = "1.5.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
