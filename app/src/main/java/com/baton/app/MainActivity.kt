@@ -99,21 +99,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             BatonTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    val session by rootViewModel.sessionState.collectAsStateWithLifecycle()
-                    when (session) {
-                        AuthSessionState.Loading -> Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                        AuthSessionState.Authenticated -> MainScaffold(
-                            rootViewModel = rootViewModel,
-                            networkObserver = networkObserver,
-                            onRequestNotificationsPermission = ::requestPostNotifications,
-                        )
-                        AuthSessionState.Unauthenticated -> AuthScreen()
-                    }
+                    // v1.5.0 vault mode: no login. The app opens
+                    // straight to the home/today tabs. SQLCipher keeps
+                    // the local Room DB encrypted at rest; the
+                    // Supabase auth + sync code paths still exist in
+                    // the binary (so a future Settings toggle can
+                    // re-enable cloud sync) but are not invoked.
+                    MainScaffold(
+                        rootViewModel = rootViewModel,
+                        networkObserver = networkObserver,
+                        onRequestNotificationsPermission = ::requestPostNotifications,
+                    )
                 }
             }
         }
@@ -383,21 +379,15 @@ object Routes {
 }
 
 /**
- * Top-level ViewModel that observes the auth session and exposes a
- * three-state [AuthSessionState] flow.
+ * Top-level ViewModel that owns the ephemeral UI events (shared text
+ * from another app, the widget / tile "quick capture" pulse).
+ *
+ * v1.5.0 vault mode: no auth gate. The auth state machinery is no
+ * longer observed at the root; the app opens straight to the home
+ * tabs and SQLCipher keeps the local Room DB encrypted at rest.
  */
 @HiltViewModel
-class RootViewModel @Inject constructor(
-    authRepository: AuthRepository,
-) : ViewModel() {
-
-    val sessionState: StateFlow<AuthSessionState> = authRepository
-        .observeSessionStatus()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = AuthSessionState.Loading,
-        )
+class RootViewModel @Inject constructor() : ViewModel() {
 
     private val _sharedText = MutableStateFlow<String?>(null)
     val sharedText: StateFlow<String?> = _sharedText.asStateFlow()

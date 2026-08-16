@@ -41,8 +41,13 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.4.5.2"
+        // v1.5.0 vault mode: no login, no cloud sync. The local
+        // Room DB is the only store, SQLCipher-encrypted at rest.
+        // The Supabase auth + sync code paths still exist in the
+        // binary (gated by nothing) so a future Settings toggle
+        // can re-enable cloud sync without a refactor.
+        versionCode = 11
+        versionName = "1.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

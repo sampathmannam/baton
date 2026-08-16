@@ -26,23 +26,17 @@ class BatonApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         appInitializer.runOnAppStart()
-        // v1.2 root-cause fix (F-CRIT-07): schedule a periodic
-        // sync drain so the outbox self-heals after process kill
-        // + reopen. The per-write drain in the VMs remains the
-        // foreground path; this is the "I was offline and now I'm
-        // not" safety net.
-        WorkManagerInitializer.schedulePeriodicDrain(this)
-        // v1.4.3 (F-09 / F-20 wiring): schedule a periodic
-        // capture-sync worker. v1.4.2-final added
-        // [com.baton.app.data.sync.CaptureSyncWorker] but never
-        // registered it with WorkManager, so every capture that
-        // [com.baton.app.data.captures.RoomCaptureRepository] wrote
-        // with `syncStatus = PENDING_INSERT` stayed dirty forever.
-        // The 5-minute interval is intentionally faster than the
-        // 15-minute sync drain above: captures are time-sensitive
-        // (the user is waiting on the "synced" badge) and a dirty
-        // capture row only blocks that one row, not the whole outbox.
-        WorkManagerInitializer.schedulePeriodicCaptureSync(this)
+        // v1.5.0 vault mode: no cloud sync. The
+        // [com.baton.app.data.work.WorkManagerInitializer] periodic
+        // drain + capture-sync schedules are intentionally NOT
+        // called. The per-write `enqueueCaptureSync` in
+        // [com.baton.app.data.captures.RoomCaptureRepository] still
+        // fires one-shot workers (a no-op without Supabase creds);
+        // the periodic schedule was the one that mattered for the
+        // "I was offline and now I'm not" self-heal, and v1.5.0
+        // has no offline-to-online path because there is no online.
+        // The code paths are left in place so a future Settings
+        // toggle can re-enable cloud sync without a refactor.
     }
 
     /**
