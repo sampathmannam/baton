@@ -50,9 +50,19 @@
 
     <!-- M3-T4: settings sheet + sign-out -->
     <string name="settings_title">Settings</string>
-    <string name="settings_subtitle">Sign out of Baton on this device. Your local data and on-device model files are wiped; your Supabase data stays.</string>
-    <string name="settings_sign_out">Sign out</string>
-    <string name="settings_signing_out">Signing out…</string>
+    <!-- v1.5.1: vault-mode copy. There is no Supabase data to
+         preserve, so the v1.4 "Supabase data stays" line is
+         misleading. The destructive action is now framed as
+         "Erase all local data" with the same effect, and the
+         button is renamed to match. -->
+    <string name="settings_subtitle">Erase all data on this phone: every person, every instruction, every tag, and the on-device model files. This cannot be undone.</string>
+    <string name="settings_sign_out">Erase all data</string>
+    <string name="settings_signing_out">Erasing…</string>
+    <!-- v1.5.1 (VAULT-007): the confirmation dialog. -->
+    <string name="settings_erase_confirm_title">Erase all data on this phone?</string>
+    <string name="settings_erase_confirm_body">This deletes every person, every instruction, every tag, and the on-device model files. There is no backup. This cannot be undone.</string>
+    <string name="settings_erase_confirm_yes">Erase</string>
+    <string name="settings_erase_confirm_no">Cancel</string>
 
     <!-- M3-T6: person detail screen -->
     <string name="person_detail_title">Person</string>

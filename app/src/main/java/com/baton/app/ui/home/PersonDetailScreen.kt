@@ -266,9 +266,15 @@ private fun PersonHeader(
         Spacer(Modifier.height(8.dp))
         Text(
             text = if (person.isSensitive) {
-                "Local-only. Stays on this device, doesn't sync to Supabase."
+                // v1.5.1: vault mode — there's no Supabase sync either
+                // way. Sensitive = never leaves the device, even if
+                // cloud sync is re-enabled later.
+                "Stays on this phone, never backed up."
             } else {
-                "Syncs to Supabase so other devices see this person."
+                // v1.5.1: vault mode copy. Replaces the pre-vault
+                // "Syncs to Supabase..." text that lied to the user
+                // (VAULT-001).
+                "Stays on this phone."
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -451,12 +457,16 @@ private fun InstructionSensitiveDialog(
         text = {
             Text(
                 if (newValue) {
-                    "This instruction will stay on this device only. " +
-                        "It won't sync to Supabase, and other devices won't see it."
+                    // v1.5.1: vault-mode copy. Sensitive = never leaves
+                    // the device, even if cloud sync is re-enabled later.
+                    "This instruction will stay on this phone only."
                 } else {
-                    "This instruction will start syncing to Supabase " +
-                        "again and will be visible to your other devices."
-                },
+                    // v1.5.1: vault-mode copy. The unsensitive path
+                    // doesn't actually re-enable Supabase sync in
+                    // vault mode — instructions still stay local.
+                    "This instruction will start syncing to the cloud " +
+                        "if cloud sync is on for this device."
+                }
             )
         },
         confirmButton = {
@@ -489,12 +499,14 @@ private fun PersonSensitiveDialog(
         text = {
             Text(
                 if (newValue) {
-                    "${person.name} and their instructions will stay on this " +
-                        "device only. They won't sync to Supabase, and " +
-                        "other devices won't see this person."
+                    // v1.5.1: vault-mode copy. Sensitive = never leaves
+                    // the device, even if cloud sync is re-enabled later.
+                    "${person.name} and their instructions will stay on " +
+                        "this phone only."
                 } else {
-                    "${person.name} will start syncing to Supabase again " +
-                        "and will be visible to your other devices."
+                    // v1.5.1: vault-mode copy.
+                    "${person.name} will be available for cloud sync " +
+                        "if cloud sync is on for this device."
                 },
             )
         },
