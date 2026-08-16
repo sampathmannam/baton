@@ -6,8 +6,13 @@ import org.junit.Test
 import java.io.File
 
 /**
- * v1.4 (PHONE-FINDING-2) + BUG-AUDIT-2: the Sign out button must
- * not use the red `errorContainer` colour.
+ * v1.4 (PHONE-FINDING-2) + BUG-AUDIT-2: the erase-all-data button
+ * must not use the red `errorContainer` colour.
+ *
+ * v1.5.1: the button no longer calls `viewModel.signOut()`
+ * directly — it now opens a confirmation dialog first (VAULT-007).
+ * The test finds the button by the destructive trigger
+ * `showEraseConfirmation = true` instead of the old direct call.
  */
 class SettingsSheetTest {
 
@@ -20,7 +25,11 @@ class SettingsSheetTest {
         val regex = Regex("""\bButton\s*\(""")
         regex.findAll(text).forEach { m ->
             val (body, _) = extractCallAndTrailingLambda(text, m.range.last) ?: return@forEach
-            if (body.contains("viewModel.signOut")) {
+            // v1.5.1: the destructive button either calls
+            // viewModel.signOut() directly (legacy v1.4 shape) OR
+            // sets showEraseConfirmation = true (v1.5.1 shape with
+            // a confirmation dialog). Match either.
+            if (body.contains("viewModel.signOut") || body.contains("showEraseConfirmation")) {
                 return body
             }
         }

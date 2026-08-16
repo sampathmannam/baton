@@ -61,6 +61,11 @@ fun SettingsSheet(
     val scope = rememberCoroutineScope()
     val signingOut by viewModel.signingOut.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
+    // v1.5.1 (VAULT-007): the destructive action (erases ALL local
+    // data) used to fire on a single button tap. In vault mode the
+    // user has no cloud backup, so a stray tap means losing every
+    // note forever. Require an explicit confirmation.
+    var showEraseConfirmation by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -107,11 +112,7 @@ fun SettingsSheet(
             // border and a lock icon to communicate "destructive"
             // without colour.
             Button(
-                onClick = {
-                    scope.launch {
-                        viewModel.signOut()
-                    }
-                },
+                onClick = { showEraseConfirmation = true },
                 enabled = !signingOut,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
@@ -136,6 +137,37 @@ fun SettingsSheet(
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // v1.5.1 (VAULT-007): the erase-all confirmation. Without this
+    // a single accidental tap in the settings sheet wipes every
+    // person, every instruction, and every tag — there is no cloud
+    // backup in vault mode. The dialog uses neutral wording
+    // ("Erase") instead of "Delete" / "Destroy" to match the
+    // no-shame tone the rest of the app uses.
+    if (showEraseConfirmation) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showEraseConfirmation = false },
+            title = { Text(stringResource(R.string.settings_erase_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_erase_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showEraseConfirmation = false
+                        scope.launch {
+                            viewModel.signOut()
+                        }
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_erase_confirm_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEraseConfirmation = false }) {
+                    Text(stringResource(R.string.settings_erase_confirm_no))
+                }
+            },
+        )
     }
 }
 

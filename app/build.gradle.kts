@@ -41,13 +41,13 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.5.0 vault mode: no login, no cloud sync. The local
+        // v1.5.1 vault mode: no login, no cloud sync. The local
         // Room DB is the only store, SQLCipher-encrypted at rest.
-        // The Supabase auth + sync code paths still exist in the
-        // binary (gated by nothing) so a future Settings toggle
-        // can re-enable cloud sync without a refactor.
-        versionCode = 11
-        versionName = "1.5.0"
+        // The capture path now lands in Room directly (PENDING_INSERT
+        // + sync_queue row) instead of hitting Supabase PostgREST
+        // without a JWT.
+        versionCode = 12
+        versionName = "1.5.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

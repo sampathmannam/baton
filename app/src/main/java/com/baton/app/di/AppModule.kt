@@ -61,7 +61,16 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideInstructionRepository(impl: SupabaseInstructionRepository): InstructionRepository = impl
+    fun provideInstructionRepository(
+        // v1.5.1 (VAULT-005): vault mode binds the production
+        // InstructionRepository to the local Room impl, not the
+        // Supabase one. Every capture-and-save now lands in the
+        // local SQLCipher DB. The SupabaseInstructionRepository
+        // is still in the graph (as a dep of SyncEngine and the
+        // optional refreshFromNetwork path) so a future Settings
+        // toggle can flip this back to the cloud repo.
+        impl: com.baton.app.data.instructions.RoomInstructionRepository,
+    ): InstructionRepository = impl
 
     @Provides
     @Singleton
