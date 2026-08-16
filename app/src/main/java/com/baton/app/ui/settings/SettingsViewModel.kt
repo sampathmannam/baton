@@ -2,9 +2,13 @@ package com.baton.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.baton.app.BuildConfig
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.local.InstructionDao
+import com.baton.app.data.local.PersonDao
 import com.baton.app.data.local.SyncEngine
+import com.baton.app.data.local.TagDao
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import com.baton.app.data.tags.Tag
@@ -13,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -43,6 +48,9 @@ class SettingsViewModel @Inject constructor(
     private val tagRepository: RoomTagRepository,
     private val realtimeSync: RealtimeSync,
     private val syncEngine: SyncEngine,
+    private val personDao: PersonDao,
+    private val instructionDao: InstructionDao,
+    private val tagDao: TagDao,
 ) : ViewModel() {
 
     private val _signingOut = MutableStateFlow(false)
@@ -76,6 +84,39 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
         )
+
+    /**
+     * v1.5.3 (VAULT-008): the "On this phone" storage card. Live
+     * count of people + instructions + tags. The number is
+     * recomputed on every local write (Room is reactive), so the
+     * card updates as the user adds / removes rows.
+     */
+    val storage: StateFlow<StorageInfo> = combine(
+        personDao.observeAll(),
+        instructionDao.observeAll(),
+        tagDao.observeAll(),
+    ) { persons, instructions, tags ->
+        StorageInfo(
+            peopleCount = persons.size,
+            instructionCount = instructions.size,
+            tagCount = tags.size,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = StorageInfo(),
+    )
+
+    /**
+     * v1.5.3 (VAULT-008): the app version string. BuildConfig
+     * has the versionName + versionCode; we expose them as a
+     * tuple so the UI can render "{versionName} (build
+     * {versionCode})" without re-reading BuildConfig.
+     */
+    val appVersion: AppVersion = AppVersion(
+        name = BuildConfig.VERSION_NAME,
+        code = BuildConfig.VERSION_CODE,
+    )
 
     fun signOut() {
         if (_signingOut.value) return
@@ -131,3 +172,24 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
+
+/**
+ * v1.5.3 (VAULT-008): the storage card payload. Counts only —
+ * no per-row detail on this card (the home tab is the right
+ * place to see individual rows).
+ */
+data class StorageInfo(
+    val peopleCount: Int = 0,
+    val instructionCount: Int = 0,
+    val tagCount: Int = 0,
+)
+
+/**
+ * v1.5.3 (VAULT-008): the version card payload. Read once at
+ * VM construction from BuildConfig (the value doesn't change
+ * at runtime, so a one-shot read is fine).
+ */
+data class AppVersion(
+    val name: String = "",
+    val code: Int = 0,
+)

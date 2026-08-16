@@ -1,11 +1,13 @@
 package com.baton.app.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -20,7 +22,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.baton.app.R
 
@@ -28,6 +35,16 @@ import com.baton.app.R
  * Bottom sheet to capture a new [com.baton.app.data.person.Person].
  * Three fields, all optional except Name. Save is disabled until Name
  * is non-blank — keeps the form ADHD-friendly (one obvious action).
+ *
+ * v1.5.3 fixes:
+ *  - VAULT-002: Back key first hides the soft keyboard (if it's
+ *    up), then closes the sheet. The previous behaviour was to
+ *    skip the IME-close step and dismiss the whole sheet, which
+ *    silently lost any typed data.
+ *  - VAULT-004: Name / Designation / Station use
+ *    `capitalization = Words` and `autoCorrect = false` so the
+ *    soft keyboard doesn't insert stray characters into proper
+ *    nouns (e.g. "Thanjavur" -> "Thanjavurv").
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +56,19 @@ fun AddPersonSheet(
     var name by remember { mutableStateOf("") }
     var designation by remember { mutableStateOf("") }
     var station by remember { mutableStateOf("") }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // VAULT-002: back press hides the soft keyboard first, then
+    // closes the sheet. We track IME state with a flag that flips
+    // when a text field receives / loses focus.
+    var imeVisible by remember { mutableStateOf(false) }
+    BackHandler(enabled = imeVisible) {
+        keyboard?.hide()
+        imeVisible = false
+    }
+    BackHandler(enabled = !imeVisible) {
+        onDismiss()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -59,21 +89,47 @@ fun AddPersonSheet(
                 onValueChange = { name = it },
                 label = { Text(stringResource(R.string.person_name)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChangedCompat { imeVisible = it },
+                // VAULT-004: Words capitalization (proper nouns),
+                // autocorrect off.
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next,
+                ),
             )
             OutlinedTextField(
                 value = designation,
                 onValueChange = { designation = it },
                 label = { Text(stringResource(R.string.person_designation)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChangedCompat { imeVisible = it },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next,
+                ),
             )
             OutlinedTextField(
                 value = station,
                 onValueChange = { station = it },
                 label = { Text(stringResource(R.string.person_station)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChangedCompat { imeVisible = it },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done,
+                ),
             )
             Spacer(modifier = Modifier.height(8.dp))
             Button(
@@ -98,3 +154,12 @@ fun AddPersonSheet(
         }
     }
 }
+
+/**
+ * v1.5.3 (VAULT-002 helper): a small wrapper around Modifier.onFocusChanged
+ * that also flips the [imeVisible] flag on the calling
+ * [AddPersonSheet]. Inline so the import surface stays local.
+ */
+@Composable
+private fun Modifier.onFocusChangedCompat(onChange: (Boolean) -> Unit): Modifier =
+    this.then(onFocusChanged { onChange(it.isFocused) })

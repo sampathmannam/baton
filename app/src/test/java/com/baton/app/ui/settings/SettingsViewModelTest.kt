@@ -2,7 +2,10 @@
 
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
+import com.baton.app.data.local.InstructionDao
+import com.baton.app.data.local.PersonDao
 import com.baton.app.data.local.SyncEngine
+import com.baton.app.data.local.TagDao
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import io.mockk.coEvery
@@ -71,6 +74,9 @@ class SettingsViewModelTest {
             tagRepository = mockk<RoomTagRepository>(relaxed = true),
             realtimeSync = realtime,
             syncEngine = syncEngine,
+            personDao = mockk<PersonDao>(relaxed = true),
+            instructionDao = mockk<InstructionDao>(relaxed = true),
+            tagDao = mockk<TagDao>(relaxed = true),
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)
     }

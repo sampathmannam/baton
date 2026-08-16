@@ -41,12 +41,13 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.5.2 vault mode: app renamed to "Kaavalan note"
-        // (user-facing strings only — package id, class names,
-        // and internal identifiers are unchanged so the existing
-        // install and DB schema carry over).
-        versionCode = 13
-        versionName = "1.5.2"
+        // v1.5.3 vault mode: full UX pass on the 6 findings
+        // from the v1.5.2 audit (VAULT-002 / 003 / 004 / 008 /
+        // 009 / 010). The capture flow, Person Detail, and
+        // Settings all get small but real improvements; the
+        // Today tab note rows are now tappable.
+        versionCode = 14
+        versionName = "1.5.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

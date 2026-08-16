@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.data.instructions.Instruction
+import com.baton.app.data.instructions.Priority
 import com.baton.app.data.instructions.RoomInstructionRepository
+import com.baton.app.data.instructions.Source
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
 import com.baton.app.data.local.entities.PersonEntity
@@ -153,6 +155,36 @@ class PersonDetailViewModel @Inject constructor(
     fun setPersonSensitive(personId: String, sensitive: Boolean) {
         viewModelScope.launch {
             runCatching { personRepository.setSensitive(personId, sensitive) }
+        }
+    }
+
+    /**
+     * v1.5.3 (VAULT-003): the "Add instruction" CTA on Person
+     * Detail. Pre-fills [personId] so the new instruction is
+     * attributed to this person. Goes through the same
+     * Room-backed [RoomInstructionRepository.create] that the
+     * global capture sheet uses, so the row is in PENDING_INSERT
+     * and the sync_queue is enqueued (a no-op in vault mode).
+     *
+     * The [text] is the raw user-typed note. We use the first 40
+     * chars as the title (same truncation rule as the global
+     * "Save as text" path) to keep the Today tab readable.
+     */
+    fun createInstructionForThisPerson(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isBlank()) return
+        viewModelScope.launch {
+            runCatching {
+                val title = if (trimmed.length > 40) trimmed.take(40) + "…" else trimmed
+                roomInstructionRepository.create(
+                    personId = personId,
+                    source = Source.TEXT,
+                    priority = Priority.NORMAL,
+                    title = title,
+                    rawText = trimmed,
+                    dueAt = null,
+                )
+            }
         }
     }
 

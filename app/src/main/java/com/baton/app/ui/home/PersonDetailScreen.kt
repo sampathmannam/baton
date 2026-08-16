@@ -16,17 +16,20 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,6 +89,10 @@ fun PersonDetailScreen(
     var dropTarget by remember { mutableStateOf<Instruction?>(null) }
     var sensitiveToggleId by remember { mutableStateOf<String?>(null) }
     var showPersonSensitive by remember { mutableStateOf(false) }
+    // v1.5.3 (VAULT-003): local "Add instruction" sheet, pre-attributed
+    // to this person. Avoids making the user back out to the home
+    // tab to capture an instruction for the person they're looking at.
+    var showAddInstruction by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -123,6 +130,7 @@ fun PersonDetailScreen(
                 onRequestDrop = { ins -> dropTarget = ins },
                 onRequestInstructionSensitive = { ins -> sensitiveToggleId = ins.id },
                 onOpenPersonSensitive = { showPersonSensitive = true },
+                onAddInstruction = { showAddInstruction = true },
             )
         }
     }
@@ -172,6 +180,89 @@ fun PersonDetailScreen(
             onDismiss = { showPersonSensitive = false },
         )
     }
+
+    if (showAddInstruction && loaded != null) {
+        AddInstructionForPersonSheet(
+            personName = loaded.person.name,
+            onSave = { text ->
+                viewModel.createInstructionForThisPerson(text)
+                showAddInstruction = false
+            },
+            onDismiss = { showAddInstruction = false },
+        )
+    }
+}
+
+/**
+ * v1.5.3 (VAULT-003): a small bottom sheet that captures an
+ * instruction pre-attributed to the person the user is
+ * looking at. The text field uses `capitalization = Words`
+ * and no autocorrect so proper-noun content (names, places)
+ * isn't mangled.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddInstructionForPersonSheet(
+    personName: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "New instruction for $personName",
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Text(
+                text = "Capture what you want $personName to do. The note will be attributed to them and show up on their timeline.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                label = { Text("Note") },
+                // VAULT-004: disable autocorrect + sentence caps
+                // for proper-noun content (names, designations).
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                    autoCorrectEnabled = false,
+                ),
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Cancel")
+                }
+                Button(
+                    onClick = { onSave(text) },
+                    enabled = text.trim().isNotBlank(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Save")
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
 }
 
 @Composable
@@ -185,6 +276,7 @@ private fun PersonTimeline(
     onRequestDrop: (Instruction) -> Unit = {},
     onRequestInstructionSensitive: (Instruction) -> Unit = {},
     onOpenPersonSensitive: () -> Unit = {},
+    onAddInstruction: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier
@@ -197,6 +289,7 @@ private fun PersonTimeline(
             PersonHeader(
                 person = person,
                 openInstructionCount = instructions.count { it.status == com.baton.app.data.instructions.Status.OPEN },
+                onAddInstruction = onAddInstruction,
                 onOpenSensitive = onOpenPersonSensitive,
             )
         }
@@ -244,6 +337,7 @@ private fun PersonHeader(
     person: com.baton.app.data.person.Person,
     openInstructionCount: Int,
     onOpenSensitive: () -> Unit,
+    onAddInstruction: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -262,6 +356,19 @@ private fun PersonHeader(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        Spacer(Modifier.height(8.dp))
+        // v1.5.3 (VAULT-003): primary "Add instruction" button —
+        // the user is on this screen because they want to do
+        // something involving this person. Don't make them
+        // navigate away to capture.
+        Button(
+            onClick = onAddInstruction,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        ) {
+            Text("Add instruction for ${person.name}")
         }
         Spacer(Modifier.height(8.dp))
         Text(
