@@ -60,7 +60,7 @@ fun AuthScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Baton", style = MaterialTheme.typography.displaySmall)
+        Text("Kaavalan note", style = MaterialTheme.typography.displaySmall)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             "Welcome back",

@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Baton</string>
+    <string name="app_name">Kaavalan note</string>
     <string name="home_title">People</string>
     <string name="home_empty_title">No one yet</string>
     <string name="home_empty_subtitle">Add the first person you coordinate with — your SP, your SHOs, anyone you give or take instructions from.</string>
@@ -32,13 +32,13 @@
     <string name="confirmation_add_to_calendar">Add to calendar (coming in M1-T6)</string>
 
     <!-- M1-T7: share-target ingest -->
-    <string name="share_to_baton">Save to Baton</string>
+    <string name="share_to_baton">Save to Kaavalan note</string>
 
     <!-- M2-T5: quick-settings tile + lock-screen widget -->
-    <string name="widget_label">Baton</string>
+    <string name="widget_label">Kaavalan note</string>
     <string name="widget_mic_button_desc">Quick-capture</string>
-    <string name="widget_description">Tap the mic to capture a note to Baton.</string>
-    <string name="tile_label">Baton quick-capture</string>
+    <string name="widget_description">Tap the mic to capture a note to Kaavalan.</string>
+    <string name="tile_label">Kaavalan note quick-capture</string>
 
     <!-- M2-T4: voice capture -->
     <string name="voice_capture_channel">Voice capture</string>
@@ -88,7 +88,7 @@
     <string name="offline_pill_a11y">You\'re offline. Local changes will sync when network returns.</string>
 
     <!-- v1.4 (PHONE-FINDING-10 / F-02): POST_NOTIFICATIONS rationale. -->
-    <string name="notifications_rationale">Allow notifications so Baton can show your morning brief.</string>
+    <string name="notifications_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
 
     <!-- v1.4 (PHONE-FINDING-8): the inline "you need a person
          first" card on the capture sheet. The message is short,
@@ -104,7 +104,7 @@
          up; the actual Qwen 3 1.7B Q4_K_M GGUF is closer to
          1.1 GB but "1 GB" is the human-friendly round number. -->
     <string name="model_download_title">Download on-device model</string>
-    <string name="model_download_subtitle">Baton runs its AI on this device. The first run downloads the model (~1 GB) so everything after that works offline.</string>
+    <string name="model_download_subtitle">Kaavalan runs its AI on this device. The first run downloads the model (~1 GB) so everything after that works offline.</string>
     <string name="model_download_button">Download model (~1 GB)</string>
     <string name="model_download_percent">Downloading… %1$d%%</string>
     <string name="model_download_ready">Model ready</string>

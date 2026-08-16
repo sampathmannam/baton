@@ -60,7 +60,7 @@ class BriefNotifier @Inject constructor(
                 CHANNEL_ID,
                 CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply { description = "Morning brief from Baton" }
+            ).apply { description = "Morning brief from Kaavalan note" }
             mgr.createNotificationChannel(ch)
         }
     }
@@ -98,7 +98,7 @@ class BriefNotifier @Inject constructor(
     }
 
     fun postMorningBrief(openCount: Int) {
-        val title = "Baton brief"
+        val title = "Kaavalan brief"
         val text = if (openCount == 0) {
             "Nothing on your plate."
         } else {
