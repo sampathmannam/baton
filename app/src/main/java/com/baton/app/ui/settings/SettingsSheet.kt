@@ -61,6 +61,8 @@ fun SettingsSheet(
     val scope = rememberCoroutineScope()
     val signingOut by viewModel.signingOut.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
+    val storage by viewModel.storage.collectAsStateWithLifecycle()
+    val appVersion = viewModel.appVersion
     // v1.5.1 (VAULT-007): the destructive action (erases ALL local
     // data) used to fire on a single button tap. In vault mode the
     // user has no cloud backup, so a stray tap means losing every
@@ -94,6 +96,44 @@ fun SettingsSheet(
                     onRetry = viewModel::retryStuckOutbox,
                 )
             }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+
+            // v1.5.3 (VAULT-008): the About section. App version,
+            // storage counts, data mode. No interaction, just
+            // info — these are read-only debug-style fields the
+            // user can use to verify which build is on the device
+            // and how much is in the vault.
+            Text(
+                text = stringResource(R.string.settings_section_about),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            AboutRow(
+                label = stringResource(R.string.settings_app_version),
+                value = stringResource(
+                    R.string.settings_app_version_value,
+                    appVersion.name,
+                    appVersion.code,
+                ),
+            )
+            AboutRow(
+                label = stringResource(R.string.settings_storage),
+                value = stringResource(
+                    R.string.settings_storage_value,
+                    storage.peopleCount,
+                    storage.instructionCount,
+                    storage.tagCount,
+                ),
+            )
+            AboutRow(
+                label = stringResource(R.string.settings_data_mode),
+                value = stringResource(R.string.settings_data_mode_vault),
+            )
+            Spacer(Modifier.height(8.dp))
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
@@ -321,5 +361,35 @@ private fun TagsSection(
                 }
             }
         }
+    }
+}
+
+/**
+ * v1.5.3 (VAULT-008): a single "label : value" row in the
+ * About section. No interaction, just information density.
+ * Uses `bodyMedium` for the label (quiet) and `bodyMedium`
+ * for the value (the actual answer) — both on
+ * `onSurfaceVariant` so the whole block reads as "info",
+ * not "settings to change".
+ */
+@Composable
+private fun AboutRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }

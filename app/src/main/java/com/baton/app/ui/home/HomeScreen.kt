@@ -148,7 +148,7 @@ fun HomeScreen(
                     padding = padding,
                     onAddPersonClick = { showAddPerson = true },
                 )
-                HomeUiState.Loading -> Box(modifier = Modifier.fillMaxSize().padding(padding))
+                HomeUiState.Loading -> LoadingSkeleton(padding)
                 is HomeUiState.Loaded -> PersonList(
                     persons = s.persons,
                     openCountByPersonId = s.openCountByPersonId,
@@ -302,6 +302,69 @@ private fun PersonList(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         item { Spacer(Modifier.height(80.dp)) }
+    }
+}
+
+/**
+ * v1.5.3 (VAULT-009): the loading skeleton. Three quiet
+ * placeholder rows that look like real person rows but are
+ * just grey rectangles. The user sees something happen on
+ * screen from the first frame, instead of a blank white
+ * section that looks like a crash.
+ *
+ * We use the project's spec §3 colour token (surfaceVariant)
+ * for the placeholder fill so it works on both light and dark
+ * themes without an explicit theme check.
+ */
+@Composable
+private fun LoadingSkeleton(padding: PaddingValues) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        repeat(4) { index ->
+            SkeletonRow()
+            if (index < 3) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkeletonRow() {
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            // Title placeholder — wider bar
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier
+                    .fillMaxWidth(0.55f)
+                    .height(16.dp),
+            ) {}
+            // Subtitle placeholder — narrower bar
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier
+                    .fillMaxWidth(0.35f)
+                    .height(12.dp),
+            ) {}
+        }
     }
 }
 
