@@ -97,6 +97,9 @@ class PersonDetailViewModel @Inject constructor(
             phone = phone,
             updatedAt = updatedAt,
             isSensitive = isSensitive,
+            tier = tier,
+            cadenceOverrideDays = cadenceOverrideDays,
+            lastInteractionAt = lastInteractionAt,
         )
 
     private fun com.baton.app.data.local.entities.InstructionEntity.toDomain(): Instruction =

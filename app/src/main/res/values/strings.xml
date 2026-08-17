@@ -304,3 +304,254 @@
     <string name="plain_export_success">Export saved</string>
     <string name="plain_export_failed">Couldn\'t save the export. Try again.</string>
 </resources>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kaavalan note</string>
+    <string name="home_title">People</string>
+    <string name="home_empty_title">No one yet</string>
+    <string name="home_empty_subtitle">Add the first person you coordinate with — your SP, your SHOs, anyone you give or take instructions from.</string>
+    <string name="home_add_person">Add person</string>
+    <string name="person_name">Name</string>
+    <string name="person_designation">Designation (e.g. SP, DSP, SHO)</string>
+    <string name="person_station">Station (optional)</string>
+    <string name="person_save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="tab_home">Home</string>
+    <string name="tab_today">Today</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- M1: single note bar + capture sheet -->
+    <string name="note_bar_hint">Tap to add a note</string>
+    <string name="note_bar_mic">Voice</string>
+    <string name="note_bar_camera">Photo</string>
+    <string name="capture_sheet_title">New note</string>
+    <string name="capture_sheet_close">Close</string>
+    <string name="capture_sheet_text_label">Note</string>
+    <string name="capture_sheet_text_placeholder">Type a free-form note. We\'ll extract the instruction.</string>
+    <string name="capture_sheet_extract">Extract</string>
+    <string name="capture_sheet_confirm">Save</string>
+
+    <!-- M1-T4: confirmation card -->
+    <string name="confirmation_person">Person</string>
+    <string name="confirmation_action">Action</string>
+    <string name="confirmation_instruction_text">Instruction</string>
+    <string name="confirmation_add_to_calendar">Add to calendar (coming in M1-T6)</string>
+
+    <!-- M1-T7: share-target ingest -->
+    <string name="share_to_baton">Save to Kaavalan note</string>
+
+    <!-- M2-T5: quick-settings tile + lock-screen widget -->
+    <string name="widget_label">Kaavalan note</string>
+    <string name="widget_mic_button_desc">Quick-capture</string>
+    <string name="widget_description">Tap the mic to capture a note to Kaavalan.</string>
+    <string name="tile_label">Kaavalan note quick-capture</string>
+
+    <!-- M2-T4: voice capture -->
+    <string name="voice_capture_channel">Voice capture</string>
+    <string name="voice_capture_title">Listening</string>
+    <string name="voice_capture_text">Recording your instruction. Tap Stop when done.</string>
+    <string name="voice_capture_stop">Stop</string>
+    <string name="voice_capture_permission_denied">Microphone permission is required for voice capture.</string>
+    <string name="voice_capture_error">Voice capture failed: %1$s</string>
+
+    <!-- M3-T4: settings sheet + sign-out -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_subtitle">Erase all data on this phone: every person, every instruction, every tag, and the on-device model files. This cannot be undone.</string>
+    <string name="settings_sign_out">Erase all data</string>
+    <string name="settings_signing_out">Erasing…</string>
+    <string name="settings_erase_confirm_title">Erase all data on this phone?</string>
+    <string name="settings_erase_confirm_body">This deletes every person, every instruction, every tag, and the on-device model files. There is no backup. This cannot be undone.</string>
+    <string name="settings_erase_confirm_yes">Erase</string>
+    <string name="settings_erase_confirm_no">Cancel</string>
+
+    <!-- v1.5.3 (VAULT-010): TalkBack label for the Today-tab
+         instruction row (the card is now clickable to open the
+         detail sheet). -->
+    <string name="a11y_today_row_open">Open instruction</string>
+
+    <!-- v1.5.3 (VAULT-008): the About section. -->
+    <string name="settings_section_about">About</string>
+    <string name="settings_app_version">App version</string>
+    <string name="settings_app_version_value">%1$s (build %2$d)</string>
+    <string name="settings_storage">On this phone</string>
+    <string name="settings_storage_value">%1$d people, %2$d instructions, %3$d tags</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_value">%1$s</string>
+    <string name="settings_notifications_enabled">Allowed</string>
+    <string name="settings_notifications_disabled">Blocked — enable in system settings</string>
+    <string name="settings_data_mode">Data mode</string>
+    <string name="settings_data_mode_vault">Vault — stays on this phone</string>
+
+    <!-- M3-T6: person detail screen -->
+    <string name="person_detail_title">Person</string>
+    <string name="person_detail_back">Back</string>
+    <string name="person_detail_timeline_count">%1$d instructions</string>
+    <string name="person_detail_empty">No instructions yet. Tap the note bar to start.</string>
+
+    <!-- v1.3: TalkBack content descriptions for accessibility. -->
+    <string name="a11y_person_row_open">Open person</string>
+    <string name="a11y_person_count_badge">%1$d open instructions</string>
+    <string name="a11y_person_count_badge_one">1 open instruction</string>
+    <string name="a11y_person_stale_indicator">No recent activity for 3 or more days</string>
+    <string name="a11y_status_chip">Status: %1$s</string>
+    <string name="a11y_confidence_high">High extraction confidence</string>
+    <string name="a11y_confidence_medium">Medium extraction confidence</string>
+    <string name="a11y_confidence_low">Low extraction confidence</string>
+
+    <!-- v1.4 (PHONE-FINDING-6): offline pill. -->
+    <string name="offline_pill_label">Offline</string>
+    <string name="offline_pill_a11y">You\'re offline. Local changes will sync when network returns.</string>
+
+    <!-- v1.4 (PHONE-FINDING-10 / F-02): POST_NOTIFICATIONS rationale. -->
+    <string name="notifications_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
+
+    <!-- v1.4 (PHONE-FINDING-8): the inline "you need a person
+         first" card on the capture sheet. -->
+    <string name="capture_needs_person_message">Add a person first to capture instructions.</string>
+
+    <!-- v1.4.2 (F-10): first-run on-device LLM model download. -->
+    <string name="model_download_title">Download on-device model</string>
+    <string name="model_download_subtitle">Kaavalan runs its AI on this device. The first run downloads the model (~1 GB) so everything after that works offline.</string>
+    <string name="model_download_button">Download model (~1 GB)</string>
+    <string name="model_download_percent">Downloading… %1$d%%</string>
+    <string name="model_download_ready">Model ready</string>
+    <string name="model_download_size_mb">%1$d MB on disk</string>
+    <string name="model_download_continue">Continue</string>
+    <string name="model_download_failed_reason">Download didn\'t finish: %1$s</string>
+    <string name="model_download_retry">Retry</string>
+
+    <!-- v1.4.3 (F-10): model picker. -->
+    <string name="model_picker_title">Choose a model</string>
+    <string name="model_picker_switch">Switch model</string>
+    <string name="model_picker_cancel">Cancel</string>
+    <string name="model_picker_confirm">Switch</string>
+
+    <!-- v1.4.3 (F-10): one name + description pair per model -->
+    <string name="model_qwen3_1_7b_q4_k_m_name">Qwen 3 1.7B (Q4_K_M)</string>
+    <string name="model_qwen3_1_7b_q4_k_m_description">~1.1 GB — fast on most devices, good for short instructions.</string>
+    <string name="model_llama_3_2_3b_instruct_q4_k_m_name">Llama 3.2 3B Instruct (Q4_K_M)</string>
+    <string name="model_llama_3_2_3b_instruct_q4_k_m_description">~2.0 GB — stronger reasoning, slower on low-RAM devices.</string>
+    <string name="model_gemma_2_2b_it_q4_k_m_name">Gemma 2 2B IT (Q4_K_M)</string>
+    <string name="model_gemma_2_2b_it_q4_k_m_description">~1.6 GB — balanced quality, friendly safety profile.</string>
+    <string name="model_phi_3_5_mini_3_8b_q4_k_m_name">Phi-3.5 mini 3.8B (Q4_K_M)</string>
+    <string name="model_phi_3_5_mini_3_8b_q4_k_m_description">~2.3 GB — strong on structured extraction, largest of the four.</string>
+
+    <!-- v1.5.4: Settings section models. -->
+    <string name="settings_section_models">Models</string>
+    <string name="settings_model_llm">On-device AI (Extract)</string>
+    <string name="settings_model_whisper">Voice model</string>
+    <string name="settings_model_not_downloaded">Not downloaded</string>
+    <string name="settings_model_downloading">Downloading… %1$d%%</string>
+    <string name="settings_model_ready">Ready — %1$d MB on disk</string>
+    <string name="settings_model_ready_short">Ready</string>
+    <string name="settings_model_download_short">Download</string>
+
+    <!-- v2.0 Tier 2 features (§2.1, §2.13): "Haven't touched" view. -->
+    <string name="decay_section_title">Quiet a while</string>
+    <string name="decay_section_subtitle">People you haven\'t touched in a bit.</string>
+    <string name="decay_filter_14d">14 d</string>
+    <string name="decay_filter_30d">30 d</string>
+    <string name="decay_filter_60d">60 d</string>
+    <string name="decay_filter_90d">90 d</string>
+    <string name="decay_days_quiet">haven\'t touched in %1$d days</string>
+    <string name="decay_empty">Everyone\'s been touched recently. Nice.</string>
+    <string name="a11y_decay_row_open">Open person</string>
+
+    <!-- v2.0 Tier 2 (§2.13): Reach-out status pill. Calm palette, no red/green. -->
+    <string name="status_quiet_a_while">Quiet a while</string>
+    <string name="status_getting_due">Getting due</string>
+    <string name="status_on_track">On track</string>
+
+    <!-- v2.0 Tier 2 (§2.14): Bulk snooze / redistribute. -->
+    <string name="bulk_snooze_banner">%1$d quiet contacts — redistribute?</string>
+    <string name="bulk_snooze_title">Reschedule the quiet pile?</string>
+    <string name="bulk_snooze_body">We\'ll push the snooze to 2 weeks from now for the oldest half.</string>
+    <string name="bulk_snooze_confirm">Reschedule</string>
+    <string name="bulk_snooze_cancel">Not now</string>
+    <string name="bulk_snooze_done">Quiet pile rescheduled.</string>
+
+    <!-- v2.0 Tier 2 (§2.2): Tier chips + cadence labels. -->
+    <string name="tier_inner">Inner</string>
+    <string name="tier_active">Active</string>
+    <string name="tier_periodic">Periodic</string>
+    <string name="tier_dormant">Dormant</string>
+    <string name="tier_label_with_cadence">%1$s · %2$d d</string>
+    <string name="cadence_override_label">Override</string>
+    <string name="cadence_clear">Use tier default</string>
+
+    <!-- v2.0 Tier 2 (§2.5): Important dates. -->
+    <string name="important_date_section">Important dates</string>
+    <string name="important_date_add">Add date</string>
+    <string name="important_date_recurring">Repeats every year</string>
+    <string name="important_date_label_birthday">Birthday</string>
+    <string name="important_date_label_first_met">First met</string>
+    <string name="important_date_label_anniversary">Anniversary</string>
+    <string name="important_date_custom_label_hint">Label (e.g. Birthday, Anniversary)</string>
+    <string name="important_date_empty">No dates yet.</string>
+    <string name="important_date_a11y_open">Open date</string>
+
+    <!-- v2.0 Tier 2 (§2.6): Morning brief notification. -->
+    <string name="morning_brief_channel_name">Baton Brief</string>
+    <string name="morning_brief_channel_description">Daily morning summary from Kaavalan note.</string>
+    <string name="morning_brief_title">Kaavalan brief</string>
+    <string name="morning_brief_nothing">Nothing on your plate.</string>
+    <string name="morning_brief_dates_today">%1$s today</string>
+    <string name="morning_brief_carried_over">%1$d carried over</string>
+    <string name="morning_brief_permission_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
+
+    <!-- v2.0 Tier 2 (§2.7): Meeting brief card. -->
+    <string name="meeting_brief_title">Brief me before a meeting</string>
+    <string name="meeting_brief_no_events">No matching events in the next 15 minutes.</string>
+    <string name="meeting_brief_calendar_unavailable">Grant calendar access in Settings to see a meeting brief.</string>
+    <string name="meeting_brief_recent_instructions">Recent instructions</string>
+    <string name="meeting_brief_recent_photos">Recent photos</string>
+    <string name="meeting_brief_recent_notes">Recent notes</string>
+    <string name="meeting_brief_event_time">%1$s — %2$s</string>
+
+    <!-- v2.0 Tier 2 (§2.8): Typed-block chip. -->
+    <string name="case_type_chip_label">Type: %1$s</string>
+    <string name="case_type_case">Case</string>
+    <string name="case_type_witness">Witness</string>
+    <string name="case_type_fir">FIR</string>
+    <string name="case_type_other">Other</string>
+    <string name="settings_show_type_chip">Show type chip on instructions</string>
+
+    <!-- v2.0 Tier 2 (§2.9): Calendar link prompt. -->
+    <string name="calendar_link_prompt_title">Attach to your next event with %1$s?</string>
+    <string name="calendar_link_prompt_body">%1$s · %2$s</string>
+    <string name="calendar_link_prompt_attach">Attach</string>
+    <string name="calendar_link_prompt_skip">Skip</string>
+    <string name="calendar_link_prompt_attach_done">Attached to event.</string>
+
+    <!-- v2.0 Tier 2 (§2.10): Worry box. -->
+    <string name="worry_box_title">Worry box</string>
+    <string name="worry_box_subtitle">Things you wanted to come back to.</string>
+    <string name="worry_box_review">Review and let go</string>
+    <string name="worry_box_keep">Keep</string>
+    <string name="worry_chip_label">Worry</string>
+    <string name="worry_with_date_chip_label">Worry (review %1$s)</string>
+    <string name="worry_box_empty">No worries. The box is empty.</string>
+
+    <!-- v2.0 Tier 2 (§2.11): Today's win. -->
+    <string name="todays_win_title">Today\'s win</string>
+    <string name="todays_win_summary">%1$d captures across %2$d people, %3$d carried over, %4$d sensitive.</string>
+    <string name="todays_win_summary_zero">No captures today yet. Tap the note bar to start.</string>
+
+    <!-- v2.0 Tier 2 (§2.12): Person-to-person links. -->
+    <string name="person_links_section">Linked people</string>
+    <string name="person_links_add">Add link</string>
+    <string name="person_link_relation_reports_to">Reports to</string>
+    <string name="person_link_relation_knows">Knows</string>
+    <string name="person_link_relation_family_of">Family of</string>
+    <string name="person_link_relation_classmate_of">Classmate of</string>
+    <string name="person_link_custom_hint">Custom relation (e.g. mentor of)</string>
+    <string name="person_link_choose_person">Choose person</string>
+    <string name="person_link_empty">No links yet.</string>
+    <string name="person_link_a11y_open">Open linked person</string>
+
+    <!-- v2.0 Tier 2 (§2.4): OCR. -->
+    <string name="ocr_preparing">Preparing OCR (~12 MB)</string>
+    <string name="ocr_text_label">Text from photo</string>
+    <string name="ocr_failed">OCR didn\'t finish: %1$s</string>
+    <string name="ocr_ready">Text from photo ready</string>
+</resources>

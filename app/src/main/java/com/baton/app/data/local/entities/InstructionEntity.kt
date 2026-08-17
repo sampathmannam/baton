@@ -18,6 +18,12 @@ import androidx.room.PrimaryKey
  * v2.0 (Tier 1.5): added `nextActionAt: Long?` for the date
  * picker on each instruction. Optional; the user can leave it
  * blank. `null` = "no scheduled next action".
+ * v2.0 Tier 2 fields (migration v10 -> v11):
+ *  - [caseType]: optional typed-block marker for §2.8 ("Case" | "Witness"
+ *    | "FIR" | "Other" | null). Null = freeform instruction.
+ *  - [urgency]: §2.10 worry-box marker. "normal" | "worry" | "worry_with_date".
+ *  - [reviewAtEpochDay]: §2.10 "worry with date" — the day the user
+ *    wants to revisit the worry capture. `LocalDate.toEpochDay()`.
  */
 @Entity(
     tableName = "instructions",
@@ -26,6 +32,7 @@ import androidx.room.PrimaryKey
         Index(value = ["personId"]),
         Index(value = ["dueAt"]),
         Index(value = ["syncStatus"]),
+        Index(value = ["urgency"]),
     ],
 )
 data class InstructionEntity(
@@ -52,4 +59,14 @@ data class InstructionEntity(
     val droppedReason: String? = null,
     // v2.0 (Tier 1.5): optional scheduled next action (epoch millis).
     val nextActionAt: Long? = null,
+    // v2.0 Tier 2 (§2.8): typed-block marker. Null = freeform
+    // instruction. Valid values: "Case" | "Witness" | "FIR" | "Other".
+    val caseType: String? = null,
+    // v2.0 Tier 2 (§2.10): worry-box marker. "normal" (default) |
+    // "worry" | "worry_with_date". Worry rows render in the
+    // WorryBox section on Today.
+    val urgency: String = "normal",
+    // v2.0 Tier 2 (§2.10): if urgency == "worry_with_date", the
+    // epoch-day on which the user wants to revisit the worry.
+    val reviewAtEpochDay: Long? = null,
 )

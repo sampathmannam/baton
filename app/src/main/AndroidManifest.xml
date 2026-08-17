@@ -5,6 +5,18 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- v2.0 Tier 2 (§2.7, §2.9): read the user's calendar to
+         surface the "Brief me before a meeting" card and to
+         suggest a calendar link when a capture is saved. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <!-- v2.0 Tier 2 (§2.6): the morning brief notification fires
+         at 9 AM via WorkManager; SCHEDULE_EXACT_ALARM lets us
+         fire exactly at the user's chosen time. Android 14+
+         requires the user to grant this manually; we request it
+         from the Settings sheet (no silent ask). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
     <!-- v1.2: Android 11+ (API 30+) package visibility — declare
          which intents we resolve. Without this, resolveActivity
          returns null for: CalendarContract.ACTION_INSERT, share
