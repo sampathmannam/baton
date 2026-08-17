@@ -9,16 +9,20 @@ import com.baton.app.data.local.PersonStaleAge
 import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
+import com.baton.app.data.vault.VaultModeHolder
 import com.baton.app.ui.util.SafeError
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val personRepository: RoomPersonRepository,
@@ -27,36 +31,43 @@ class HomeViewModel @Inject constructor(
     private val supabaseInstructionRepository: SupabaseInstructionRepository,
     private val tagRepository: RoomTagRepository,
     realtimeSync: RealtimeSync,
+    // v2.0 T3-1: the deniable vault. The Home list filters
+    // on the active mode; the holder is a process-singleton
+    // so the filter survives the bottom-sheet toggle.
+    private val vaultModeHolder: VaultModeHolder,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
-        // M3-T5 + M4-T3: combine persons + open-instruction counts +
-        // stale-outgoing ages into a single Flow so the UI sees a
-        // consistent snapshot. The `combine` operator re-emits on
-        // any side's change, so an instruction save / person add /
-        // a row going stale all trigger a re-render.
+        // M3-T5 + M4-T3 + v2.0 T3-1: combine persons (filtered
+        // by the active vault mode) + open-instruction counts
+        // + stale-outgoing ages into a single Flow. The
+        // persons source is `flatMapLatest`'d off the mode so
+        // a mode switch triggers a re-query of the DAO.
         viewModelScope.launch {
-            combine(
-                personRepository.observeAll(),
-                instructionDao.observeOpenCountByPerson(),
-                instructionDao.observeStaleByPerson(),
-            ) { persons, counts, stale ->
-                val openMap = persons.associate { it.id to 0 } +
-                    counts.associate { it.personId to it.cnt }
-                val staleSet = stale.map { it.personId }.toSet()
-                if (persons.isEmpty()) {
-                    HomeUiState.Empty
-                } else {
-                    HomeUiState.Loaded(
-                        persons = persons,
-                        openCountByPersonId = openMap,
-                        stalePersonIds = staleSet,
-                    )
+            vaultModeHolder.mode
+                .flatMapLatest { mode ->
+                    combine(
+                        personRepository.observeAllInMode(mode.storageKey),
+                        instructionDao.observeOpenCountByPerson(),
+                        instructionDao.observeStaleByPerson(),
+                    ) { persons, counts, stale ->
+                        val openMap = persons.associate { it.id to 0 } +
+                            counts.associate { it.personId to it.cnt }
+                        val staleSet = stale.map { it.personId }.toSet()
+                        if (persons.isEmpty()) {
+                            HomeUiState.Empty
+                        } else {
+                            HomeUiState.Loaded(
+                                persons = persons,
+                                openCountByPersonId = openMap,
+                                stalePersonIds = staleSet,
+                            )
+                        }
+                    }
                 }
-            }
                 .catch { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not load people.")) }
                 .collect { _state.value = it }
         }

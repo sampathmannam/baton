@@ -37,6 +37,11 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["name"]),
         Index(value = ["syncStatus"]),
+        // v2.0 T3-1: the deniable-vault filter. The HomeViewModel
+        // observes persons WHERE vaultMode = :activeMode; without
+        // this index the list filter is a full scan on every
+        // emission.
+        Index(value = ["vaultMode"]),
     ],
 )
 data class PersonEntity(
@@ -53,4 +58,13 @@ data class PersonEntity(
     // live in the local SQLCipher mirror only.
     val isSensitive: Boolean = false,
     val syncStatus: String = SyncStatus.SYNCED,
+    // v2.0 T3-1: deniable vault (Cryptee-style "ghost folder"
+    // lite). Two values: `visible` (default) or `hidden`. The
+    // home list filters on this column so a single Room DB
+    // hosts two logical vaults; switching modes is a UI
+    // affordance backed by a singleton holder. NOT
+    // cryptographically deniable — a forensic adversary can see
+    // the `vaultMode` column on disk. The settings copy in
+    // Settings → Threat model spells this out.
+    val vaultMode: String = "visible",
 )

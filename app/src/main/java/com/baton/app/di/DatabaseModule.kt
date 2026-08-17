@@ -103,7 +103,7 @@ object DatabaseModule {
             // v2 -> v7 still fall back to destructive (the pre-M3
             // versions had no outbox in production use, so there
             // was nothing to preserve).
-            .addMigrations(MIGRATION_8_9)
+            .addMigrations(MIGRATION_8_9, MIGRATION_10_11)
             .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
     }
@@ -118,6 +118,28 @@ object DatabaseModule {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL DEFAULT 0")
             db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_queue_nextAttemptAt ON sync_queue(nextAttemptAt)")
+        }
+    }
+
+    /**
+     * v2.0 T3-1 (deniable vault): the v10 -> v11 migration.
+     * Adds `vaultMode` to `persons` and `instructions` with
+     * default `'visible'` so the existing user data is not
+     * silently hidden. The matching CREATE INDEX statements
+     * back the HomeViewModel's `WHERE vaultMode = :mode`
+     * filter.
+     *
+     * The SQL matches the one declared on
+     * [com.baton.app.data.local.AppDatabase.MIGRATION_10_11]
+     * (kept in sync so the raw-SQLite migration test can
+     * exercise the same script).
+     */
+    private val MIGRATION_10_11: Migration = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_persons_vaultMode` ON persons(vaultMode)")
+            db.execSQL("ALTER TABLE instructions ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_vaultMode` ON instructions(vaultMode)")
         }
     }
 
