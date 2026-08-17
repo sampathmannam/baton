@@ -4,6 +4,7 @@ import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.InstructionFtsDao
 import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.local.SyncQueueDao
+import com.baton.app.data.local.TouchPersonOnActivity
 import com.baton.app.data.local.entities.InstructionEntity
 import com.baton.app.data.local.entities.InstructionFtsEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
@@ -55,6 +56,7 @@ open class RoomInstructionRepository @Inject constructor(
     private val ftsDao: InstructionFtsDao,
     private val syncQueueDao: SyncQueueDao,
     private val syncEngine: SyncEngine,
+    private val touchOnActivity: TouchPersonOnActivity,
     @ApplicationScope private val appScope: CoroutineScope,
 ) : InstructionRepository {
 
@@ -171,6 +173,12 @@ open class RoomInstructionRepository @Inject constructor(
             ),
         )
         enqueueInsert(id)
+        // v2.0 Tier 2 (§2.3): auto-snooze. A new instruction
+        // counts as activity for the person; bump their
+        // lastInteractionAt so the decay view drops them out of
+        // the "haven't touched" list. No-op on free-floating
+        // instructions (personId == null).
+        touchOnActivity.touch(personId)
         return entity.toDomain()
     }
 

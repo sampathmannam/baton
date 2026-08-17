@@ -44,6 +44,10 @@ import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.instructions.Status
 import com.baton.app.features.search.SearchBar
 import com.baton.app.features.search.SearchViewModel
+import com.baton.app.ui.today.brief.MeetingBriefCard
+import com.baton.app.ui.today.decay.DecaySection
+import com.baton.app.ui.today.win.TodaysWinCard
+import com.baton.app.ui.today.worry.WorryBoxSection
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -63,6 +67,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun TodayScreen(
     viewModel: TodayViewModel = hiltViewModel(),
+    onOpenPerson: (String) -> Unit = {},
 ) {
     val brief by viewModel.brief.collectAsStateWithLifecycle()
     var showReview by remember { mutableStateOf(false) }
@@ -99,6 +104,49 @@ fun TodayScreen(
                 padding = padding,
                 onInstructionClick = { selected = it },
             )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // v2.0 Tier 2 (§2.11): Today's win summary.
+            item { TodaysWinCard() }
+            // v2.0 Tier 2 (§2.1, §2.13, §2.14): the "Haven't
+            // touched in N days" section with the redistribution
+            // banner.
+            item { DecaySection(onOpenPerson = onOpenPerson) }
+            // v2.0 Tier 2 (§2.10): the worry box (rendered above
+            // the brief so the user sees it first; non-shaming
+            // surface).
+            item { WorryBoxSection() }
+            // v2.0 Tier 2 (§2.7): meeting brief card.
+            item { MeetingBriefCard() }
+            // Existing brief sections.
+            if (brief.isEmpty) {
+                item { EmptyBriefContent() }
+            } else {
+                if (brief.needsYouToday.isNotEmpty()) {
+                    item { SectionHeader("Needs you today") }
+                    items(items = brief.needsYouToday, key = { it.id }) { ins ->
+                        InstructionCard(ins, onClick = { selected = ins })
+                    }
+                }
+                if (brief.waitingOnOthers.isNotEmpty()) {
+                    item { SectionHeader("Waiting on others") }
+                    items(items = brief.waitingOnOthers, key = { it.id }) { ins ->
+                        InstructionCard(ins, onClick = { selected = ins })
+                    }
+                }
+                if (brief.carriedOver.isNotEmpty()) {
+                    item { SectionHeader("Carried over") }
+                    items(items = brief.carriedOver, key = { it.id }) { ins ->
+                        InstructionCard(ins, onClick = { selected = ins })
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(80.dp)) }
         }
     }
     if (showReview) {
@@ -129,61 +177,23 @@ fun TodayScreen(
 }
 
 @Composable
-private fun EmptyBrief(padding: PaddingValues) {
-    Box(
+private fun EmptyBriefContent() {
+    Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
+            .fillMaxWidth()
             .padding(32.dp),
-        contentAlignment = Alignment.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "Nothing on your plate.",
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "When instructions come in, they'll show up here.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun BriefContent(
-    brief: DailyBrief,
-    padding: PaddingValues,
-    onInstructionClick: (Instruction) -> Unit,
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding),
-        contentPadding = PaddingValues(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        if (brief.needsYouToday.isNotEmpty()) {
-            item { SectionHeader("Needs you today") }
-            items(items = brief.needsYouToday, key = { it.id }) { ins ->
-                InstructionCard(ins, onClick = { onInstructionClick(ins) })
-            }
-        }
-        if (brief.waitingOnOthers.isNotEmpty()) {
-            item { SectionHeader("Waiting on others") }
-            items(items = brief.waitingOnOthers, key = { it.id }) { ins ->
-                InstructionCard(ins, onClick = { onInstructionClick(ins) })
-            }
-        }
-        if (brief.carriedOver.isNotEmpty()) {
-            item { SectionHeader("Carried over") }
-            items(items = brief.carriedOver, key = { it.id }) { ins ->
-                InstructionCard(ins, onClick = { onInstructionClick(ins) })
-            }
-        }
-        item { Spacer(Modifier.height(80.dp)) }
+        Text(
+            text = "Nothing on your plate.",
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "When instructions come in, they'll show up here.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

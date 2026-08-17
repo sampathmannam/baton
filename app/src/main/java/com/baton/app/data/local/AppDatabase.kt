@@ -5,11 +5,13 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import com.baton.app.data.local.entities.AppStateEntity
 import com.baton.app.data.local.entities.CaptureEntity
+import com.baton.app.data.local.entities.ImportantDateEntity
 import com.baton.app.data.local.entities.InstructionEntity
 import com.baton.app.data.local.entities.InstructionFtsEntity
 import com.baton.app.data.local.entities.InstructionTagCrossRef
 import com.baton.app.data.local.entities.NudgeDraftEntity
 import com.baton.app.data.local.entities.PersonEntity
+import com.baton.app.data.local.entities.PersonLinkEntity
 import com.baton.app.data.local.entities.SyncConflictEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
 import com.baton.app.data.local.entities.TagEntity
@@ -36,6 +38,17 @@ import com.baton.app.data.local.entities.TagEntity
  *         (DATA-FINDING-04: dedup the outbox so a double-tap of
  *         `markDone` doesn't enqueue two UPDATE rows for the
  *         same instruction)
+ *  - v11 v2.0 Tier 1: FTS4 + nextActionAt
+ *         - instructions.nextActionAt
+ *         - new virtual table instructions_fts
+ *  - v12 v2.0 Tier 2: relationship decay + tiers + photo OCR + worry box
+ *         + typed blocks + important dates + person-to-person links +
+ *         calendar link. Adds:
+ *           - persons.tier, persons.cadenceOverrideDays, persons.lastInteractionAt
+ *           - instructions.caseType, instructions.urgency, instructions.reviewAtEpochDay
+ *           - captures.ocrText, captures.calendarEventId, captures.urgency, captures.reviewAtEpochDay
+ *           - new table important_date
+ *           - new table person_link
  *
  * v8 -> v9 is the first non-destructive migration in the project:
  * `ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL
@@ -48,28 +61,25 @@ import com.baton.app.data.local.entities.TagEntity
  * The migration dedupes any pre-existing duplicate rows first
  * (keeping the row with the highest `id`, i.e. the latest
  * enqueue) so the CREATE INDEX doesn't fail on legacy data.
- * If a user has duplicate `(op, table, rowId)` rows from a
- * double-tap before this upgrade, the drain would have done the
- * right thing anyway (re-PATCH is idempotent for `is_sensitive`,
- * and the instruction status PATCH is the latest-write-wins
- * because the server side just overwrites). Collapsing to a
- * single row on upgrade is the right cleanup.
  *
- * v10 -> v11 (Tier 1.3 + Tier 1.5) is also non-destructive:
- *   - ALTER TABLE instructions ADD COLUMN nextActionAt INTEGER
- *   - CREATE VIRTUAL TABLE instructions_fts USING fts4(body, ...)
- *     content="instructions", tokenize="porter"
- *   - INSERT the FTS rows from existing instructions (title+rawText)
+ * v10 -> v11 is also non-destructive (Tier 1): adds
+ * `nextActionAt` to `instructions` and creates the FTS4 virtual
+ * table that backs full-text search.
+ *
+ * v11 -> v12 is also non-destructive (Tier 2): a series of
+ * `ALTER TABLE ADD COLUMN` for the new optional fields plus two
+ * new tables. All ADD COLUMNs use sensible defaults so existing
+ * rows pass the new schema.
  *
  * v3 -> v4 -> v5 -> v6 -> v7 -> v8 are all `fallbackToDestructiveMigration`
- * transitions — the local cache is reconstructible from Supabase on
+ * transitions - the local cache is reconstructible from Supabase on
  * the next refresh, and there were no PENDING writes to lose
  * (M2-T6 + M3-T1 wipe before the outbox was in production use).
  *
  * **Encryption:** the database is opened via SQLCipher (see
  * [com.baton.app.di.DatabaseModule]); the key is held in
  * `EncryptedSharedPreferences`. The on-disk file is unreadable
- * without it — important for police data on a personal device.
+ * without it - important for police data on a personal device.
  */
 @Database(
     entities = [
@@ -83,8 +93,10 @@ import com.baton.app.data.local.entities.TagEntity
         AppStateEntity::class,
         NudgeDraftEntity::class,
         InstructionFtsEntity::class,
+        ImportantDateEntity::class,
+        PersonLinkEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -98,6 +110,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
     abstract fun nudgeDraftDao(): NudgeDraftDao
     abstract fun instructionFtsDao(): InstructionFtsDao
+    abstract fun importantDateDao(): ImportantDateDao
+    abstract fun personLinkDao(): PersonLinkDao
 
     companion object {
         const val NAME = "baton.db"
@@ -114,7 +128,7 @@ abstract class AppDatabase : RoomDatabase() {
          * (one per `(op, table, rowId)` group, keeping the
          * latest by `id`) so the CREATE INDEX doesn't fail on
          * legacy data. The non-aggregating DELETE + correlated
-         * subquery form is intentional — `DELETE ... WHERE id
+         * subquery form is intentional - `DELETE ... WHERE id
          * NOT IN (SELECT MAX(id) ...)` does the dedupe in a
          * single statement.
          *
@@ -129,7 +143,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // Dedupe any pre-existing duplicate outbox rows
                 // before adding the unique constraint. Keeps the
                 // row with the highest `id` per
-                // (op, table, rowId) — i.e. the latest enqueue.
+                // (op, table, rowId) - i.e. the latest enqueue.
                 db.execSQL(
                     "DELETE FROM sync_queue WHERE id NOT IN (" +
                         "SELECT MAX(id) FROM sync_queue " +
@@ -147,7 +161,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * v2.0 (Tier 1.3 + Tier 1.5): add the `nextActionAt`
+         * v2.0 Tier 1 (Tier 1.3 + Tier 1.5): add the `nextActionAt`
          * column to `instructions` and create the FTS4 table
          * that backs full-text search.
          *
@@ -177,6 +191,130 @@ abstract class AppDatabase : RoomDatabase() {
                     "INSERT INTO `instructions_fts` (rowid, title, rawText, personId, capturedAt) " +
                         "SELECT rowid, COALESCE(title, ''), COALESCE(rawText, ''), personId, capturedAt " +
                         "FROM `instructions`",
+                )
+            }
+        }
+
+        /**
+         * v2.0 Tier 2 migration (v11 -> v12): relationship decay +
+         * tier-based cadences + photo OCR + worry box + typed blocks +
+         * important dates + person-to-person links. All operations are
+         * non-destructive (ADD COLUMN with defaults, CREATE TABLE /
+         * INDEX for the new entities). Existing rows get the
+         * defaults on the new columns; no data is rewritten.
+         *
+         * The migration is exposed here so `DatabaseModule.provideDatabase`
+         * can add it to the `addMigrations(...)` chain alongside
+         * [MIGRATION_9_10] and [MIGRATION_10_11]. The raw-SQL test in
+         * [com.baton.app.di.Migration11To12Test] exercises the
+         * same SQL on a hand-built v11 schema and asserts the
+         * column additions + table creations.
+         */
+        val MIGRATION_11_12: Migration = object : Migration(11, 12) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // §2.1, §2.2, §2.3: persons table gets the
+                // relationship-decay + tier fields. lastInteractionAt
+                // is nullable (null = "never touched"); tier has a
+                // sensible default so existing people get the
+                // 30-day "Active" cadence; cadenceOverrideDays is
+                // nullable (null = "use tier default").
+                db.execSQL(
+                    "ALTER TABLE persons ADD COLUMN tier TEXT NOT NULL DEFAULT 'Active'",
+                )
+                db.execSQL(
+                    "ALTER TABLE persons ADD COLUMN cadenceOverrideDays INTEGER",
+                )
+                db.execSQL(
+                    "ALTER TABLE persons ADD COLUMN lastInteractionAt INTEGER",
+                )
+                // Index for the decay query (WHERE
+                // lastInteractionAt < threshold ORDER BY
+                // lastInteractionAt). The @Index annotation on
+                // PersonEntity.lastInteractionAt generates this
+                // name; the post-migration schema check compares
+                // on-disk index names to the KSP-computed names.
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_persons_lastInteractionAt` " +
+                        "ON `persons`(`lastInteractionAt`)",
+                )
+                // §2.8, §2.10: instructions table gets typed-block +
+                // worry-box fields. urgency defaults to "normal"
+                // so the existing-brief query (status NOT IN
+                // (...DONE...)) keeps working without any data
+                // rewrite. caseType is nullable.
+                db.execSQL(
+                    "ALTER TABLE instructions ADD COLUMN caseType TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE instructions ADD COLUMN urgency TEXT NOT NULL DEFAULT 'normal'",
+                )
+                db.execSQL(
+                    "ALTER TABLE instructions ADD COLUMN reviewAtEpochDay INTEGER",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_instructions_urgency` " +
+                        "ON `instructions`(`urgency`)",
+                )
+                // §2.4, §2.9, §2.10: captures table gets OCR text +
+                // calendar link + worry-box fields.
+                db.execSQL(
+                    "ALTER TABLE captures ADD COLUMN ocrText TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE captures ADD COLUMN calendarEventId TEXT",
+                )
+                db.execSQL(
+                    "ALTER TABLE captures ADD COLUMN urgency TEXT NOT NULL DEFAULT 'normal'",
+                )
+                db.execSQL(
+                    "ALTER TABLE captures ADD COLUMN reviewAtEpochDay INTEGER",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_captures_urgency` " +
+                        "ON `captures`(`urgency`)",
+                )
+                // §2.5: new important_date table. Foreign-key
+                // cascade on person delete (the person DAO's
+                // deleteById will wipe the dates too).
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `important_date` (
+                        `id` TEXT NOT NULL,
+                        `personId` TEXT NOT NULL,
+                        `label` TEXT NOT NULL,
+                        `dateEpochDay` INTEGER NOT NULL,
+                        `recurring` INTEGER NOT NULL,
+                        `createdAt` TEXT NOT NULL,
+                        `updatedAt` TEXT NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`personId`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_important_date_personId` ON `important_date`(`personId`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_important_date_dateEpochDay` ON `important_date`(`dateEpochDay`)",
+                )
+                // §2.12: new person_link table. Composite primary
+                // key on (fromId, toId, relation) so the same
+                // pair can have multiple distinct relations.
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `person_link` (
+                        `fromId` TEXT NOT NULL,
+                        `toId` TEXT NOT NULL,
+                        `relation` TEXT NOT NULL,
+                        `createdAt` TEXT NOT NULL,
+                        PRIMARY KEY(`fromId`, `toId`, `relation`),
+                        FOREIGN KEY(`fromId`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`toId`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_person_link_toId` ON `person_link`(`toId`)",
                 )
             }
         }

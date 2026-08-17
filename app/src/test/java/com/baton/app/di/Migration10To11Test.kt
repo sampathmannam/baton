@@ -24,7 +24,7 @@ import org.robolectric.annotation.Config
  *    FTS table (title + rawText) so search works the
  *    moment the migration completes
  *
- * Uses raw SQLite (per the `qa-patterns.md` §1.8 guidance)
+ * Uses raw SQLite (per the `qa-patterns.md` guidance)
  * so we don't have to declare the full v10 schema in Room.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -42,9 +42,9 @@ class Migration10To11Test {
 
     @After
     fun tearDown() {
-        java.io.File(v10DbPath).delete()
-        java.io.File(v10DbPath + "-wal").delete()
-        java.io.File(v10DbPath + "-shm").delete()
+        listOf(v10DbPath, "$v10DbPath-wal", "$v10DbPath-shm").forEach {
+            java.io.File(it).delete()
+        }
     }
 
     @Test
@@ -79,10 +79,7 @@ class Migration10To11Test {
         }
 
         // Apply the v10 -> v11 migration by re-running the same
-        // SQL the production migration runs. (We can't directly
-        // invoke the Migration object on a raw SQLiteDatabase
-        // because the SupportSQLiteDatabase adapter is internal
-        // — but the SQL is the contract we're testing.)
+        // SQL the production migration runs.
         SQLiteDatabase.openOrCreateDatabase(v10DbPath, null).use { rawDb ->
             rawDb.execSQL("ALTER TABLE instructions ADD COLUMN nextActionAt INTEGER")
             rawDb.execSQL(
@@ -97,7 +94,6 @@ class Migration10To11Test {
             )
         }
 
-        // Assert: nextActionAt column exists (PRAGMA table_info) and is NULL by default.
         SQLiteDatabase.openOrCreateDatabase(v10DbPath, null).use { rawDb ->
             val info = rawDb.rawQuery("PRAGMA table_info(instructions)", null)
             var hasNext = false
@@ -163,7 +159,6 @@ class Migration10To11Test {
                     "FROM `instructions`",
             )
         }
-        // Search for "temple" and assert only i1 comes back.
         SQLiteDatabase.openOrCreateDatabase(v10DbPath, null).use { rawDb ->
             val c = rawDb.rawQuery(
                 "SELECT i.id FROM instructions i JOIN instructions_fts f ON i.rowid = f.rowid " +

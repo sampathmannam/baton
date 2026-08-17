@@ -41,6 +41,7 @@ class RoomInstructionRepositoryTest {
             ftsDao = mockk(relaxed = true),
             syncQueueDao = mockk(relaxed = true),
             syncEngine = mockk(relaxed = true),
+            touchOnActivity = mockk(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
         )
         repo.refreshFromNetwork(remote)
@@ -71,6 +72,7 @@ class RoomInstructionRepositoryTest {
             ftsDao = mockk(relaxed = true),
             syncQueueDao = mockk(relaxed = true),
             syncEngine = mockk(relaxed = true),
+            touchOnActivity = mockk(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
         )
         repo.refreshFromNetwork(remote)
@@ -95,6 +97,7 @@ class RoomInstructionRepositoryTest {
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
             syncEngine = syncEngine,
+            touchOnActivity = mockk(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
         )
 
@@ -131,6 +134,7 @@ class RoomInstructionRepositoryTest {
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
             syncEngine = syncEngine,
+            touchOnActivity = mockk(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
         )
 
@@ -162,6 +166,7 @@ class RoomInstructionRepositoryTest {
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
             syncEngine = syncEngine,
+            touchOnActivity = mockk(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
         )
 
