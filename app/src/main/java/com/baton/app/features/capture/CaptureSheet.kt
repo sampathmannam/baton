@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Info
@@ -140,9 +142,22 @@ private fun CaptureSheetContent(
     onDownloadModel: () -> Unit = { },
     onOpenAddPerson: () -> Unit = {},
 ) {
+    // v1.5.5 (QA): the sheet content can overflow the visible
+    // height when the v1.5.4 ModelNotReadyCard + the v1.4
+    // NoPeopleCard + a long TextField + a ConfirmationCard are
+    // all visible at the same time. Without `verticalScroll`
+    // the "Save as text" / "Save" / "Extract" buttons at the
+    // bottom are pushed below the screen edge and the user
+    // has no way to save their note. The scroll keeps the
+    // existing top-down layout; the user scrolls if the
+    // content overflows. The keyboard-aware `imePadding` on
+    // the primary-action column still keeps the buttons
+    // above the soft keyboard, so the user can always reach
+    // them by scrolling.
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -399,6 +414,17 @@ private fun PrimaryAction(
         // (PHONE-FINDING-8): hidden when [hasPeople] is false for the
         // same reason Extract is disabled — a "Save as text" without a
         // person would still fail the same way.
+        // v1.5.5 (QA): the original gate was `canExtract && hasPeople`,
+        // but `canExtract` is independent of the model state. The
+        // "Save as text" path doesn't need the on-device LLM at all —
+        // it's a raw text write — so it should be available even when
+        // the model isn't downloaded. Without this fix, a user who
+        // opens the capture sheet on a fresh install (no model yet)
+        // and starts typing a note has NO save affordance: Extract is
+        // greyed out (model not ready) AND the "Save as text" fallback
+        // is hidden. The user is stuck. Drop the `modelReady` gate
+        // from this fallback path; the primary "Extract" button above
+        // still respects it.
         if (!isExtracting && !canConfirm && canExtract && hasPeople) {
             androidx.compose.material3.OutlinedButton(
                 onClick = onSaveRaw,

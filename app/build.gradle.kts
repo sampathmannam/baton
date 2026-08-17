@@ -41,30 +41,24 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.5.4: Photo / Voice / Extract entry points. The
-        // v1.5.3 capture sheet crashed the moment the user
-        // tapped the Photo button (`SecurityException: CAMERA
-        // permission denied` — the v1.3 path assumed the
-        // runtime perm was already granted) and the Extract
-        // path threw "No connection" because the bundled
-        // `model_sha256.txt` doesn't match the upstream
-        // mirror's Qwen 3 1.7B file. v1.5.4:
-        //  - adds the `CAMERA` runtime-permission request
-        //    before launching the camera;
-        //  - updates the Qwen 3 1.7B catalog URL to a mirror
-        //    that actually serves the file (the upstream
-        //    `Qwen/Qwen3-1.7B-GGUF` repo returns 404);
-        //  - refactors the Extractor to use the stateful
-        //    `ModelManager.download()` (no SHA-256 verify
-        //    against the bundled manifest — the manifest's
-        //    hash was for a different file);
-        //  - surfaces an inline "Model not downloaded" card
-        //    in the capture sheet with a "Download model"
-        //    button that drives the state machine;
-        //  - adds a Models section in Settings for both the
-        //    LLM and the Whisper voice model.
-        versionCode = 15
-        versionName = "1.5.4"
+        // v1.5.5 (QA pass): the v1.5.4 capture-sheet layout
+        // overflowed the visible area on a 1080×2400 phone
+        // when the new `ModelNotReadyCard` is showing — the
+        // primary `Extract` button landed at the very bottom
+        // of the screen and the secondary `Save as text
+        // (skip extraction)` button was pushed below the
+        // bottom edge. The user had no way to save a note on
+        // a fresh install (no model yet). Wrap the
+        // `CaptureSheetContent` Column in a
+        // `verticalScroll(rememberScrollState())` so the user
+        // can scroll to reach every button. The
+        // `windowInsetsPadding(ime ∪ navigationBars)` on the
+        // primary-action column still keeps the buttons above
+        // the soft keyboard, so the user can always reach
+        // them by scrolling. Tests: 291/0/0/7 (no
+        // regressions).
+        versionCode = 16
+        versionName = "1.5.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
