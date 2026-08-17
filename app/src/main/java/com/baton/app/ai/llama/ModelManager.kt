@@ -81,6 +81,36 @@ open class ModelManager @Inject constructor(
     val state: StateFlow<ModelState> = _state.asStateFlow()
 
     /**
+     * Tier 0.5 (cleanup + ship-the-built): the download
+     * progress, exposed as a `StateFlow<Float>` in the
+     * 0.0-1.0 range. The Settings → Models row uses this
+     * flow to drive a real [androidx.compose.material3.LinearProgressIndicator]
+     * (instead of the v1.5.7 "Downloading... 47%" text
+     * only). The flow is hot and mirrors
+     * [state] -- when the model is [ModelState.Downloading]
+     * the flow is the byte-level progress; when the model
+     * is [ModelState.Ready] the flow is `1.0f`; otherwise
+     * (NotStarted / Failed) the flow is `0.0f`.
+     *
+     * **Why a separate flow:** the v1.5.7
+     * [ModelState.Downloading.progress] field is `Float` in
+     * the `0.0-1.0` range (or `-1f` when the server did not
+     * advertise a `Content-Length`). The v1.6.0 Settings
+     * UI uses a `LinearProgressIndicator(progress = { ... })`
+     * which takes a `Float`; the StateFlow<Float> shape is
+     * the cleanest binding. The flow is kept in sync with
+     * [state] by the [updateProgressFromState] helper below.
+     */
+    private val _progress = MutableStateFlow(0f)
+
+    /**
+     * Public read-only progress flow. The value is the
+     * 0.0-1.0 fraction of the download (or `1.0f` if
+     * the model is already [ModelState.Ready]).
+     */
+    val progress: StateFlow<Float> = _progress.asStateFlow()
+
+    /**
      * Lazily-initialised [SharedPreferences] handle for the model
      * picker. The lookup is wrapped in [runCatching] so a test
      * that injects a mock [Context] (e.g. the existing
@@ -128,6 +158,9 @@ open class ModelManager @Inject constructor(
         val target = modelFile()
         if (target.exists() && target.length() > 0) {
             _state.value = ModelState.Ready(target.absolutePath, target.length())
+            // Tier 0.5: an on-disk model is fully ready;
+            // the progress bar is at 100%.
+            _progress.value = 1f
         }
         return _state
     }
@@ -188,6 +221,9 @@ open class ModelManager @Inject constructor(
         }
         _currentModel.value = option
         _state.value = ModelState.NotStarted
+        // Tier 0.5: a model switch resets the progress
+        // bar to 0. The new model has not been fetched.
+        _progress.value = 0f
     }
 
     private suspend fun runDownload() {
@@ -198,6 +234,8 @@ open class ModelManager @Inject constructor(
         val request = Request.Builder().url(current.url).build()
         try {
             _state.value = ModelState.Downloading(0f)
+            // Tier 0.5: reset the separate progress flow.
+            _progress.value = 0f
             httpClient.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) {
                     throw IOException("HTTP ${resp.code} downloading model")
@@ -220,6 +258,13 @@ open class ModelManager @Inject constructor(
                             }
                             if (progress >= 0f) {
                                 _state.value = ModelState.Downloading(progress)
+                                // Tier 0.5: push the same value
+                                // to the dedicated progress flow
+                                // so the Settings UI's
+                                // `LinearProgressIndicator` can
+                                // bind to a plain `Float` without
+                                // re-parsing the sealed state.
+                                _progress.value = progress
                             }
                         }
                     }
@@ -230,9 +275,20 @@ open class ModelManager @Inject constructor(
                 throw IOException("Could not move downloaded model into place")
             }
             _state.value = ModelState.Ready(target.absolutePath, target.length())
+            // Tier 0.5: a "ready" model is at 100% by
+            // definition; the LinearProgressIndicator
+            // then renders full.
+            _progress.value = 1f
         } catch (e: Exception) {
             tmp.delete()
             _state.value = ModelState.Failed(e.message ?: e.javaClass.simpleName)
+            // Tier 0.5: a failure means the progress
+            // bar should reset. The Settings UI hides
+            // the indicator entirely on Failed, but
+            // keeping the value at `0f` avoids a
+            // stale-value flash if the user re-issues
+            // the download.
+            _progress.value = 0f
         }
     }
 

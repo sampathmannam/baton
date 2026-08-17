@@ -1,5 +1,6 @@
 ﻿package com.baton.app.features.capture
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -75,6 +76,13 @@ fun CaptureSheet(
     // "Downloading… 47%" / "Retry" / hidden as the download
     // progresses, without the VM having to mirror the flow.
     val modelState by viewModel.modelState.collectAsStateWithLifecycle()
+    // Tier 0.4: collect the process-wide voice-recording state.
+    // When `isRecording == true` the sheet renders an in-app
+    // "Stop" button next to the primary action; tapping it
+    // calls `context.stopService(...)` (the same end state as
+    // tapping the notification's Stop action). The notification
+    // path is unchanged -- both work.
+    val isVoiceRecording by VoiceCaptureState.isRecording.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // M1-T6: collect calendar events from the VM and launch them
@@ -104,6 +112,21 @@ fun CaptureSheet(
             state = state,
             hasPeople = hasPeople,
             modelState = modelState,
+            // Tier 0.4: pass the in-app voice state + a
+            // stop-voice callback. The callback is a local
+            // lambda that calls `context.stopService(...)`
+            // -- the in-app button bypasses the
+            // ResultReceiver path because the service is
+            // already mid-recording; we want the
+            // `ACTION_STOP` branch to fire so the service
+            // transcribes + finishes cleanly.
+            isVoiceRecording = isVoiceRecording,
+            onStopVoice = {
+                val svc = Intent(context, VoiceCaptureService::class.java).apply {
+                    action = VoiceCaptureService.ACTION_STOP
+                }
+                context.startService(svc)
+            },
             onTextChanged = viewModel::onTextChanged,
             onExtract = viewModel::onExtract,
             onConfirm = viewModel::onConfirm,
@@ -128,6 +151,15 @@ private fun CaptureSheetContent(
     state: CaptureUiState,
     hasPeople: Boolean,
     modelState: ModelState,
+    // Tier 0.4: the in-app voice stop button. When
+    // `isVoiceRecording == true` the PrimaryAction row
+    // renders a second button next to the primary action
+    // -- "Stop voice" -- that calls `onStopVoice` to fire
+    // the same code path as the notification's Stop
+    // action. The user does not have to leave the app to
+    // end a recording.
+    isVoiceRecording: Boolean = false,
+    onStopVoice: () -> Unit = {},
     onTextChanged: (String) -> Unit,
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
@@ -265,6 +297,13 @@ private fun CaptureSheetContent(
             // `ModelNotReadyCard` above is the visible cue.
             hasPeople = hasPeople,
             modelReady = modelState is ModelState.Ready,
+            // Tier 0.4: the in-app stop-voice button is
+            // shown when `isVoiceRecording` is true. The
+            // button is rendered above the primary action
+            // (it's the time-critical affordance while a
+            // recording is in progress).
+            isVoiceRecording = isVoiceRecording,
+            onStopVoice = onStopVoice,
             onExtract = onExtract,
             onConfirm = onConfirm,
             onSaveRaw = onSaveRaw,
@@ -360,6 +399,12 @@ private fun PrimaryAction(
     canConfirm: Boolean,
     hasPeople: Boolean,
     modelReady: Boolean,
+    // Tier 0.4: the in-app stop-voice affordance. The button
+    // is only rendered when `isVoiceRecording` is true, and
+    // it sits **above** the primary action row (the recording
+    // is the time-critical thing while it is in progress).
+    isVoiceRecording: Boolean = false,
+    onStopVoice: () -> Unit = {},
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
     onSaveRaw: () -> Unit,
@@ -376,6 +421,31 @@ private fun PrimaryAction(
             .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Tier 0.4: in-app stop-voice button. Renders
+        // above the primary action so the user can reach
+        // it without scrolling. The button is a
+        // `Button` (not `OutlinedButton`) so it reads as
+        // an active affordance; the colour is
+        // `primary` / `onPrimary` (no red, per the
+        // no-shame spec rule). When the recording is not
+        // in progress, the entire row is hidden.
+        if (isVoiceRecording) {
+            // The visible `Text(stringResource(...))` inside
+            // the Button is the TalkBack label -- the
+            // AccessibilityContentDescriptionTest static
+            // scan counts a `stringResource(...)` call inside
+            // a Button's trailing lambda as a valid a11y
+            // affordance, so no separate `contentDescription`
+            // is needed.
+            Button(
+                onClick = onStopVoice,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.tier0_voice_in_app_stop),
+                )
+            }
+        }
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,

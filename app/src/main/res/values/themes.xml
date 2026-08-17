@@ -4,4 +4,17 @@
         <item name="android:statusBarColor" tools:targetApi="l">@color/baton_background</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
     </style>
+
+    <!-- Tier 0.3: the share-target activity has no UI. It
+         inspects the inbound SEND intent, forwards the text
+         (or OCR'd text from an image) to MainActivity, and
+         finishes. A translucent theme means the user never
+         sees a flash of the activity itself, only the
+         MainActivity underneath. -->
+    <style name="Theme.Baton.Translucent.NoDisplay" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

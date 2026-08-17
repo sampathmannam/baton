@@ -69,13 +69,19 @@ class SettingsViewModelTest {
         val realtime = mockk<RealtimeSync>(relaxed = true)
         val syncEngine = mockk<SyncEngine>(relaxed = true)
         // v1.5.4: relaxed mocks for the two model managers
-        // the Settings → Models section now reads. The unit
-        // tests below don't drive the model lifecycle — they
-        // exercise signOut + tag management — so a relaxed
+        // the Settings -> Models section now reads. The unit
+        // tests below don't drive the model lifecycle -- they
+        // exercise signOut + tag management -- so a relaxed
         // mock is sufficient and keeps the existing test
         // surface untouched.
         val modelManager = mockk<com.baton.app.ai.llama.ModelManager>(relaxed = true)
         val whisperManager = mockk<com.baton.app.ai.whisper.WhisperModelManager>(relaxed = true)
+        // Tier 0.6: the VM now also takes an
+        // @ApplicationContext. The tests below don't
+        // exercise the storage size (the
+        // [StorageSizeTest] does that in isolation),
+        // so a relaxed mock is fine.
+        val appContext = mockk<android.content.Context>(relaxed = true)
         val vm = SettingsViewModel(
             authRepository = auth,
             appInitializer = init,
@@ -87,6 +93,7 @@ class SettingsViewModelTest {
             tagDao = mockk<TagDao>(relaxed = true),
             modelManager = modelManager,
             whisperModelManager = whisperManager,
+            appContext = appContext,
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)
     }

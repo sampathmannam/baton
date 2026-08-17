@@ -91,15 +91,21 @@
             </intent-filter>
         </activity>
 
-        <!-- M1-T7 / M2-T1: share target. The user picks Baton from
-             another app's share sheet; we forward the shared text
-             (or the OCR'd text from a shared image) to MainActivity
-             which opens the capture sheet pre-filled. -->
+        <!-- Tier 0.3: share target. The user picks Baton from
+             another app's share sheet; the alias forwards the
+             shared text (or the OCR'd text from a shared image)
+             to MainActivity which opens the capture sheet
+             pre-filled. singleInstance means a second share
+             intent re-uses the existing activity; the
+             translucent theme keeps the user from seeing a
+             flash of the receiver. -->
         <activity-alias
             android:name=".features.capture.ShareReceiverActivity"
             android:targetActivity=".MainActivity"
             android:exported="true"
-            android:label="@string/share_to_baton">
+            android:label="@string/share_to_baton"
+            android:launchMode="singleInstance"
+            android:theme="@style/Theme.Baton.Translucent.NoDisplay">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -123,33 +129,41 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- M2-T5: quick-settings tile. The user adds Baton from the
-             system shade; tapping fires the QUICK_CAPTURE deep link
-             into MainActivity. label uses @string/tile_label so it
-             shows in the tile picker. -->
+        <!-- Tier 0.2: quick-settings tile. The user adds Baton
+             from the system shade; tapping fires the
+             ACTION_QUICK_CAPTURE deep link into MainActivity.
+             The META_DATA_ACTIVE_TILE flag is set so the
+             service is only bound while the shade is open;
+             a battery and privacy win for a fire-and-forget
+             capture tile. -->
         <service
             android:name=".features.capture.BatonTileService"
-            android:label="@string/tile_label"
+            android:label="@string/tier0_tile_label"
             android:icon="@mipmap/ic_launcher"
             android:exported="true"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
         </service>
 
-        <!-- M2-T5: home-screen / lock-screen widget. Same deep link
-             as the tile. -->
+        <!-- Tier 0.1: Glance home-screen / lock-screen widget.
+             Same deep link as the tile (ACTION_QUICK_CAPTURE ->
+             MainActivity). The receiver is a GlanceAppWidgetReceiver
+             that wraps the BatonCaptureWidget Glance composable. -->
         <receiver
-            android:name=".features.capture.BatonCaptureWidget"
+            android:name=".features.capture.BatonCaptureWidgetReceiver"
             android:exported="true"
-            android:label="@string/widget_label">
+            android:label="@string/tier0_widget_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info" />
+                android:resource="@xml/baton_capture_widget_info" />
         </receiver>
 
         <!-- M2-T4: voice capture foreground service. The user

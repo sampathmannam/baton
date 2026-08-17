@@ -152,6 +152,9 @@ class AccessibilityContentDescriptionTest {
             "a11y_confidence_high",
             "a11y_confidence_medium",
             "a11y_confidence_low",
+            // v1.6.0 (Tier 0.4): the in-app voice stop button on
+            // the capture sheet must be readable by TalkBack.
+            "a11y_voice_in_app_stop",
         )
         requiredNames.forEach { name ->
             val pattern = Regex("""<string\s+name\s*=\s*"$name"\s*>([^<]*)</string>""")

@@ -67,6 +67,12 @@ fun SettingsSheet(
     // v1.5.4: model download states surface in the new
     // "Models" section below.
     val llmModelState by viewModel.llmModelState.collectAsStateWithLifecycle()
+    // Tier 0.5: dedicated download-progress flow for the
+    // LinearProgressIndicator. The state above is the
+    // source of truth for the lifecycle (NotStarted /
+    // Downloading / Ready / Failed); this flow carries the
+    // 0.0-1.0 fraction for the progress bar.
+    val llmDownloadProgress by viewModel.llmDownloadProgress.collectAsStateWithLifecycle()
     val whisperAvailable by viewModel.whisperAvailable.collectAsStateWithLifecycle()
     // v1.5.1 (VAULT-007): the destructive action (erases ALL local
     // data) used to fire on a single button tap. In vault mode the
@@ -126,6 +132,13 @@ fun SettingsSheet(
             ModelRow(
                 label = stringResource(R.string.settings_model_llm),
                 state = llmModelState,
+                // Tier 0.5: pass the live progress float
+                // so the row can render a real
+                // `LinearProgressIndicator` while the
+                // download is in flight. The float is
+                // 0.0-1.0; the `ModelState.Downloading`
+                // branch uses it directly.
+                progress = llmDownloadProgress,
                 onDownload = viewModel::downloadLlm,
             )
             WhisperModelRow(
@@ -158,14 +171,35 @@ fun SettingsSheet(
                     appVersion.code,
                 ),
             )
+            // Tier 0.6: the "On this phone" row now
+            // shows both the row counts and the on-disk
+            // size in MB. The values are rendered as a
+            // Column (two text lines) inside a single
+            // AboutRow so the label "On this phone" is
+            // only shown once. The MB number is
+            // recomputed off the main thread every time
+            // the upstream `storage` flow emits (Room is
+            // reactive -- adding a person or a capture
+            // triggers a refresh).
             AboutRow(
                 label = stringResource(R.string.settings_storage),
-                value = stringResource(
-                    R.string.settings_storage_value,
-                    storage.peopleCount,
-                    storage.instructionCount,
-                    storage.tagCount,
-                ),
+                value = buildString {
+                    append(
+                        stringResource(
+                            R.string.settings_storage_value,
+                            storage.peopleCount,
+                            storage.instructionCount,
+                            storage.tagCount,
+                        ),
+                    )
+                    append('\n')
+                    append(
+                        stringResource(
+                            R.string.settings_storage_size_mb,
+                            storage.sizeBytes / (1024.0 * 1024.0),
+                        ),
+                    )
+                },
             )
             AboutRow(
                 label = stringResource(R.string.settings_data_mode),
@@ -450,6 +484,13 @@ private fun AboutRow(label: String, value: String) {
 private fun ModelRow(
     label: String,
     state: ModelState,
+    // Tier 0.5: the live download progress, 0.0-1.0. The
+    // composable uses this for the LinearProgressIndicator
+    // while the model is in [ModelState.Downloading]. The
+    // value is 0.0 for [ModelState.NotStarted] / Failed
+    // and 1.0 for [ModelState.Ready], but the indicator
+    // is only rendered in the Downloading branch.
+    progress: Float = 0f,
     onDownload: () -> Unit,
 ) {
     Row(
@@ -471,11 +512,32 @@ private fun ModelRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 is ModelState.Downloading -> {
-                    val percent = (state.progress.coerceIn(0f, 1f) * 100).toInt()
+                    val percent = (progress.coerceIn(0f, 1f) * 100).toInt()
                     Text(
                         text = stringResource(R.string.settings_model_downloading, percent),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // Tier 0.5: a real
+                    // `LinearProgressIndicator` driven
+                    // by the `progress` float. The
+                    // `progress = { ... }` lambda form
+                    // is the M3 1.3+ recommended API;
+                    // it lets the indicator react
+                    // smoothly to flow updates
+                    // without re-rendering the whole
+                    // row. The height is 4.dp to keep
+                    // the row compact (the existing
+                    // "Downloading... 47%" text is the
+                    // main cue; the bar is a visual
+                    // confirmation). The default
+                    // colour is M3 `primary` -- not
+                    // red, per the no-shame spec rule.
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp),
                     )
                 }
                 is ModelState.Ready -> Text(
