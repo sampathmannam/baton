@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v1.5.7 adaptive-icon background. Soft teal-to-coral gradient matches
+  the PNG design (icon-concept-1.png). 135deg angle puts the warm
+  coral at the bottom-right, so the K+recording-dot foreground
+  (drawn in off-white) reads cleanly on the darker top-left.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="135"
+        android:startColor="#1F4E5C"
+        android:centerColor="#3E7882"
+        android:endColor="#E8967B"
+        android:type="linear" />
+</shape>

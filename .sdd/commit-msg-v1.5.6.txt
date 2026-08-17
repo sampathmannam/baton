@@ -1,4 +1,4 @@
-v1.5.6: QA hardening — 16 new test cases, 60-case test plan, on-device drive
+v1.5.6: QA hardening - 16 new test cases, 60-case test plan, on-device drive
 
 No source code changes. v1.5.5 was solid; v1.5.6 adds test coverage so
 regressions get caught.

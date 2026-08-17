@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#4A6FA5</color>
+    <!--
+        v1.5.7 launcher-icon background. Kept as a single color so
+        OEM launchers (and the v1.0 vector foreground) have a
+        deterministic fallback. The actual adaptive icon uses
+        drawable/ic_launcher_background.xml (gradient) on API 26+.
+    -->
+    <color name="ic_launcher_background">#2A6B73</color>
 </resources>
