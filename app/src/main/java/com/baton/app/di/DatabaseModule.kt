@@ -9,10 +9,12 @@ import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppDao
 import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
+import com.baton.app.data.local.ImportantDateDao
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.InstructionTagDao
 import com.baton.app.data.local.NudgeDraftDao
 import com.baton.app.data.local.PersonDao
+import com.baton.app.data.local.PersonLinkDao
 import com.baton.app.data.local.SyncConflictDao
 import com.baton.app.data.local.SyncQueueDao
 import com.baton.app.data.local.TagDao
@@ -103,7 +105,7 @@ object DatabaseModule {
             // v2 -> v7 still fall back to destructive (the pre-M3
             // versions had no outbox in production use, so there
             // was nothing to preserve).
-            .addMigrations(MIGRATION_8_9)
+            .addMigrations(MIGRATION_8_9, AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
             .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
     }
@@ -177,4 +179,12 @@ object DatabaseModule {
 
     @Provides
     fun provideNudgeDraftDao(db: AppDatabase): NudgeDraftDao = db.nudgeDraftDao()
+
+    // v2.0 Tier 2 (§2.5, §2.12): new DAOs for the new tables
+    // in the v10 -> v11 migration.
+    @Provides
+    fun provideImportantDateDao(db: AppDatabase): ImportantDateDao = db.importantDateDao()
+
+    @Provides
+    fun providePersonLinkDao(db: AppDatabase): PersonLinkDao = db.personLinkDao()
 }

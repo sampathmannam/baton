@@ -12,6 +12,14 @@ package com.baton.app.data.person
  * value is fed back into SQL queries and the server's `text`
  * column would round-trip; comparing strings is correct because
  * the format is fixed-width and lexicographic = chronological.
+ *
+ * v2.0 Tier 2 fields (migrations v10 -> v11):
+ *  - [tier] - relationship tier ("Inner" | "Active" | "Periodic"
+ *    | "Dormant"). Default "Active".
+ *  - [cadenceOverrideDays] - per-person override of the tier
+ *    default cadence. Null = "use tier default".
+ *  - [lastInteractionAt] - epoch millis of the most recent
+ *    activity for this person. Null = "never touched".
  */
 data class Person(
     val id: String,
@@ -23,4 +31,10 @@ data class Person(
     // v1.0: spec §13. When true, this row + its instructions
     // never sync to Supabase.
     val isSensitive: Boolean = false,
+    // v2.0 Tier 2 (§2.2): relationship tier.
+    val tier: String = "Active",
+    // v2.0 Tier 2 (§2.2): per-person cadence override.
+    val cadenceOverrideDays: Int? = null,
+    // v2.0 Tier 2 (§2.1, §2.3): last-interaction timestamp.
+    val lastInteractionAt: Long? = null,
 )
