@@ -65,6 +65,16 @@ class RoomPersonRepository @Inject constructor(
     override fun observeAll(): Flow<List<Person>> = dao.observeAll()
         .map { rows -> rows.map { it.toDomain() } }
 
+    /**
+     * v2.0 T3-1 (deniable vault): the mode-filtered read.
+     * Delegates to the DAO's `observeAllInMode(mode)` and maps
+     * the rows to the domain [Person] type. The mode is a
+     * `String` because the DAO interface is
+     * [androidx.room.Dao] (which doesn't model enums).
+     */
+    override fun observeAllInMode(mode: String): Flow<List<Person>> =
+        dao.observeAllInMode(mode).map { rows -> rows.map { it.toDomain() } }
+
     override suspend fun create(
         name: String,
         designation: String?,

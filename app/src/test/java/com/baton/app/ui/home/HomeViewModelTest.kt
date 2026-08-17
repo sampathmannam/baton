@@ -9,6 +9,7 @@ import com.baton.app.data.local.RoomPersonRepository
 import com.baton.app.data.person.Person
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
+import com.baton.app.data.vault.VaultModeHolder
 import io.github.jan.supabase.exceptions.BadRequestRestException
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -47,6 +48,12 @@ class HomeViewModelTest {
     private val supabaseInstructionRepository: SupabaseInstructionRepository = mockk(relaxed = true)
     private val tagRepository: RoomTagRepository = mockk(relaxed = true)
     private val realtime: RealtimeSync = mockk(relaxed = true)
+    // v2.0 T3-1: a real VaultModeHolder (a process-singleton
+    // by design). The HomeViewModel reads its `mode` flow
+    // and re-queries the person DAO when it changes. In
+    // these unit tests the mode stays at the default
+    // (Visible) so the test only needs to seed one flow.
+    private val vaultModeHolder: VaultModeHolder = VaultModeHolder()
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
@@ -56,6 +63,12 @@ class HomeViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        // v2.0 T3-1: the HomeViewModel now reads persons via
+        // `observeAllInMode(...)` (filtered by vault mode),
+        // not the unfiltered `observeAll()`. The default
+        // mode is Visible, so we wire the test's seed flow
+        // to the Visible bucket.
+        every { repo.observeAllInMode("visible") } returns personsFlow.asStateFlow()
         every { repo.observeAll() } returns personsFlow.asStateFlow()
         every { instructionDao.observeOpenCountByPerson() } returns countsFlow.asStateFlow()
         every { instructionDao.observeStaleByPerson() } returns staleFlow.asStateFlow()
@@ -77,6 +90,7 @@ class HomeViewModelTest {
         supabaseInstructionRepository = supabaseInstructionRepository,
         tagRepository = tagRepository,
         realtimeSync = realtime,
+        vaultModeHolder = vaultModeHolder,
     )
 
     @Test
@@ -211,11 +225,14 @@ class HomeViewModelTest {
             "Server boom at $secretUrl",
         )
 
-        // Make observeAll() throw our leaky exception.
-        // Use a flow that emits once and then throws, so the combine
-        // operator has at least one emission to react to before the
-        // throw propagates to the .catch block.
-        every { repo.observeAll() } returns flow<List<Person>> {
+        // Make observeAllInMode("visible") throw our leaky
+        // exception. (v2.0 T3-1: the HomeViewModel now reads
+        // from the mode-filtered flow, not the unfiltered
+        // one.) Use a flow that emits once and then throws,
+        // so the combine operator has at least one emission
+        // to react to before the throw propagates to the
+        // .catch block.
+        every { repo.observeAllInMode("visible") } returns flow<List<Person>> {
             emit(emptyList())  // initial empty state — triggers combine emission
             throw leakyError    // then throw — propagates to .catch
         }

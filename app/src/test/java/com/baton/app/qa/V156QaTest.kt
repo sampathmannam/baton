@@ -104,6 +104,12 @@ class V156QaTest {
             personsFlow.value = existing.values.toList()
         }
         override fun observeAll(): Flow<List<Person>> = personsFlow.asStateFlow()
+        // v2.0 T3-1 (deniable vault): the V156 QA test
+        // doesn't read this method (the QA surface is the
+        // capture / home / Today flow, not the vault
+        // filter); a no-op return keeps the interface
+        // happy.
+        override fun observeAllInMode(mode: String): Flow<List<Person>> = personsFlow.asStateFlow()
         override suspend fun create(
             name: String,
             designation: String?,

@@ -49,6 +49,9 @@ import com.baton.app.data.local.entities.TagEntity
  *           - captures.ocrText, captures.calendarEventId, captures.urgency, captures.reviewAtEpochDay
  *           - new table important_date
  *           - new table person_link
+ *  - v13 v2.0 Tier 3: behavioural deniable vault
+ *         - persons.vaultMode (default "visible")
+ *         - instructions.vaultMode (default "visible")
  *
  * v8 -> v9 is the first non-destructive migration in the project:
  * `ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL
@@ -70,6 +73,11 @@ import com.baton.app.data.local.entities.TagEntity
  * `ALTER TABLE ADD COLUMN` for the new optional fields plus two
  * new tables. All ADD COLUMNs use sensible defaults so existing
  * rows pass the new schema.
+ *
+ * v12 -> v13 is also non-destructive (Tier 3): adds the
+ * `vaultMode` column to persons + instructions with a "visible"
+ * default; the @Index annotation generates a per-table index
+ * for the per-vault-mode filter queries.
  *
  * v3 -> v4 -> v5 -> v6 -> v7 -> v8 are all `fallbackToDestructiveMigration`
  * transitions - the local cache is reconstructible from Supabase on
@@ -96,7 +104,7 @@ import com.baton.app.data.local.entities.TagEntity
         ImportantDateEntity::class,
         PersonLinkEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -315,6 +323,41 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_person_link_toId` ON `person_link`(`toId`)",
+                )
+            }
+        }
+
+        /**
+         * v2.0 Tier 3 migration (v12 -> v13): behavioural deniable
+         * vault. Adds the `vaultMode` column to `persons` and
+         * `instructions` so the home list / detail screens can
+         * filter by the user's chosen mode (Visible / Hidden).
+         *
+         * This is **behavioural** deniability, NOT cryptographic.
+         * The on-disk schema still contains the `vaultMode` column
+         * and the hidden rows are still on disk. The threat-model
+         * screen in Settings spells this out to the user.
+         */
+        val MIGRATION_12_13: Migration = object : Migration(12, 13) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // §3.1: vault mode is a UI filter. Default "visible"
+                // so every existing row is shown by default. The
+                // @Index annotation on PersonEntity.vaultMode
+                // and InstructionEntity.vaultMode generates
+                // per-table indexes for the per-mode filter queries.
+                db.execSQL(
+                    "ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_persons_vaultMode` " +
+                        "ON `persons`(`vaultMode`)",
+                )
+                db.execSQL(
+                    "ALTER TABLE instructions ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_instructions_vaultMode` " +
+                        "ON `instructions`(`vaultMode`)",
                 )
             }
         }

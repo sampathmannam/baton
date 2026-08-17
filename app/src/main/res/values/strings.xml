@@ -554,4 +554,77 @@
     <string name="ocr_text_label">Text from photo</string>
     <string name="ocr_failed">OCR didn\'t finish: %1$s</string>
     <string name="ocr_ready">Text from photo ready</string>
+    <!-- v2.0 T3-1: Deniable vault (Cryptee-style). The
+         Settings -> Privacy section exposes the vault mode
+         toggle and the PIN. The copy is explicit that this
+         is BEHAVIOURAL deniability, not cryptographic
+         deniability. No "overdue" / "failed" / "error"
+         wording. -->
+    <string name="settings_section_privacy">Privacy</string>
+    <string name="settings_vault_mode">Vault mode</string>
+    <string name="settings_vault_mode_visible">Visible</string>
+    <string name="settings_vault_mode_hidden">Hidden</string>
+    <string name="settings_vault_mode_value">%1$s</string>
+    <string name="settings_vault_mode_explainer">Hidden mode hides selected items from the home list. Tap to switch modes. Switching back to Visible asks for your PIN.</string>
+    <string name="settings_vault_mode_explainer_no_pin">Hidden mode hides selected items from the home list. Tap to switch to Hidden. Set a PIN first so you can switch back to Visible.</string>
+    <string name="settings_vault_pin">Vault PIN</string>
+    <string name="settings_vault_pin_set">Set</string>
+    <string name="settings_vault_pin_change">Change</string>
+    <string name="settings_vault_pin_unset">Not set</string>
+    <string name="settings_vault_pin_value_set">Set — 4 to 6 digits</string>
+    <string name="settings_vault_pin_dialog_title">Set vault PIN</string>
+    <string name="settings_vault_pin_dialog_body">Enter a 4 to 6 digit PIN. You\'ll need it to switch back from Hidden to Visible mode. The PIN is never stored — only its hash.</string>
+    <string name="settings_vault_pin_dialog_label">PIN</string>
+    <string name="settings_vault_pin_dialog_save">Save PIN</string>
+    <string name="settings_vault_pin_dialog_cancel">Cancel</string>
+    <string name="settings_vault_pin_dialog_invalid">Enter 4 to 6 digits.</string>
+    <string name="settings_vault_enter_pin_title">Enter vault PIN</string>
+    <string name="settings_vault_enter_pin_body">Enter your 4 to 6 digit PIN to switch back to Visible mode.</string>
+    <string name="settings_vault_enter_pin_wrong">PIN didn\'t match. Try again.</string>
+    <string name="settings_vault_enter_pin_confirm">Unlock</string>
+    <string name="settings_vault_switch_to_hidden_title">Switch to Hidden mode?</string>
+    <string name="settings_vault_switch_to_hidden_body">Sensitive items will be hidden from the home list. The default Visible list is what most people see; use Hidden for items you want to keep separate.</string>
+    <string name="settings_vault_switch_confirm">Switch</string>
+    <string name="settings_recovery_phrase">Recovery phrase</string>
+    <string name="settings_recovery_phrase_value_unset">Not generated</string>
+    <string name="settings_recovery_phrase_value_set">Set up — 12 words on paper</string>
+    <string name="settings_recovery_phrase_explainer">Your recovery phrase is a 12-word master key. It\'s the only way to recover your data if this phone is lost. Write the words on paper. Do not screenshot.</string>
+    <string name="settings_threat_model">Threat model</string>
+    <string name="settings_threat_model_value">Read the threat model</string>
+
+    <!-- v2.0 T3-2: Recovery phrase screen copy. The body text
+         is short and direct; the user is in a sensitive
+         moment (writing down a secret). No marketing language. -->
+    <string name="recovery_phrase_title">Recovery phrase</string>
+    <string name="recovery_phrase_back">Back</string>
+    <string name="recovery_phrase_subtitle">These 12 words are the master key for your data. Write them down on paper, in order. Do not screenshot. If this phone is lost, the phrase is the only way to recover.</string>
+    <string name="recovery_phrase_step_1">1. Read and write down</string>
+    <string name="recovery_phrase_step_2">2. Tap the words in order</string>
+    <string name="recovery_phrase_verify_hint">Tap each word below, in the order you wrote them down.</string>
+    <string name="recovery_phrase_copy">Copy to clipboard</string>
+    <string name="recovery_phrase_written_down">I have written it down</string>
+    <string name="recovery_phrase_picked_count">%1$d of %2$d words picked</string>
+    <string name="recovery_phrase_retry">Try again</string>
+    <string name="recovery_phrase_confirmed_title">Recovery phrase set</string>
+    <string name="recovery_phrase_confirmed_body">Keep the paper safe. The phrase is the only way to recover your data if this phone is lost. Anyone with the phrase can read your data.</string>
+    <string name="recovery_phrase_done">Done</string>
+
+    <!-- v2.0 T3-3: Threat model screen copy. The text is
+         direct, non-marketing, and explicit about what the
+         app does and does not protect against. The
+         reference is Cryptee\'s framing. -->
+    <string name="threat_model_title">Threat model</string>
+    <string name="threat_model_back">Back</string>
+    <string name="threat_model_lead">What Kaavalan note protects, and what it does not. Read once before relying on it for sensitive data.</string>
+    <string name="threat_model_section_storage">Your notes never leave this device</string>
+    <string name="threat_model_section_storage_body">The notes, people, and instructions you save live in a local database on this phone. There is no cloud sync, no account, no server. The app does not phone home.</string>
+    <string name="threat_model_section_locked">The vault is encrypted on disk</string>
+    <string name="threat_model_section_locked_body">The local database is encrypted with SQLCipher. If this phone is seized while locked, the database file is unreadable without the device\'s screen-lock key.</string>
+    <string name="threat_model_section_unlocked">If the device is seized while unlocked</string>
+    <string name="threat_model_section_unlocked_body">Treat the data as compromised. The running app can read the encrypted database. This is the same boundary every secure messaging app draws; there is no defence against an unlocked-device adversary.</string>
+    <string name="threat_model_section_backup">Backup exports are AES-256-GCM encrypted</string>
+    <string name="threat_model_section_backup_body">Encrypted backup files are protected with a passphrase only you know. The passphrase is not stored on the device. Lose the passphrase, lose the backup.</string>
+    <string name="threat_model_section_vault">The Hidden vault is a UI filter</string>
+    <string name="threat_model_section_vault_body">Hidden mode hides selected items from the home list. A forensic adversary with access to the database file can still see that a hidden mode exists. This is behavioural concealment, not cryptographic deniability. For true deniability, the database itself would need to be encrypted twice with two different keys.</string>
+    <string name="threat_model_closing">This is the threat model. If it does not match yours, do not put the data in this app.</string>
 </resources>

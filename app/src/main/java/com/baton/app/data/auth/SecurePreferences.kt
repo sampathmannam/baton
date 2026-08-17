@@ -109,9 +109,78 @@ class SecurePreferences @Inject constructor(
      */
     fun hasDatabasePassphrase(): Boolean = prefs.contains(KEY_DB_PASSPHRASE)
 
+    /**
+     * v2.0 T3-1: the SHA-256 hash of the user's vault PIN, stored
+     * as a hex string. `null` means the user has not set a PIN
+     * yet; in that case the Settings UI prompts them to set one
+     * before they can switch back from hidden -> visible.
+     *
+     * The hash is stored (not the PIN itself) so a forensic
+     * adversary with read access to the EncryptedSharedPreferences
+     * file cannot recover the PIN. The hash is deterministic so
+     * a re-entered PIN is comparable in O(1).
+     */
+    @Synchronized
+    fun vaultPinHash(): String? = prefs.getString(KEY_VAULT_PIN_HASH, null)
+
+    /**
+     * v2.0 T3-1: store the SHA-256 of [pin]. The caller is
+     * expected to have already validated the PIN (length, no
+     * whitespace) — this method just persists.
+     */
+    @Synchronized
+    fun setVaultPinHash(hash: String) {
+        prefs.edit().putString(KEY_VAULT_PIN_HASH, hash).apply()
+    }
+
+    /** v2.0 T3-1: clear the stored PIN hash (e.g. on user
+     *  request, or as part of the sign-out wipe). */
+    @Synchronized
+    fun clearVaultPinHash() {
+        prefs.edit().remove(KEY_VAULT_PIN_HASH).apply()
+    }
+
+    /**
+     * v2.0 T3-2 (recovery phrase): the SHA-256 of the
+     * space-joined phrase, stored as a hex string. `null` means
+     * the user has not generated a phrase yet. The phrase itself
+     * is NEVER persisted — only the hash, so the on-device store
+     * cannot be used to reconstruct the master secret.
+     *
+     * Regenerating the phrase (Settings -> Recovery phrase ->
+     * Regenerate) overwrites this value and the old phrase is
+     * effectively orphaned.
+     */
+    @Synchronized
+    fun recoveryPhraseHash(): String? = prefs.getString(KEY_RECOVERY_PHRASE_HASH, null)
+
+    /** v2.0 T3-2: store the SHA-256 of the (space-joined)
+     *  recovery phrase. */
+    @Synchronized
+    fun setRecoveryPhraseHash(hash: String) {
+        prefs.edit().putString(KEY_RECOVERY_PHRASE_HASH, hash).apply()
+    }
+
+    /** v2.0 T3-2: clear the recovery phrase hash (e.g. when the
+     *  user regenerates the phrase). */
+    @Synchronized
+    fun clearRecoveryPhraseHash() {
+        prefs.edit().remove(KEY_RECOVERY_PHRASE_HASH).apply()
+    }
+
     companion object {
         private const val FILE_NAME = "baton_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase_v1"
         private const val PASSPHRASE_BYTES = 32
+        // v2.0 T3-1: vault PIN hash. Hex string, 64 chars
+        // (SHA-256 = 32 bytes). Key name includes a `_v1` to
+        // let us change the hash algorithm later without a
+        // destructive migration.
+        private const val KEY_VAULT_PIN_HASH = "vault_pin_hash_v1"
+        // v2.0 T3-2: recovery phrase hash. Same format as the
+        // vault PIN hash. The phrase is space-joined before
+        // hashing so the hash is stable across whitespace
+        // normalisation.
+        private const val KEY_RECOVERY_PHRASE_HASH = "recovery_phrase_hash_v1"
     }
 }

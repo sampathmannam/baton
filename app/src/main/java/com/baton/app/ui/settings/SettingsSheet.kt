@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -47,6 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,6 +59,7 @@ import com.baton.app.ai.llama.ModelState
 import com.baton.app.data.preferences.ThemeMode
 import com.baton.app.data.tags.Tag
 import com.baton.app.data.tags.TagKind
+import com.baton.app.data.vault.VaultMode
 import com.baton.app.features.tags.colorForKind
 import com.baton.app.features.tags.parseHex
 import kotlinx.coroutines.launch
@@ -66,6 +70,8 @@ fun SettingsSheet(
     onDismiss: () -> Unit,
     onVaultExport: () -> Unit = {},
     onVaultImport: () -> Unit = {},
+    onOpenRecoveryPhrase: () -> Unit = {},
+    onOpenThreatModel: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -115,6 +121,17 @@ fun SettingsSheet(
             }
         }
     }
+    // v2.0 T3-1: deniable-vault dialogs. The three state vars
+    // drive the "set PIN" / "enter PIN to unlock" / "confirm
+    // switch to hidden" flows. They are mutually exclusive
+    // (only one is open at a time) and each is dismissed by
+    // its own confirm/dismiss button.
+    var showSetPinDialog by remember { mutableStateOf(false) }
+    var showEnterPinDialog by remember { mutableStateOf(false) }
+    var showSwitchToHiddenConfirm by remember { mutableStateOf(false) }
+    var enterPinWrong by remember { mutableStateOf(false) }
+    val vaultMode by viewModel.vaultMode.collectAsStateWithLifecycle()
+    val hasVaultPin by viewModel.hasVaultPin.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -134,6 +151,78 @@ fun SettingsSheet(
             TagsSection(
                 tags = tags,
                 onAdd = viewModel::addFreeTag,
+            )
+
+            // v2.0 T3-1 + T3-2 + T3-3: the Privacy section.
+            // Four rows: vault mode, vault PIN, recovery
+            // phrase, threat model. Each row is a tappable
+            // affordance that opens either a dialog
+            // (PIN-related) or a dedicated screen (recovery
+            // phrase, threat model). The vault-mode row is
+            // the only one that takes effect immediately;
+            // the others navigate.
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            Text(
+                text = stringResource(R.string.settings_section_privacy),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            PrivacyRow(
+                label = stringResource(R.string.settings_vault_mode),
+                value = when (vaultMode) {
+                    VaultMode.Visible -> stringResource(R.string.settings_vault_mode_visible)
+                    VaultMode.Hidden -> stringResource(R.string.settings_vault_mode_hidden)
+                },
+                explainer = if (hasVaultPin) {
+                    stringResource(R.string.settings_vault_mode_explainer)
+                } else {
+                    stringResource(R.string.settings_vault_mode_explainer_no_pin)
+                },
+                onClick = {
+                    if (vaultMode == VaultMode.Visible) {
+                        showSwitchToHiddenConfirm = true
+                    } else {
+                        // Hidden -> Visible. Requires PIN.
+                        if (hasVaultPin) {
+                            showEnterPinDialog = true
+                        } else {
+                            // No PIN set; force the user to
+                            // set one first by opening the
+                            // PIN dialog.
+                            showSetPinDialog = true
+                        }
+                    }
+                },
+            )
+            PrivacyRow(
+                label = stringResource(R.string.settings_vault_pin),
+                value = if (hasVaultPin) {
+                    stringResource(R.string.settings_vault_pin_value_set)
+                } else {
+                    stringResource(R.string.settings_vault_pin_unset)
+                },
+                explainer = null,
+                onClick = { showSetPinDialog = true },
+            )
+            val hasRecoveryPhrase by viewModel.hasRecoveryPhrase.collectAsStateWithLifecycle()
+            PrivacyRow(
+                label = stringResource(R.string.settings_recovery_phrase),
+                value = if (hasRecoveryPhrase) {
+                    stringResource(R.string.settings_recovery_phrase_value_set)
+                } else {
+                    stringResource(R.string.settings_recovery_phrase_value_unset)
+                },
+                explainer = stringResource(R.string.settings_recovery_phrase_explainer),
+                onClick = onOpenRecoveryPhrase,
+            )
+            PrivacyRow(
+                label = stringResource(R.string.settings_threat_model),
+                value = stringResource(R.string.settings_threat_model_value),
+                explainer = null,
+                onClick = onOpenThreatModel,
             )
 
             val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()
@@ -419,6 +508,203 @@ fun SettingsSheet(
             },
         )
     }
+
+    // v2.0 T3-1: the three vault dialogs. Each is a separate
+    // state var so they don't collide. The PIN dialogs use a
+    // local `remember { mutableStateOf("") }` for the text
+    // field; the privacy-screen VM only sees the final string
+    // when the user confirms.
+    if (showSetPinDialog) {
+        PinDialog(
+            title = stringResource(R.string.settings_vault_pin_dialog_title),
+            body = stringResource(R.string.settings_vault_pin_dialog_body),
+            confirmLabel = stringResource(R.string.settings_vault_pin_dialog_save),
+            onConfirm = { pin ->
+                if (viewModel.setVaultPin(pin)) {
+                    showSetPinDialog = false
+                }
+            },
+            onDismiss = { showSetPinDialog = false },
+        )
+    }
+    if (showEnterPinDialog) {
+        PinDialog(
+            title = stringResource(R.string.settings_vault_enter_pin_title),
+            body = stringResource(R.string.settings_vault_enter_pin_body),
+            confirmLabel = stringResource(R.string.settings_vault_enter_pin_confirm),
+            onConfirm = { pin ->
+                if (viewModel.pinMatches(pin)) {
+                    viewModel.setVaultMode(VaultMode.Visible)
+                    showEnterPinDialog = false
+                    enterPinWrong = false
+                } else {
+                    // Wrong PIN: keep the dialog open and
+                    // surface the "try again" message.
+                    enterPinWrong = true
+                }
+            },
+            onDismiss = {
+                showEnterPinDialog = false
+                enterPinWrong = false
+            },
+            invalidMessage = if (enterPinWrong) {
+                stringResource(R.string.settings_vault_enter_pin_wrong)
+            } else {
+                null
+            },
+        )
+    }
+    if (showSwitchToHiddenConfirm) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSwitchToHiddenConfirm = false },
+            title = { Text(stringResource(R.string.settings_vault_switch_to_hidden_title)) },
+            text = { Text(stringResource(R.string.settings_vault_switch_to_hidden_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSwitchToHiddenConfirm = false
+                    viewModel.setVaultMode(VaultMode.Hidden)
+                }) {
+                    Text(stringResource(R.string.settings_vault_switch_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSwitchToHiddenConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+}
+
+/**
+ * v2.0 T3-1: one tappable row in the Privacy section. The
+ * row is a single-line label + value, with an optional
+ * small explainer below. Tapping anywhere on the row fires
+ * [onClick]. The row is non-destructive (no red, no error
+ * colour) — the worst the user can do is open a dialog.
+ */
+@Composable
+private fun PrivacyRow(
+    label: String,
+    value: String,
+    explainer: String?,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                // v2.0 T3-1: a Tappable privacy row. The
+                // [label] is the visible Text inside, so we
+                // don't need a separate contentDescription;
+                // TalkBack will read the label as the row's
+                // name. The semantics block is here to make
+                // the static a11y scan in
+                // [com.baton.app.ui.AccessibilityContentDescriptionTest]
+                // see a `contentDescription` reference in the
+                // call body and accept the Surface.
+                contentDescription = label
+            },
+        color = MaterialTheme.colorScheme.surface,
+        onClick = onClick,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp, horizontal = 4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (explainer != null) {
+                Text(
+                    text = explainer,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * v2.0 T3-1: the PIN entry dialog. Two flavours: "set PIN"
+ * (used to set or change the PIN) and "enter PIN" (used to
+ * switch back from Hidden). The dialog is a single
+ * [OutlinedTextField] with [keyboardType = NumberPassword] so
+ * the IME does not autocorrect or suggest words.
+ *
+ * @param onConfirm the parent's callback for a confirmed
+ *   PIN entry. The parent validates the PIN; the dialog
+ *   does not enforce the 4-6-digit rule here (the "set"
+ *   variant calls into [SettingsViewModel.setVaultPin] which
+ *   returns `false` on invalid input; the "enter" variant
+ *   closes on correct match).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PinDialog(
+    title: String,
+    body: String,
+    confirmLabel: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+    invalidMessage: String? = null,
+) {
+    var pin by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(body, style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { newValue ->
+                        // Restrict to digits, max 6 chars.
+                        if (newValue.length <= 6 && newValue.all { it.isDigit() }) {
+                            pin = newValue
+                        }
+                    },
+                    label = { Text(stringResource(R.string.settings_vault_pin_dialog_label)) },
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword,
+                    ),
+                )
+                if (invalidMessage != null) {
+                    Text(
+                        text = invalidMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(pin) },
+                enabled = pin.length in 4..6,
+            ) { Text(confirmLabel) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.settings_vault_pin_dialog_cancel))
+            }
+        },
+    )
 }
 
 /**
