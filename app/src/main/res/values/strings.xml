@@ -220,4 +220,87 @@
          AccessibilityContentDescriptionTest as a required a11y
          string (the static scan also catches the Button call). -->
     <string name="a11y_voice_in_app_stop">Stop voice capture</string>
+    <!-- Tier 1.1 (v2.0): Encrypted vault backup.
+         The export dialog, import dialog, and Settings rows. The
+         copy is neutral and short. Wording follows the no-shame
+         spec rule: "couldn't" / "try again" / "Incorrect" rather
+         than "Failed" / "Error" / "Wrong". Strings live here so
+         translators can work without touching the code. -->
+    <string name="vault_export_title">Export encrypted vault</string>
+    <string name="vault_export_body">This saves a passphrase-encrypted copy of your data. You\'ll need the passphrase to restore it on another device.</string>
+    <string name="vault_export_passphrase">Passphrase</string>
+    <string name="vault_export_confirm">Confirm passphrase</string>
+    <string name="vault_export_button">Save vault file</string>
+    <string name="vault_strength_label">Strength: %1$s</string>
+    <string name="vault_strength_0">Too weak — try a longer phrase</string>
+    <string name="vault_strength_1">Weak</string>
+    <string name="vault_strength_2">OK</string>
+    <string name="vault_strength_3">Strong</string>
+    <string name="vault_strength_4">Very strong</string>
+    <string name="vault_export_mismatch">Passphrases do not match</string>
+    <string name="vault_export_too_short">Use at least 8 characters</string>
+    <string name="vault_export_success">Vault saved</string>
+    <string name="vault_export_failed">Couldn\'t save the vault. Try again.</string>
+    <string name="vault_export_no_apps">No app available to save the file</string>
+    <string name="vault_import_title">Import encrypted vault</string>
+    <string name="vault_import_body">Pick a .baton-vault file and type the passphrase. Your current data will be replaced.</string>
+    <string name="vault_import_button">Pick vault file</string>
+    <string name="vault_import_incorrect">Incorrect passphrase</string>
+    <string name="vault_import_not_vault">This doesn\'t look like a Baton vault</string>
+    <string name="vault_import_unsupported">This vault was made with a newer version. Update the app and try again.</string>
+    <string name="vault_import_disk_full">Not enough space to save the vault</string>
+    <string name="vault_import_io">Couldn\'t read the file. Try again.</string>
+    <string name="vault_import_success">Vault restored</string>
+    <string name="vault_import_failed">Couldn\'t restore the vault. Try again.</string>
+    <string name="settings_section_data">Data</string>
+    <string name="settings_vault_export">Export encrypted vault</string>
+    <string name="settings_vault_import">Import encrypted vault</string>
+    <string name="settings_plain_export">Export as CSV or JSON</string>
+
+    <!-- Tier 1.2 (v2.0): First-run onboarding. -->
+    <string name="onboarding_welcome_title">Welcome to Baton</string>
+    <string name="onboarding_welcome_body">Track every instruction that flows in from your SP and out to your SHOs.</string>
+    <string name="onboarding_privacy_title">Your data lives only here</string>
+    <string name="onboarding_privacy_body">No cloud. No login. No analytics. Everything is stored on this phone, encrypted at rest.</string>
+    <string name="onboarding_privacy_line1">Stored on this phone only</string>
+    <string name="onboarding_privacy_line2">Encrypted with SQLCipher at rest</string>
+    <string name="onboarding_privacy_line3">Optional encrypted backup you control</string>
+    <string name="onboarding_start_title">Add your first person</string>
+    <string name="onboarding_start_body">People are the unit. Add your SP, your SHOs, anyone you give or take instructions from.</string>
+    <string name="onboarding_sample_toggle">Add a few sample people to play with</string>
+    <string name="onboarding_add_first">Add your first person</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_skip">Skip</string>
+
+    <!-- Tier 1.3 (v2.0): Full-text search. -->
+    <string name="search_hint">Search people and instructions</string>
+    <string name="search_no_results">No matches</string>
+    <string name="search_clear">Clear search</string>
+
+    <!-- Tier 1.4 (v2.0): Theme switcher. -->
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <!-- Tier 1.5 (v2.0): Date / time picker. -->
+    <string name="instruction_next_action">Next action</string>
+    <string name="instruction_next_action_set">%1$s</string>
+    <string name="instruction_next_action_pick">Pick a date</string>
+    <string name="instruction_next_action_clear">Clear</string>
+    <string name="date_picker_ok">OK</string>
+    <string name="date_picker_cancel">Cancel</string>
+
+    <!-- Tier 1.6 (v2.0): Undo. -->
+    <string name="undo_action_undone">Action undone</string>
+    <string name="undo">Undo</string>
+
+    <!-- Tier 1.7 (v2.0): CSV / JSON export. -->
+    <string name="plain_export_title">Export as</string>
+    <string name="plain_export_csv">CSV (Excel-friendly)</string>
+    <string name="plain_export_json">JSON</string>
+    <string name="plain_export_success">Export saved</string>
+    <string name="plain_export_failed">Couldn\'t save the export. Try again.</string>
 </resources>

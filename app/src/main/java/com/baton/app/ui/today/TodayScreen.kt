@@ -42,6 +42,8 @@ import com.baton.app.R
 import com.baton.app.data.brief.DailyBrief
 import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.instructions.Status
+import com.baton.app.features.search.SearchBar
+import com.baton.app.features.search.SearchViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -65,19 +67,31 @@ fun TodayScreen(
     val brief by viewModel.brief.collectAsStateWithLifecycle()
     var showReview by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Instruction?>(null) }
+    val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val query by searchViewModel.query.collectAsStateWithLifecycle()
+    val results by searchViewModel.results.collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.tab_today)) },
-                actions = {
-                    OutlinedButton(onClick = { showReview = true }) {
-                        Text("Review")
-                    }
-                },
-            )
+            Column {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.tab_today)) },
+                    actions = {
+                        OutlinedButton(onClick = { showReview = true }) {
+                            Text("Review")
+                        }
+                    },
+                )
+                SearchBar(viewModel = searchViewModel)
+            }
         },
     ) { padding ->
-        if (brief.isEmpty) {
+        if (query.isNotEmpty()) {
+            com.baton.app.ui.home.HomeScreenSearchResults(
+                results = results,
+                padding = padding,
+                onPersonClick = { /* search is read-only on Today */ },
+            )
+        } else if (brief.isEmpty) {
             EmptyBrief(padding)
         } else {
             BriefContent(

@@ -94,6 +94,9 @@ class SettingsViewModelTest {
             modelManager = modelManager,
             whisperModelManager = whisperManager,
             appContext = appContext,
+            preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
+            plainExporter = mockk<com.baton.app.data.export.PlainExporter>(relaxed = true),
+            appContext = mockk<android.content.Context>(relaxed = true),
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)
     }

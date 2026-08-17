@@ -10,6 +10,7 @@ import com.baton.app.data.local.AppDao
 import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.InstructionDao
+import com.baton.app.data.local.InstructionFtsDao
 import com.baton.app.data.local.InstructionTagDao
 import com.baton.app.data.local.NudgeDraftDao
 import com.baton.app.data.local.PersonDao
@@ -103,7 +104,7 @@ object DatabaseModule {
             // v2 -> v7 still fall back to destructive (the pre-M3
             // versions had no outbox in production use, so there
             // was nothing to preserve).
-            .addMigrations(MIGRATION_8_9)
+            .addMigrations(MIGRATION_8_9, AppDatabase.MIGRATION_10_11)
             .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
     }
@@ -177,4 +178,7 @@ object DatabaseModule {
 
     @Provides
     fun provideNudgeDraftDao(db: AppDatabase): NudgeDraftDao = db.nudgeDraftDao()
+
+    @Provides
+    fun provideInstructionFtsDao(db: AppDatabase): InstructionFtsDao = db.instructionFtsDao()
 }

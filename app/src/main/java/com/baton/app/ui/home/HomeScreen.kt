@@ -50,6 +50,8 @@ import com.baton.app.features.capture.CaptureViewModel
 import com.baton.app.features.capture.NoteBar
 import com.baton.app.features.capture.PhotoCapture
 import com.baton.app.features.capture.VoiceCaptureService
+import com.baton.app.features.search.SearchBar
+import com.baton.app.features.search.SearchViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -157,9 +159,18 @@ fun HomeScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.home_title)) },
-                )
+                Column {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.home_title)) },
+                    )
+                    // v2.0 (Tier 1.3): the search bar below the
+                    // top app bar. The results show on the same
+                    // screen when the user types something
+                    // matching; when the query is empty the
+                    // existing PersonList renders.
+                    val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                    SearchBar(viewModel = searchViewModel)
+                }
             },
             floatingActionButton = {
                 FloatingActionButton(onClick = { showAddPerson = true }) {
@@ -167,20 +178,31 @@ fun HomeScreen(
                 }
             },
         ) { padding ->
-            when (val s = state) {
-                HomeUiState.Empty -> EmptyState(
-                    padding = padding,
-                    onAddPersonClick = { showAddPerson = true },
-                )
-                HomeUiState.Loading -> LoadingSkeleton(padding)
-                is HomeUiState.Loaded -> PersonList(
-                    persons = s.persons,
-                    openCountByPersonId = s.openCountByPersonId,
-                    stalePersonIds = s.stalePersonIds,
+            val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val query by searchViewModel.query.collectAsStateWithLifecycle()
+            val results by searchViewModel.results.collectAsStateWithLifecycle()
+            if (query.isNotEmpty()) {
+                HomeScreenSearchResults(
+                    results = results,
                     padding = padding,
                     onPersonClick = onOpenPerson,
                 )
-                is HomeUiState.Error -> ErrorState(s.message, padding)
+            } else {
+                when (val s = state) {
+                    HomeUiState.Empty -> EmptyState(
+                        padding = padding,
+                        onAddPersonClick = { showAddPerson = true },
+                    )
+                    HomeUiState.Loading -> LoadingSkeleton(padding)
+                    is HomeUiState.Loaded -> PersonList(
+                        persons = s.persons,
+                        openCountByPersonId = s.openCountByPersonId,
+                        stalePersonIds = s.stalePersonIds,
+                        padding = padding,
+                        onPersonClick = onOpenPerson,
+                    )
+                    is HomeUiState.Error -> ErrorState(s.message, padding)
+                }
             }
         }
 
@@ -342,6 +364,77 @@ private fun PersonList(
                 onClick = { onPersonClick(person.id) },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        item { Spacer(Modifier.height(80.dp)) }
+    }
+}
+
+/**
+ * v2.0 (Tier 1.3): the search results. The instructions are
+ * grouped by their personId so the user sees a per-person
+ * list. The names are looked up via the home state's person
+ * map (so the search field uses the same person flow that
+ * the people list does).
+ */
+@Composable
+fun HomeScreenSearchResults(
+    results: List<com.baton.app.data.local.entities.InstructionEntity>,
+    padding: PaddingValues,
+    onPersonClick: (String) -> Unit,
+) {
+    if (results.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(32.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.search_no_results),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+    val byPerson = results.groupBy { it.personId }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),
+    ) {
+        byPerson.forEach { (personId, list) ->
+            item {
+                Text(
+                    text = if (personId == null) "(unassigned)" else personId.take(20),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            items(items = list, key = { it.id }) { ins ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            onClickLabel = "Open person",
+                            onClick = { personId?.let(onPersonClick) },
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text(
+                        text = ins.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = ins.rawText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
         }
         item { Spacer(Modifier.height(80.dp)) }
     }
