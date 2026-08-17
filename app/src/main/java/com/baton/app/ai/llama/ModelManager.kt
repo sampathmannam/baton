@@ -327,11 +327,17 @@ open class ModelManager @Inject constructor(
          * `downloadModel()` flow) live in `assets/`.
          */
         val availableModels: List<ModelOption> = listOf(
+            // v1.5.4: the upstream Qwen/Qwen3-1.7B-GGUF repo doesn't
+            // ship a `qwen3-1.7b-q4_k_m.gguf` file at the canonical
+            // path (HTTP 404). The `enacimie/Qwen3-1.7B-Q4_K_M-GGUF`
+            // community mirror serves the same quantisation with
+            // matching SHA. The catalog uses the mirror so a fresh
+            // install + first-run download actually completes.
             ModelOption(
                 id = "qwen3-1.7b-q4_k_m",
                 displayName = "Qwen 3 1.7B (Q4_K_M)",
                 description = "~1.1 GB, fast on most devices, good for short instructions",
-                url = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/qwen3-1.7b-q4_k_m.gguf",
+                url = "https://huggingface.co/enacimie/Qwen3-1.7B-Q4_K_M-GGUF/resolve/main/qwen3-1.7b-q4_k_m.gguf",
                 sizeBytes = 1_100_000_000L,
             ),
             ModelOption(

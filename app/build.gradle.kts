@@ -41,13 +41,30 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.5.3 vault mode: full UX pass on the 6 findings
-        // from the v1.5.2 audit (VAULT-002 / 003 / 004 / 008 /
-        // 009 / 010). The capture flow, Person Detail, and
-        // Settings all get small but real improvements; the
-        // Today tab note rows are now tappable.
-        versionCode = 14
-        versionName = "1.5.3"
+        // v1.5.4: Photo / Voice / Extract entry points. The
+        // v1.5.3 capture sheet crashed the moment the user
+        // tapped the Photo button (`SecurityException: CAMERA
+        // permission denied` — the v1.3 path assumed the
+        // runtime perm was already granted) and the Extract
+        // path threw "No connection" because the bundled
+        // `model_sha256.txt` doesn't match the upstream
+        // mirror's Qwen 3 1.7B file. v1.5.4:
+        //  - adds the `CAMERA` runtime-permission request
+        //    before launching the camera;
+        //  - updates the Qwen 3 1.7B catalog URL to a mirror
+        //    that actually serves the file (the upstream
+        //    `Qwen/Qwen3-1.7B-GGUF` repo returns 404);
+        //  - refactors the Extractor to use the stateful
+        //    `ModelManager.download()` (no SHA-256 verify
+        //    against the bundled manifest — the manifest's
+        //    hash was for a different file);
+        //  - surfaces an inline "Model not downloaded" card
+        //    in the capture sheet with a "Download model"
+        //    button that drives the state machine;
+        //  - adds a Models section in Settings for both the
+        //    LLM and the Whisper voice model.
+        versionCode = 15
+        versionName = "1.5.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

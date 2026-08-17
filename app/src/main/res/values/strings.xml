@@ -156,4 +156,22 @@
     <string name="model_gemma_2_2b_it_q4_k_m_description">~1.6 GB — balanced quality, friendly safety profile.</string>
     <string name="model_phi_3_5_mini_3_8b_q4_k_m_name">Phi-3.5 mini 3.8B (Q4_K_M)</string>
     <string name="model_phi_3_5_mini_3_8b_q4_k_m_description">~2.3 GB — strong on structured extraction, largest of the four.</string>
+
+    <!-- v1.5.4: Settings → Models section. The user sees both
+         the LLM and the Whisper model status here, with
+         download / retry actions when needed. The
+         "Downloading 47%" and "Ready 1234 MB" rows are
+         read-only — the LLM has its own progress bar inside
+         the CaptureSheet's "Model not downloaded" card so
+         the user doesn't have to leave the note to see
+         progress. The Settings row is the "where is this
+         thing" lookup for power users. -->
+    <string name="settings_section_models">Models</string>
+    <string name="settings_model_llm">On-device AI (Extract)</string>
+    <string name="settings_model_whisper">Voice model</string>
+    <string name="settings_model_not_downloaded">Not downloaded</string>
+    <string name="settings_model_downloading">Downloading… %1$d%%</string>
+    <string name="settings_model_ready">Ready — %1$d MB on disk</string>
+    <string name="settings_model_ready_short">Ready</string>
+    <string name="settings_model_download_short">Download</string>
 </resources>

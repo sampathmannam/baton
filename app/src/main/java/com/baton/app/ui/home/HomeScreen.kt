@@ -120,6 +120,30 @@ fun HomeScreen(
         pendingUri.value = null
     }
 
+    // v1.5.4: the camera permission flow. The Photo button used to
+    // fire `cameraLauncher.launch(uri)` unconditionally, which
+    // crashed with `SecurityException: CAMERA permission denied` on
+    // first install (the runtime perm hadn't been granted yet — the
+    // v1.3 path assumed the system perm dialog appeared in the
+    // `TakePicture` activity, which is not the case). The new
+    // pattern: check the perm first, request it via the launcher if
+    // missing, then launch the camera on grant. The same
+    // `cameraLauncher.launch(uri)` only fires after the user
+    // accepts the perm dialog. On denial, surface a friendly
+    // message in the capture sheet (the `Microphone permission
+    // denied` path is the analogue for the Voice button).
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            val uri = CameraLauncher.newCaptureUri(context)
+            pendingUri.value = uri
+            cameraLauncher.launch(uri)
+        } else {
+            captureViewModel.onPhotoError("Camera permission denied")
+        }
+    }
+
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -168,9 +192,27 @@ fun HomeScreen(
             NoteBar(
                 onTextClick = { captureViewModel.openSheet() },
                 onCameraClick = {
-                    val uri = CameraLauncher.newCaptureUri(context)
-                    pendingUri.value = uri
-                    cameraLauncher.launch(uri)
+                    // v1.5.4: gate the camera launch on the
+                    // `CAMERA` runtime perm. The v1.3 path fired
+                    // `cameraLauncher.launch(uri)` directly, which
+                    // crashed on first install with
+                    // `SecurityException` because the perm hadn't
+                    // been granted yet. The system camera app
+                    // does not surface the perm dialog itself
+                    // (the calling app must). Mirror the
+                    // mic-permission pattern: check, request if
+                    // missing, launch on grant.
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.CAMERA,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        val uri = CameraLauncher.newCaptureUri(context)
+                        pendingUri.value = uri
+                        cameraLauncher.launch(uri)
+                    } else {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 },
                 onMicClick = {
                     val granted = ContextCompat.checkSelfPermission(

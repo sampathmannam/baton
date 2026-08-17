@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
@@ -22,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
+import com.baton.app.ai.llama.ModelState
 import com.baton.app.features.tags.TagPicker
 
 /**
@@ -64,6 +67,12 @@ fun CaptureSheet(
     // source of truth — the UI does not duplicate the empty-state
     // check, it just collects the flow.
     val hasPeople by viewModel.hasPeople.collectAsStateWithLifecycle()
+    // v1.5.4: the model lifecycle state drives the
+    // `ModelNotReadyCard` below. Sharing the same StateFlow
+    // means the card flips between "Download model" /
+    // "Downloading… 47%" / "Retry" / hidden as the download
+    // progresses, without the VM having to mirror the flow.
+    val modelState by viewModel.modelState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // M1-T6: collect calendar events from the VM and launch them
@@ -92,6 +101,7 @@ fun CaptureSheet(
         CaptureSheetContent(
             state = state,
             hasPeople = hasPeople,
+            modelState = modelState,
             onTextChanged = viewModel::onTextChanged,
             onExtract = viewModel::onExtract,
             onConfirm = viewModel::onConfirm,
@@ -105,6 +115,7 @@ fun CaptureSheet(
             onTagToggled = viewModel::onTagToggled,
             onAddFreeTag = viewModel::onAddFreeTag,
             onSaveRaw = viewModel::onSaveRaw,
+            onDownloadModel = viewModel::downloadModel,
             onOpenAddPerson = onOpenAddPerson,
         )
     }
@@ -114,6 +125,7 @@ fun CaptureSheet(
 private fun CaptureSheetContent(
     state: CaptureUiState,
     hasPeople: Boolean,
+    modelState: ModelState,
     onTextChanged: (String) -> Unit,
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
@@ -125,6 +137,7 @@ private fun CaptureSheetContent(
     onTagToggled: (String) -> Unit = { },
     onAddFreeTag: (String) -> Unit = { },
     onSaveRaw: () -> Unit = { },
+    onDownloadModel: () -> Unit = { },
     onOpenAddPerson: () -> Unit = {},
 ) {
     Column(
@@ -149,6 +162,26 @@ private fun CaptureSheetContent(
         // no-red rule); no shame framing.
         if (!hasPeople) {
             NoPeopleCard(onOpenAddPerson = onOpenAddPerson)
+        }
+        // v1.5.4: the model lifecycle card. The user opens the
+        // capture sheet on a fresh install (no model file on
+        // disk) and the v1.3 path would show "No connection"
+        // because the legacy `downloadModel()` flow fails the
+        // SHA-256 check (the bundled manifest's hash doesn't
+        // match the upstream mirror's file). The new path:
+        // explicit `ModelNotReadyCard` with a "Download model"
+        // button that the user taps to start the download
+        // progress flow. The card re-renders as
+        // `DownloadingSection` while bytes flow, hides on
+        // `Ready`, and shows a "Retry" button on `Failed`. The
+        // card sits BELOW the no-people card (people is the
+        // first blocker) but ABOVE the text field so the user
+        // sees the action before they start typing.
+        if (modelState !is ModelState.Ready) {
+            ModelNotReadyCard(
+                modelState = modelState,
+                onDownload = onDownloadModel,
+            )
         }
         CaptureTextField(
             text = state.text,
@@ -211,7 +244,12 @@ private fun CaptureSheetContent(
             // hiding it entirely would be confusing — but tapping
             // it is a no-op. The inline NoPeopleCard above is the
             // visible cue.
+            // v1.5.4: same hard-disable applies when the model
+            // is not yet downloaded — Extract requires the LLM
+            // and would no-op silently. The inline
+            // `ModelNotReadyCard` above is the visible cue.
             hasPeople = hasPeople,
+            modelReady = modelState is ModelState.Ready,
             onExtract = onExtract,
             onConfirm = onConfirm,
             onSaveRaw = onSaveRaw,
@@ -306,6 +344,7 @@ private fun PrimaryAction(
     canExtract: Boolean,
     canConfirm: Boolean,
     hasPeople: Boolean,
+    modelReady: Boolean,
     onExtract: () -> Unit,
     onConfirm: () -> Unit,
     onSaveRaw: () -> Unit,
@@ -340,7 +379,13 @@ private fun PrimaryAction(
                     // the user has no people. The inline NoPeopleCard
                     // above is the visible reason. Power users with
                     // people keep the v1.3 behaviour.
-                    enabled = canExtract && hasPeople,
+                    // v1.5.4: also disabled when the on-device model
+                    // is not yet downloaded. The `ModelNotReadyCard`
+                    // above is the visible cue; without this guard
+                    // the user would tap a blue button that no-ops
+                    // and the `onExtract` path would silently
+                    // return null.
+                    enabled = canExtract && hasPeople && modelReady,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.capture_sheet_extract))
@@ -360,6 +405,110 @@ private fun PrimaryAction(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("Save as text (skip extraction)")
+            }
+        }
+    }
+}
+
+/**
+ * v1.5.4: the inline "model not ready" card. Renders above the
+ * text field when [ModelManager.state] is anything other than
+ * [ModelState.Ready]. Three affordances:
+ *
+ *  - [ModelState.NotStarted] → "Download model" button.
+ *  - [ModelState.Downloading] → `LinearProgressIndicator` with
+ *    the live `progress` value (0..1 or `-1f` if the server
+ *    didn't advertise a `Content-Length`).
+ *  - [ModelState.Failed] → a neutral "Reason" line + "Retry"
+ *    button (re-invokes [onDownload]).
+ *
+ * Hidden entirely on `Ready` so the user sees a clean sheet
+ * once the model is on disk. The card is the visible cue
+ * backing the `enabled = canExtract && hasPeople && modelReady`
+ * gate on the Extract button below; the user sees the
+ * "what next" before they tap a dead button.
+ *
+ * Colours are `surfaceVariant` / `onSurfaceVariant` per the
+ * no-red rule — same neutral grey as the `NoPeopleCard`. The
+ * icon is `Icons.Outlined.Info` (matches the inline error
+ * styling on the rest of the sheet).
+ */
+@Composable
+private fun ModelNotReadyCard(
+    modelState: ModelState,
+    onDownload: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            when (modelState) {
+                is ModelState.NotStarted -> {
+                    Text(
+                        text = "On-device AI is not downloaded yet. Tap below to fetch the model.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Button(
+                        onClick = onDownload,
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Download on-device model" },
+                    ) {
+                        Text(stringResource(R.string.model_download_button))
+                    }
+                }
+                is ModelState.Downloading -> {
+                    val displayProgress = if (modelState.progress < 0f) 0f
+                        else modelState.progress.coerceIn(0f, 1f)
+                    val percent = (displayProgress * 100).toInt()
+                    Text(
+                        text = "Downloading on-device model.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    LinearProgressIndicator(
+                        progress = { displayProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                    )
+                    Text(
+                        text = "$percent%",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                is ModelState.Failed -> {
+                    Text(
+                        text = "Model download didn't finish: ${modelState.reason}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Button(
+                        onClick = onDownload,
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Retry model download" },
+                    ) {
+                        Text(stringResource(R.string.model_download_retry))
+                    }
+                }
+                is ModelState.Ready -> {
+                    // Defensive: the parent composable already hides
+                    // this card on Ready. Kept as a no-op branch
+                    // so the `when` is exhaustive.
+                }
             }
         }
     }
