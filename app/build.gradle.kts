@@ -278,6 +278,12 @@ dependencies {
     implementation(libs.camerax.camera.view)
     implementation(libs.mlkit.text.recognition)
 
+    // Tier 1.1 (v2.0): vault backup KDF.
+    implementation(libs.argon2kt)
+    // Tier 1.4 (v2.0): DataStore for the theme switcher + 1.2
+    // onboarding flag.
+    implementation(libs.datastore.preferences)
+
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.turbine)

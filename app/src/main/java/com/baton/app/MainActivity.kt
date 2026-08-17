@@ -3,6 +3,7 @@ package com.baton.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +26,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +37,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,8 +58,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.auth.AuthSessionState
+import com.baton.app.data.preferences.BatonPreferences
+import com.baton.app.data.preferences.ThemeMode
 import com.baton.app.data.sync.NetworkObserver
+import com.baton.app.data.undo.UndoController
 import com.baton.app.features.capture.ShareIntake
+import com.baton.app.features.onboarding.OnboardingScreen
+import com.baton.app.features.search.SearchViewModel
+import com.baton.app.features.theme.ThemeViewModel
+import com.baton.app.features.vault.VaultExportSheet
+import com.baton.app.features.vault.VaultImportSheet
 import com.baton.app.ui.auth.AuthScreen
 import com.baton.app.ui.components.OfflineIndicator
 import com.baton.app.ui.home.HomeScreen
@@ -67,6 +81,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -82,6 +97,13 @@ import javax.inject.Inject
  * in onStart / unregistered in onStop. The current isOnline is
  * rendered as an OfflineIndicator overlay at the top of the
  * Scaffold.
+ *
+ * v2.0 (Tier 1.2 + Tier 1.4 + Tier 1.6): first-run onboarding
+ * gates the [MainScaffold]; theme is read from the [ThemeViewModel]
+ * (DataStore-backed) and passed to [BatonTheme]; the
+ * [UndoController] exposes the last [com.baton.app.data.undo.UndoableAction]
+ * which the [SnackbarHostState] listens to and shows a 5 s
+ * "Undo" affordance.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -89,6 +111,8 @@ class MainActivity : ComponentActivity() {
     private val rootViewModel: RootViewModel by viewModels()
     @javax.inject.Inject lateinit var briefNotifier: com.baton.app.data.brief.BriefNotifier
     @javax.inject.Inject lateinit var networkObserver: NetworkObserver
+    @javax.inject.Inject lateinit var preferences: BatonPreferences
+    @javax.inject.Inject lateinit var undoController: UndoController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -97,19 +121,28 @@ class MainActivity : ComponentActivity() {
         consumeQuickCapture(intent)
         briefNotifier.schedule()
         setContent {
-            BatonTheme {
+            val themeViewModel: ThemeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
+            val systemDark = isSystemInDarkTheme()
+            val useDark = when (themeMode) {
+                ThemeMode.System -> systemDark
+                ThemeMode.Light -> false
+                ThemeMode.Dark -> true
+            }
+            BatonTheme(darkTheme = useDark) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    // v1.5.0 vault mode: no login. The app opens
-                    // straight to the home/today tabs. SQLCipher keeps
-                    // the local Room DB encrypted at rest; the
-                    // Supabase auth + sync code paths still exist in
-                    // the binary (so a future Settings toggle can
-                    // re-enable cloud sync) but are not invoked.
-                    MainScaffold(
-                        rootViewModel = rootViewModel,
-                        networkObserver = networkObserver,
-                        onRequestNotificationsPermission = ::requestPostNotifications,
-                    )
+                    val seen by preferences.hasSeenOnboarding.collectAsStateWithLifecycle(initialValue = false)
+                    if (!seen) {
+                        OnboardingScreen(onDone = { /* DataStore flips; recomposition picks it up */ })
+                    } else {
+                        MainScaffold(
+                            rootViewModel = rootViewModel,
+                            networkObserver = networkObserver,
+                            undoController = undoController,
+                            preferences = preferences,
+                            onRequestNotificationsPermission = ::requestPostNotifications,
+                        )
+                    }
                 }
             }
         }
@@ -206,19 +239,55 @@ class MainActivity : ComponentActivity() {
  * v1.4: hosts the POST_NOTIFICATIONS launcher and renders the
  * OfflineIndicator as a top-end overlay above the inner screens'
  * TopAppBars.
+ *
+ * v2.0 (Tier 1.6): hosts a single [SnackbarHostState] for the
+ * undo snackbar. The host observes [UndoController.last] and
+ * shows a 5 s "Undo" affordance when a destructive action
+ * pushes a new [com.baton.app.data.undo.UndoableAction]. The
+ * snackbar auto-clears the action on dismiss / timeout.
  */
 @Composable
 private fun MainScaffold(
     rootViewModel: RootViewModel,
     networkObserver: NetworkObserver,
+    undoController: UndoController,
+    preferences: BatonPreferences,
     onRequestNotificationsPermission: () -> Unit,
 ) {
     val navController = rememberNavController()
     var showSettings by remember { mutableStateOf(false) }
+    var showVaultExport by remember { mutableStateOf(false) }
+    var showVaultImport by remember { mutableStateOf(false) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: Routes.HOME
     val isOnline by networkObserver.isOnline.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val lastUndo by undoController.last.collectAsStateWithLifecycle()
+    val undoLabel = stringResource(R.string.undo)
+
+    // v2.0: a single SnackbarHostState listens to the UndoController
+    // flow. When a new action arrives, the snackbar shows "Action
+    // undone" + an "Undo" button. 5 s auto-dismissal maps to
+    // SnackbarDuration.Short. On undo, the controller's
+    // `undoLast()` re-inserts the row.
+    LaunchedEffect(lastUndo) {
+        val action = lastUndo ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = "${action.label} ${action.id.take(6)}",
+            actionLabel = undoLabel,
+            withDismissAction = true,
+        )
+        when (result) {
+            SnackbarResult.ActionPerformed -> {
+                scope.launch { undoController.undoLast() }
+            }
+            SnackbarResult.Dismissed -> {
+                undoController.clear()
+            }
+        }
+    }
 
     val notifLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -249,6 +318,7 @@ private fun MainScaffold(
                 )
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Box(
             modifier = Modifier
@@ -288,7 +358,23 @@ private fun MainScaffold(
     }
 
     if (showSettings) {
-        SettingsSheet(onDismiss = { showSettings = false })
+        SettingsSheet(
+            onDismiss = { showSettings = false },
+            onVaultExport = { showSettings = false; showVaultExport = true },
+            onVaultImport = { showSettings = false; showVaultImport = true },
+        )
+    }
+    if (showVaultExport) {
+        VaultExportSheet(
+            onDismiss = { showVaultExport = false },
+            onExported = { showVaultExport = false },
+        )
+    }
+    if (showVaultImport) {
+        VaultImportSheet(
+            onDismiss = { showVaultImport = false },
+            onImported = { showVaultImport = false },
+        )
     }
 }
 

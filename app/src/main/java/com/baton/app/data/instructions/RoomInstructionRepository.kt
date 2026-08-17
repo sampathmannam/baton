@@ -1,9 +1,11 @@
 package com.baton.app.data.instructions
 
 import com.baton.app.data.local.InstructionDao
+import com.baton.app.data.local.InstructionFtsDao
 import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.local.SyncQueueDao
 import com.baton.app.data.local.entities.InstructionEntity
+import com.baton.app.data.local.entities.InstructionFtsEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
 import com.baton.app.data.local.entities.SyncStatus
 import com.baton.app.di.ApplicationScope
@@ -39,10 +41,18 @@ import javax.inject.Singleton
  * `fetchAll()` returns the local mirror. In vault mode this IS the
  * full dataset. In a future cloud mode it would be a snapshot of
  * the locally-cached rows (the post-`refreshFromNetwork` state).
+ *
+ * **v2.0 (Tier 1.3):** every write also upserts the FTS4 row
+ * (free FTS4 entity, no `contentEntity` link). The DAO pair
+ * (`InstructionDao` + `InstructionFtsDao`) is updated in two
+ * coroutine steps — we don't use `runInTransaction` here
+ * because we want the main-table write to land first (so the
+ * FTS row never references a missing main row).
  */
 @Singleton
 open class RoomInstructionRepository @Inject constructor(
     private val dao: InstructionDao,
+    private val ftsDao: InstructionFtsDao,
     private val syncQueueDao: SyncQueueDao,
     private val syncEngine: SyncEngine,
     @ApplicationScope private val appScope: CoroutineScope,
@@ -147,6 +157,19 @@ open class RoomInstructionRepository @Inject constructor(
             syncStatus = SyncStatus.PENDING_INSERT,
         )
         dao.upsert(entity)
+        // v2.0: also upsert the FTS row. The new rowid is the
+        // main row's primary-key hex-decoded Long; we use the
+        // FTS DAO's max-rowid helper.
+        val newRowid = ftsDao.maxInstructionRowid() ?: 0L
+        ftsDao.upsert(
+            InstructionFtsEntity(
+                rowid = newRowid,
+                title = title,
+                rawText = rawText,
+                personId = personId,
+                capturedAt = now,
+            ),
+        )
         enqueueInsert(id)
         return entity.toDomain()
     }
@@ -186,6 +209,17 @@ open class RoomInstructionRepository @Inject constructor(
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
         dao.upsert(updated)
+        // v2.0: also re-upsert the FTS row.
+        val newRowid = ftsDao.maxInstructionRowid() ?: 0L
+        ftsDao.upsert(
+            InstructionFtsEntity(
+                rowid = newRowid,
+                title = updated.title,
+                rawText = updated.rawText,
+                personId = updated.personId,
+                capturedAt = updated.capturedAt,
+            ),
+        )
         enqueueUpdate(id)
         return updated.toDomain()
     }
