@@ -79,6 +79,7 @@ import java.time.format.DateTimeFormatter
 fun PersonDetailScreen(
     personId: String,
     onBack: () -> Unit,
+    onOpenLinkedPerson: (String) -> Unit = {},
     viewModel: PersonDetailViewModel = hiltViewModel(),
 ) {
     // Hilt's SavedStateHandle lets the VM pick up the `personId`
@@ -131,6 +132,7 @@ fun PersonDetailScreen(
                 onRequestInstructionSensitive = { ins -> sensitiveToggleId = ins.id },
                 onOpenPersonSensitive = { showPersonSensitive = true },
                 onAddInstruction = { showAddInstruction = true },
+                onOpenLinkedPerson = onOpenLinkedPerson,
             )
         }
     }
@@ -277,6 +279,7 @@ private fun PersonTimeline(
     onRequestInstructionSensitive: (Instruction) -> Unit = {},
     onOpenPersonSensitive: () -> Unit = {},
     onAddInstruction: () -> Unit = {},
+    onOpenLinkedPerson: (String) -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier
@@ -293,6 +296,10 @@ private fun PersonTimeline(
                 onOpenSensitive = onOpenPersonSensitive,
             )
         }
+        // v2.0 Tier 2 (§2.12): person-to-person links.
+        item { PersonLinksRow(onOpenPerson = onOpenLinkedPerson) }
+        // v2.0 Tier 2 (§2.5): important dates per person.
+        item { ImportantDatesRow() }
         if (instructions.isEmpty()) {
             item {
                 Box(

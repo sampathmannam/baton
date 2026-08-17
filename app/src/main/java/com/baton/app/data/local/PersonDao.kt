@@ -64,7 +64,7 @@ interface PersonDao {
     )
 
     /**
-     * v1.1: spec §13 — flip the local-only flag. The sync engine
+     * v1.1: spec §13 - flip the local-only flag. The sync engine
      * filters sensitive rows on the way out, so toggling on for
      * an already-synced row needs a PATCH to the server too
      * (the server should drop the row from its own copy).
@@ -74,4 +74,30 @@ interface PersonDao {
 
     @Query("DELETE FROM persons WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    // v2.0 Tier 2 (§2.1, §2.2, §2.3) ----
+
+    /**
+     * Auto-snooze on activity. Updates `lastInteractionAt` (and
+     * bumps `updatedAt`) on any new capture / instruction / photo
+     * for the person. Idempotent: a no-op if the row's
+     * `lastInteractionAt` is already newer (so calling this from
+     * a tight loop is cheap).
+     */
+    @Query("UPDATE persons SET lastInteractionAt = :nowMs, updatedAt = :updatedAt WHERE id = :personId")
+    suspend fun touch(personId: String, nowMs: Long, updatedAt: String)
+
+    /**
+     * §2.2: change the relationship tier. Used by the
+     * "Cadence chip" picker in PersonDetailScreen.
+     */
+    @Query("UPDATE persons SET tier = :tier, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun setTier(id: String, tier: String, updatedAt: String)
+
+    /**
+     * §2.2: set or clear the per-person cadence override.
+     * Pass `null` to clear and fall back to the tier default.
+     */
+    @Query("UPDATE persons SET cadenceOverrideDays = :days, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun setCadenceOverride(id: String, days: Int?, updatedAt: String)
 }

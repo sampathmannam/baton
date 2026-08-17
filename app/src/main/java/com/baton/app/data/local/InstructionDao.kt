@@ -93,6 +93,58 @@ interface InstructionDao {
         """,
     )
     fun observeStaleByPerson(): Flow<List<PersonStaleAge>>
+
+    // v2.0 Tier 2 (§2.10): worry-box query. Worry rows (urgency
+    // IN ('worry', 'worry_with_date')) that are not in a closed
+    // state. Sort: reviewAtEpochDay ASC (the soonest first), then
+    // updatedAt DESC for tie-breaks.
+    @Query(
+        """
+        SELECT * FROM instructions
+        WHERE urgency IN ('worry', 'worry_with_date')
+          AND status NOT IN ('DONE', 'DROPPED')
+        ORDER BY
+            CASE WHEN reviewAtEpochDay IS NULL THEN 1 ELSE 0 END,
+            reviewAtEpochDay ASC,
+            updatedAt DESC
+        """,
+    )
+    fun observeWorry(): Flow<List<InstructionEntity>>
+
+    /**
+     * v2.0 Tier 2 (§2.10): close the worry loop. Sets the
+     * instruction back to NORMAL urgency and DONE status in a
+     * single statement. Repository still enqueues a sync_queue
+     * UPDATE row.
+     */
+    @Query(
+        """
+        UPDATE instructions
+        SET urgency = 'normal',
+            status = 'DONE',
+            completedAt = :now,
+            updatedAt = :now,
+            syncStatus = :syncStatus
+        WHERE id = :id
+        """,
+    )
+    suspend fun resolveWorry(id: String, now: String, syncStatus: String)
+
+    /**
+     * v2.0 Tier 2 (§2.10): keep the worry (mark as
+     * "still relevant"). Clears reviewAtEpochDay but keeps the
+     * urgency so it stays in the worry box.
+     */
+    @Query(
+        """
+        UPDATE instructions
+        SET reviewAtEpochDay = NULL,
+            updatedAt = :now,
+            syncStatus = :syncStatus
+        WHERE id = :id
+        """,
+    )
+    suspend fun keepWorry(id: String, now: String, syncStatus: String)
 }
 
 /**

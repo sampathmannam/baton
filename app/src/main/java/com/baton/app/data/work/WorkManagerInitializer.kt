@@ -10,6 +10,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Constraints
 import com.baton.app.BatonApplication
+import com.baton.app.data.brief.MorningBriefWorker
 import com.baton.app.data.sync.CaptureSyncWorker
 import java.util.concurrent.TimeUnit
 
@@ -43,6 +44,7 @@ object WorkManagerInitializer {
     private const val ONE_SHOT_NAME = "baton-sync-drain"
     private const val PERIODIC_NAME = "baton-sync-periodic"
     private const val BRIEF_NAME = "baton-daily-brief"
+    private const val MORNING_BRIEF_NAME = "baton-morning-brief"
     private const val PERIODIC_INTERVAL_MIN = 15L
 
     // v1.4.3 (F-09 / F-20 wiring): names for the capture-sync work
@@ -208,4 +210,45 @@ object WorkManagerInitializer {
                     .build(),
             )
             .build()
+
+    /**
+     * v2.0 Tier 2 (§2.6): enqueue the [MorningBriefWorker] as a
+     * one-shot work request with a 2-second initial delay. Used
+     * by the dev / QA "test in < 1 hour" path; the periodic
+     * variant below is the production path.
+     */
+    fun enqueueMorningBriefOneShot(context: Context, delaySec: Long = 2L) {
+        val request = OneTimeWorkRequestBuilder<MorningBriefWorker>()
+            .setInitialDelay(delaySec, TimeUnit.SECONDS)
+            .build()
+        get(context).enqueueUniqueWork(
+            MORNING_BRIEF_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request,
+        )
+    }
+
+    /**
+     * v2.0 Tier 2 (§2.6): the periodic 24-h morning brief.
+     * The initial delay is computed from the current wall-clock
+     * so the first run lands at [hourOfDay]:[minute] local.
+     */
+    fun scheduleMorningBrief(context: Context, hourOfDay: Int = 9, minute: Int = 0) {
+        val now = java.time.Instant.now()
+        val zone = java.time.ZoneId.systemDefault()
+        val target = java.time.LocalDate.now(zone)
+            .atTime(hourOfDay, minute)
+            .atZone(zone)
+            .toInstant()
+        val first = if (target.isAfter(now)) target else target.plus(java.time.Duration.ofDays(1))
+        val initialDelay = java.time.Duration.between(now, first)
+        val request = PeriodicWorkRequestBuilder<MorningBriefWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(initialDelay.toMillis(), TimeUnit.MILLISECONDS)
+            .build()
+        get(context).enqueueUniquePeriodicWork(
+            MORNING_BRIEF_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
 }
