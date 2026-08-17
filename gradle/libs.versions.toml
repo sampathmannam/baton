@@ -31,6 +31,8 @@ ndk = "27.3.13750724"
 llamaCpp = "b4600"
 mlkitTextRecognition = "16.0.1"
 camerax = "1.4.0"
+argon2kt = "1.6.0"
+datastore = "1.1.1"
 
 [libraries]
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
@@ -88,6 +90,8 @@ camerax-camera-core = { module = "androidx.camera:camera-core", version.ref = "c
 camerax-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
 camerax-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 camerax-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+argon2kt = { module = "com.lambdapioneer.argon2kt:argon2kt", version.ref = "argon2kt" }
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

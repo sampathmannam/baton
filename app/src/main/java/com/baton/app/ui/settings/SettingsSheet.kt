@@ -1,5 +1,8 @@
 package com.baton.app.ui.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -26,6 +30,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +53,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
 import com.baton.app.ai.llama.ModelState
+import com.baton.app.data.preferences.ThemeMode
 import com.baton.app.data.tags.Tag
 import com.baton.app.data.tags.TagKind
 import com.baton.app.features.tags.colorForKind
@@ -56,6 +64,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsSheet(
     onDismiss: () -> Unit,
+    onVaultExport: () -> Unit = {},
+    onVaultImport: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -68,11 +78,37 @@ fun SettingsSheet(
     // "Models" section below.
     val llmModelState by viewModel.llmModelState.collectAsStateWithLifecycle()
     val whisperAvailable by viewModel.whisperAvailable.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     // v1.5.1 (VAULT-007): the destructive action (erases ALL local
     // data) used to fire on a single button tap. In vault mode the
     // user has no cloud backup, so a stray tap means losing every
     // note forever. Require an explicit confirmation.
     var showEraseConfirmation by remember { mutableStateOf(false) }
+    var plainExportError by remember { mutableStateOf<String?>(null) }
+    var plainExportOk by remember { mutableStateOf(false) }
+
+    val csvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val r = viewModel.exportPlain(uri, "text/csv")
+                if (r.isSuccess) { plainExportOk = true; plainExportError = null }
+                else { plainExportError = r.exceptionOrNull()?.message }
+            }
+        }
+    }
+    val jsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val r = viewModel.exportPlain(uri, "application/json")
+                if (r.isSuccess) { plainExportOk = true; plainExportError = null }
+                else { plainExportError = r.exceptionOrNull()?.message }
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -133,6 +169,108 @@ fun SettingsSheet(
                 available = whisperAvailable,
                 onDownload = viewModel::downloadWhisper,
             )
+            Spacer(Modifier.height(8.dp))
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+
+            // v2.0 (Tier 1.4): the theme switcher. A segmented
+            // button row that maps `ThemeMode` to the user's
+            // choice (System / Light / Dark). The selection
+            // persists via [BatonPreferences.setThemeMode] and
+            // the root composable observes the same flow.
+            Text(
+                text = stringResource(R.string.settings_theme),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            ThemeRow(
+                current = themeMode,
+                onChange = viewModel::setThemeMode,
+            )
+            Spacer(Modifier.height(8.dp))
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+
+            // v2.0 (Tier 1.1 + 1.7): the Data section. Three
+            // rows: Export encrypted vault (opens a sheet that
+            // collects a passphrase), Import encrypted vault
+            // (opens a sheet that collects a passphrase + the
+            // file), and Export as CSV or JSON (uses a SAF
+            // CreateDocument with custom MIME).
+            Text(
+                text = stringResource(R.string.settings_section_data),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Button(
+                onClick = onVaultExport,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_vault_export))
+            }
+            Button(
+                onClick = onVaultImport,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_vault_import))
+            }
+            Text(
+                text = stringResource(R.string.settings_plain_export),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = {
+                        plainExportError = null
+                        plainExportOk = false
+                        csvLauncher.launch("baton-${ts()}.csv")
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
+                ) {
+                    Text(stringResource(R.string.plain_export_csv))
+                }
+                Button(
+                    onClick = {
+                        plainExportError = null
+                        plainExportOk = false
+                        jsonLauncher.launch("baton-${ts()}.json")
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
+                ) {
+                    Text(stringResource(R.string.plain_export_json))
+                }
+            }
+            if (plainExportOk) {
+                Text(
+                    text = stringResource(R.string.plain_export_success),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (plainExportError != null) {
+                Text(
+                    text = stringResource(R.string.plain_export_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(8.dp))
 
             HorizontalDivider(
@@ -248,6 +386,44 @@ fun SettingsSheet(
         )
     }
 }
+
+/**
+ * v2.0 (Tier 1.4): a SegmentedButton row for the theme
+ * switcher. The default position is `System` (the device
+ * setting), and the user can pick `Light` / `Dark` to
+ * override. The choice persists in DataStore and the root
+ * composable reads the same flow to apply the theme.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemeRow(
+    current: ThemeMode,
+    onChange: (ThemeMode) -> Unit,
+) {
+    val options = ThemeMode.entries
+    SingleChoiceSegmentedButtonRow {
+        options.forEachIndexed { i, mode ->
+            SegmentedButton(
+                selected = current == mode,
+                onClick = { onChange(mode) },
+                shape = SegmentedButtonDefaults.itemShape(i, options.size),
+                label = {
+                    Text(
+                        text = when (mode) {
+                            ThemeMode.System -> stringResource(R.string.theme_system)
+                            ThemeMode.Light -> stringResource(R.string.theme_light)
+                            ThemeMode.Dark -> stringResource(R.string.theme_dark)
+                        },
+                    )
+                },
+            )
+        }
+    }
+}
+
+private fun ts(): String =
+    java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+        .format(java.util.Date())
 
 @Composable
 private fun StuckOutboxCard(

@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import com.baton.app.data.local.entities.AppStateEntity
 import com.baton.app.data.local.entities.CaptureEntity
 import com.baton.app.data.local.entities.InstructionEntity
+import com.baton.app.data.local.entities.InstructionFtsEntity
 import com.baton.app.data.local.entities.InstructionTagCrossRef
 import com.baton.app.data.local.entities.NudgeDraftEntity
 import com.baton.app.data.local.entities.PersonEntity
@@ -54,6 +55,12 @@ import com.baton.app.data.local.entities.TagEntity
  * because the server side just overwrites). Collapsing to a
  * single row on upgrade is the right cleanup.
  *
+ * v10 -> v11 (Tier 1.3 + Tier 1.5) is also non-destructive:
+ *   - ALTER TABLE instructions ADD COLUMN nextActionAt INTEGER
+ *   - CREATE VIRTUAL TABLE instructions_fts USING fts4(body, ...)
+ *     content="instructions", tokenize="porter"
+ *   - INSERT the FTS rows from existing instructions (title+rawText)
+ *
  * v3 -> v4 -> v5 -> v6 -> v7 -> v8 are all `fallbackToDestructiveMigration`
  * transitions — the local cache is reconstructible from Supabase on
  * the next refresh, and there were no PENDING writes to lose
@@ -75,8 +82,9 @@ import com.baton.app.data.local.entities.TagEntity
         InstructionTagCrossRef::class,
         AppStateEntity::class,
         NudgeDraftEntity::class,
+        InstructionFtsEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -89,6 +97,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun instructionTagDao(): InstructionTagDao
     abstract fun appDao(): AppDao
     abstract fun nudgeDraftDao(): NudgeDraftDao
+    abstract fun instructionFtsDao(): InstructionFtsDao
 
     companion object {
         const val NAME = "baton.db"
@@ -133,6 +142,41 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE UNIQUE INDEX IF NOT EXISTS " +
                         "`index_sync_queue_op_table_rowId` " +
                         "ON sync_queue (`op`, `table`, rowId)",
+                )
+            }
+        }
+
+        /**
+         * v2.0 (Tier 1.3 + Tier 1.5): add the `nextActionAt`
+         * column to `instructions` and create the FTS4 table
+         * that backs full-text search.
+         *
+         * We use a "free" FTS4 entity (no `contentEntity`),
+         * so the migration must declare the FTS columns
+         * directly and seed from the existing `instructions`
+         * rows. The [InstructionRepository] keeps the FTS
+         * rows in lock-step on every write.
+         */
+        val MIGRATION_10_11: Migration = object : Migration(10, 11) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Tier 1.5: scheduled next action (epoch millis).
+                db.execSQL("ALTER TABLE instructions ADD COLUMN nextActionAt INTEGER")
+                // Tier 1.3: free FTS4 table. The columns mirror
+                // what the [InstructionFtsEntity] declares.
+                db.execSQL(
+                    "CREATE VIRTUAL TABLE IF NOT EXISTS `instructions_fts` USING fts4(" +
+                        "`title` TEXT, " +
+                        "`rawText` TEXT, " +
+                        "`personId` TEXT, " +
+                        "`capturedAt` TEXT, " +
+                        "tokenize=`porter`" +
+                        ")",
+                )
+                // Seed from the current `instructions` rows.
+                db.execSQL(
+                    "INSERT INTO `instructions_fts` (rowid, title, rawText, personId, capturedAt) " +
+                        "SELECT rowid, COALESCE(title, ''), COALESCE(rawText, ''), personId, capturedAt " +
+                        "FROM `instructions`",
                 )
             }
         }

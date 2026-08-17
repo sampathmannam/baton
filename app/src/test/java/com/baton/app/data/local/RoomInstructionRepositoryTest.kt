@@ -38,6 +38,7 @@ class RoomInstructionRepositoryTest {
 
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
             dao = dao,
+            ftsDao = mockk(relaxed = true),
             syncQueueDao = mockk(relaxed = true),
             syncEngine = mockk(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
@@ -67,6 +68,7 @@ class RoomInstructionRepositoryTest {
 
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
             dao = dao,
+            ftsDao = mockk(relaxed = true),
             syncQueueDao = mockk(relaxed = true),
             syncEngine = mockk(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
@@ -90,6 +92,7 @@ class RoomInstructionRepositoryTest {
         val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
             dao = dao,
+            ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
             syncEngine = syncEngine,
             appScope = kotlinx.coroutines.GlobalScope,
@@ -125,6 +128,7 @@ class RoomInstructionRepositoryTest {
         val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
             dao = dao,
+            ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
             syncEngine = syncEngine,
             appScope = kotlinx.coroutines.GlobalScope,
@@ -155,6 +159,7 @@ class RoomInstructionRepositoryTest {
         val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
             dao = dao,
+            ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
             syncEngine = syncEngine,
             appScope = kotlinx.coroutines.GlobalScope,
