@@ -12,6 +12,12 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+/**
+ * Tier 1.4 (v2.0): the light scheme was a placeholder
+ * (BatonColors.Background) before this commit. The calm
+ * palette (the same tokens the dark scheme uses) now backs
+ * the light scheme too. No red anywhere.
+ */
 private val BatonLightScheme = lightColorScheme(
     primary = BatonColors.Primary,
     onPrimary = BatonColors.OnPrimary,
@@ -38,6 +44,14 @@ private val BatonDarkScheme = darkColorScheme(
     outlineVariant = Color(0xFF2F2A23),
 )
 
+/**
+ * Tier 1.4 (v2.0): the theme now accepts an explicit
+ * [darkTheme] override. The root composable (MainActivity)
+ * computes `useDark = themeViewModel.mode == Dark` (or
+ * `themeViewModel.mode == System && isSystemInDarkTheme()`)
+ * and passes the result here, so the swap is immediate
+ * without an app restart.
+ */
 @Composable
 fun BatonTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

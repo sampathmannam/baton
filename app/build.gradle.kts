@@ -285,6 +285,11 @@ dependencies {
     // BatonCaptureWidget.
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
+    // Tier 1.1 (v2.0): vault backup KDF.
+    implementation(libs.argon2kt)
+    // Tier 1.4 (v2.0): DataStore for the theme switcher + 1.2
+    // onboarding flag.
+    implementation(libs.datastore.preferences)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)

@@ -1,6 +1,7 @@
 package com.baton.app.ui.settings
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.BuildConfig
@@ -9,11 +10,14 @@ import com.baton.app.ai.llama.ModelState
 import com.baton.app.ai.whisper.WhisperModelManager
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppDatabase
+import com.baton.app.data.export.PlainExporter
 import com.baton.app.data.local.AppInitializer
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
 import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.local.TagDao
+import com.baton.app.data.preferences.BatonPreferences
+import com.baton.app.data.preferences.ThemeMode
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import com.baton.app.data.tags.Tag
@@ -80,6 +84,12 @@ class SettingsViewModel @Inject constructor(
     // is computed off the main thread (see
     // [computeStorageSizeBytes]) and refreshed whenever the user
     // adds a person, instruction, or capture.
+    // v2.0 (Tier 1.1 + 1.4 + 1.7): theme + plain export
+    // surfaces. The theme is a DataStore-backed flow exposed
+    // by [BatonPreferences]. The plain export uses
+    // [PlainExporter] to dump the DB to CSV / JSON.
+    private val preferences: BatonPreferences,
+    private val plainExporter: PlainExporter,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -264,6 +274,45 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { tagRepository.findOrCreateFree(clean) }
         }
+    }
+
+    /**
+     * v2.0 (Tier 1.4): expose the theme mode as a
+     * [StateFlow]. The Settings sheet renders a segmented
+     * button that mirrors the value. The
+     * [BatonPreferences.setThemeMode] call persists to
+     * DataStore; the root composable reads the same flow so
+     * the swap is immediate.
+     */
+    val themeMode: StateFlow<ThemeMode> = preferences.themeMode
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ThemeMode.System,
+        )
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { preferences.setThemeMode(mode) }
+    }
+
+    /**
+     * v2.0 (Tier 1.7): export the DB as CSV or JSON to the
+     * given SAF URI. The MIME type decides the format:
+     *   - `text/csv`  → CSV with UTF-8 BOM
+     *   - `application/json` → JSON
+     * Other MIME types fall through to JSON. The call
+     * returns `Result<Unit>` so the sheet can show a
+     * user-friendly error if the write fails.
+     */
+    suspend fun exportPlain(uri: Uri, mime: String?): Result<Unit> = runCatching {
+        val snap = plainExporter.snapshot()
+        val bytes = when (mime) {
+            "text/csv" -> plainExporter.toCsv(snap).toByteArray(Charsets.UTF_8)
+            else -> plainExporter.toJson(snap).toByteArray(Charsets.UTF_8)
+        }
+        val out = appContext.contentResolver.openOutputStream(uri, "wt")
+            ?: error("Could not open output")
+        out.use { it.write(bytes) }
     }
 
     /**

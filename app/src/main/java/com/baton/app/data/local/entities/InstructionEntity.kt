@@ -14,6 +14,10 @@ import androidx.room.PrimaryKey
  * had these columns from M0; the Room mirror only just learned to
  * read/write them. The repository sets `completedAt = now()` on
  * markDone and `droppedReason` on markDropped.
+ *
+ * v2.0 (Tier 1.5): added `nextActionAt: Long?` for the date
+ * picker on each instruction. Optional; the user can leave it
+ * blank. `null` = "no scheduled next action".
  */
 @Entity(
     tableName = "instructions",
@@ -46,4 +50,6 @@ data class InstructionEntity(
     // v1.1: lifecycle fields. Set by mark-done / mark-drop.
     val completedAt: String? = null,
     val droppedReason: String? = null,
+    // v2.0 (Tier 1.5): optional scheduled next action (epoch millis).
+    val nextActionAt: Long? = null,
 )
