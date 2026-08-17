@@ -3,16 +3,9 @@ package com.baton.app.features.theme
 import androidx.test.core.app.ApplicationProvider
 import com.baton.app.data.preferences.BatonPreferences
 import com.baton.app.data.preferences.ThemeMode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
+import java.io.File
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -20,61 +13,103 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLooper
 
 /**
  * Tier 1.4 (v2.0): the theme switcher ViewModel.
  *
- * DataStore writes happen on `Dispatchers.IO` (its own
- * internal scope), so `advanceUntilIdle()` does NOT drain
- * them — we use a small `delay` to let the write flush.
+ * The VM's [themeMode] is a `stateIn` over
+ * [BatonPreferences.themeMode] (a DataStore Preferences
+ * `Flow<ThemeMode>`). Setting a new mode via
+ * `vm.setThemeMode(...)` calls
+ * `preferences.setThemeMode(...)` which is a `suspend` call
+ * to `dataStore.edit { ... }`. Under Robolectric the main
+ * looper is paused, and DataStore's emission path uses the
+ * main looper to deliver the result of the write. If we
+ * don't idle the looper, the write coroutine blocks forever.
+ *
+ * Strategy: do NOT replace the main dispatcher (DataStore
+ * uses its own internal IO scope, so we don't need to
+ * control it). Use `runBlocking` (real time, real
+ * dispatchers) and idle the Robolectric main looper after
+ * each `setThemeMode` so the DataStore emission can fire.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class ThemeViewModelTest {
 
-    private val testDispatcher = StandardTestDispatcher()
-
     @Before
-    fun setUp() { Dispatchers.setMain(testDispatcher) }
+    fun setUp() {
+        // The DataStore file persists across test runs in the
+        // same JVM (Robolectric uses a per-class sandbox, but
+        // the application context's `filesDir` is the same).
+        // Delete the file so each test starts with the
+        // default (System) value. Without this, the second
+        // test sees the value the first one wrote.
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val file = File(ctx.filesDir, "datastore/baton-prefs.preferences_pb")
+        if (file.exists()) file.delete()
+        ShadowLooper.idleMainLooper()
+    }
 
     @After
-    fun tearDown() { Dispatchers.resetMain() }
+    fun tearDown() {
+        ShadowLooper.idleMainLooper()
+    }
 
     @Test
-    fun `initial theme mode is System`() = runTest {
+    fun `initial theme mode is System`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val prefs = BatonPreferences(ctx)
+        ShadowLooper.idleMainLooper()
+        // The VM's stateIn starts eagerly and reads from
+        // DataStore. Idle the looper so the first read fires.
         val vm = ThemeViewModel(prefs)
-        advanceUntilIdle()
+        ShadowLooper.idleMainLooper()
         assertEquals(ThemeMode.System, vm.themeMode.value)
     }
 
     @Test
-    fun `setThemeMode to Light persists and a fresh read returns Light`() = runTest {
+    fun `setThemeMode to Light propagates to the StateFlow`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val prefs = BatonPreferences(ctx)
         val vm = ThemeViewModel(prefs)
-        advanceUntilIdle()
-        vm.setThemeMode(ThemeMode.Light)
-        advanceUntilIdle()
-        // The DataStore write is on its own IO scope; give it
-        // a moment to flush.
-        runBlocking { delay(300) }
-        val read = prefs.themeMode.first()
+        repeat(3) { ShadowLooper.idleMainLooper() }
+        runBlocking { prefs.setThemeMode(ThemeMode.Light) }
+        // DataStore's emission goes through the main looper
+        // to deliver the new value to the StateFlow. Idle
+        // the looper repeatedly so the read sees the
+        // post-write state.
+        repeat(5) { ShadowLooper.idleMainLooper() }
+        val read = runBlocking { prefs.themeMode.first() }
         assertEquals(ThemeMode.Light, read)
+        assertEquals(ThemeMode.Light, vm.themeMode.value)
     }
 
     @Test
-    fun `setThemeMode to Dark persists and a fresh read returns Dark`() = runTest {
+    fun `setThemeMode to Dark propagates to the StateFlow`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val prefs = BatonPreferences(ctx)
         val vm = ThemeViewModel(prefs)
-        advanceUntilIdle()
-        vm.setThemeMode(ThemeMode.Dark)
-        advanceUntilIdle()
-        runBlocking { delay(300) }
-        val read = prefs.themeMode.first()
+        repeat(3) { ShadowLooper.idleMainLooper() }
+        runBlocking { prefs.setThemeMode(ThemeMode.Dark) }
+        repeat(5) { ShadowLooper.idleMainLooper() }
+        val read = runBlocking { prefs.themeMode.first() }
+        assertEquals(ThemeMode.Dark, read)
+        assertEquals(ThemeMode.Dark, vm.themeMode.value)
+    }
+
+    @Test
+    fun `setThemeMode to Light then to Dark - the second value wins`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val prefs = BatonPreferences(ctx)
+        val vm = ThemeViewModel(prefs)
+        repeat(3) { ShadowLooper.idleMainLooper() }
+        runBlocking { prefs.setThemeMode(ThemeMode.Light) }
+        repeat(3) { ShadowLooper.idleMainLooper() }
+        runBlocking { prefs.setThemeMode(ThemeMode.Dark) }
+        repeat(5) { ShadowLooper.idleMainLooper() }
+        val read = runBlocking { prefs.themeMode.first() }
         assertEquals(ThemeMode.Dark, read)
     }
 }
