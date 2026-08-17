@@ -3,6 +3,9 @@ package com.baton.app.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.BuildConfig
+import com.baton.app.ai.llama.ModelManager
+import com.baton.app.ai.llama.ModelState
+import com.baton.app.ai.whisper.WhisperModelManager
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.local.AppInitializer
 import com.baton.app.data.local.InstructionDao
@@ -51,6 +54,18 @@ class SettingsViewModel @Inject constructor(
     private val personDao: PersonDao,
     private val instructionDao: InstructionDao,
     private val tagDao: TagDao,
+    // v1.5.4: model download surfaces. The Settings → Models
+    // section observes the LLM's [ModelManager.state] (the
+    // hot `StateFlow` of [ModelState]) and the Whisper model's
+    // simple `isAvailable()` boolean (downloaded + SHA-verified
+    // against the bundled `whisper_sha256.txt`). Tapping a
+    // download button in the section calls [downloadLlm] /
+    // [downloadWhisper], which are thin wrappers around the
+    // managers. Both flows live in the app process — no
+    // WorkManager is needed; the user is staring at the
+    // progress bar.
+    private val modelManager: ModelManager,
+    private val whisperModelManager: WhisperModelManager,
 ) : ViewModel() {
 
     private val _signingOut = MutableStateFlow(false)
@@ -117,6 +132,68 @@ class SettingsViewModel @Inject constructor(
         name = BuildConfig.VERSION_NAME,
         code = BuildConfig.VERSION_CODE,
     )
+
+    /**
+     * v1.5.4: the on-device LLM model state. Surfaced in the
+     * Settings → Models section. Re-exposes the manager's
+     * process-wide hot flow so the UI can render the
+     * "Download" / "Downloading 47%" / "Ready" / "Retry"
+     * transitions.
+     */
+    val llmModelState: StateFlow<ModelState> = modelManager.state
+
+    /**
+     * v1.5.4: the Whisper model availability. The M2-T3
+     * implementation doesn't yet have a stateful
+     * `StateFlow<WhisperModelState>` analogue (it's a
+     * one-shot `Flow<DownloadProgress>` consumed by the
+     * service). The Settings UX only needs a boolean —
+     * "is the file on disk and SHA-verified". We hold
+     * that in a [MutableStateFlow] and bump it to `true`
+     * when [downloadWhisper] finishes, and `false`
+     * initially if the file is missing. A more robust
+     * implementation would use a [FileObserver] or a
+     * polling ticker; that's out of scope for v1.5.4
+     * because the user is staring at the Settings sheet
+     * when they tap "Download voice model" — they can
+     * close + reopen to refresh if the spinner lingers.
+     */
+    private val _whisperAvailable = MutableStateFlow(whisperModelManager.isAvailable())
+    val whisperAvailable: StateFlow<Boolean> = _whisperAvailable.asStateFlow()
+
+    /**
+     * v1.5.4: kick off the LLM download. Idempotent (the
+     * underlying [ModelManager.download] returns early if the
+     * model is already ready or a download is in flight).
+     */
+    fun downloadLlm() {
+        modelManager.ensureModel()
+        modelManager.download()
+    }
+
+    /**
+     * v1.5.4: kick off the Whisper download. Same idempotent
+     * contract as [downloadLlm]. The M2-T3 manager exposes
+     * `downloadModel()` as a one-shot `Flow<DownloadProgress>`
+     * consumed inside the manager's own scope — for Settings
+     * UX we just need a single fire-and-forget invocation; the
+     * UI shows a brief "Downloading…" line and the
+     * [whisperAvailable] flow flips to `true` when the file
+     * is on disk and verified.
+     */
+    fun downloadWhisper() {
+        viewModelScope.launch {
+            runCatching {
+                whisperModelManager.downloadModel().collect { /* progress */ }
+            }
+            // Recompute after the flow terminates — the model
+            // file is now either on disk (and SHA-verified) or
+            // the flow threw. `isAvailable()` does the file
+            // existence + SHA check, so the boolean accurately
+            // reflects the post-download state.
+            _whisperAvailable.value = whisperModelManager.isAvailable()
+        }
+    }
 
     fun signOut() {
         if (_signingOut.value) return

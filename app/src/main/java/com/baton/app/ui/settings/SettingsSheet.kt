@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
+import com.baton.app.ai.llama.ModelState
 import com.baton.app.data.tags.Tag
 import com.baton.app.data.tags.TagKind
 import com.baton.app.features.tags.colorForKind
@@ -63,6 +64,10 @@ fun SettingsSheet(
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
     val appVersion = viewModel.appVersion
+    // v1.5.4: model download states surface in the new
+    // "Models" section below.
+    val llmModelState by viewModel.llmModelState.collectAsStateWithLifecycle()
+    val whisperAvailable by viewModel.whisperAvailable.collectAsStateWithLifecycle()
     // v1.5.1 (VAULT-007): the destructive action (erases ALL local
     // data) used to fire on a single button tap. In vault mode the
     // user has no cloud backup, so a stray tap means losing every
@@ -96,6 +101,39 @@ fun SettingsSheet(
                     onRetry = viewModel::retryStuckOutbox,
                 )
             }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+
+            // v1.5.4: the Models section. Two rows — one for the
+            // on-device LLM (drives Extract), one for the Whisper
+            // voice model (drives the voice button). Each row
+            // surfaces a state-specific affordance: "Download"
+            // when not yet fetched, "Downloading 47%" while the
+            // bytes flow, "Ready" once the file is on disk and
+            // verified. The user can also reach this surface from
+            // the inline "Model not downloaded" card in the
+            // capture sheet — both entry points call the same
+            // [downloadLlm] / [downloadWhisper] VM methods so the
+            // state stays in sync.
+            Text(
+                text = stringResource(R.string.settings_section_models),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            ModelRow(
+                label = stringResource(R.string.settings_model_llm),
+                state = llmModelState,
+                onDownload = viewModel::downloadLlm,
+            )
+            WhisperModelRow(
+                label = stringResource(R.string.settings_model_whisper),
+                available = whisperAvailable,
+                onDownload = viewModel::downloadWhisper,
+            )
+            Spacer(Modifier.height(8.dp))
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
@@ -391,5 +429,126 @@ private fun AboutRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+    }
+}
+
+/**
+ * v1.5.4: a single "label : state + action" row in the
+ * Models section. The LLM model is the one Extract uses; its
+ * lifecycle is driven by [ModelState] (the same flow the
+ * CaptureSheet's `ModelNotReadyCard` reads). When the model
+ * is [ModelState.Ready] the row is read-only (no button);
+ * otherwise the row shows the appropriate "Download" /
+ * progress / "Retry" affordance. The button uses
+ * `surfaceVariant` (a quiet grey) for the secondary "Download"
+ * action — the no-red rule means we don't use a coloured
+ * progress colour even for "downloading" state; the
+ * `LinearProgressIndicator` is left in its default M3 tint
+ * which is a primary-ish blue (not red).
+ */
+@Composable
+private fun ModelRow(
+    label: String,
+    state: ModelState,
+    onDownload: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            when (state) {
+                is ModelState.NotStarted -> Text(
+                    text = stringResource(R.string.settings_model_not_downloaded),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                is ModelState.Downloading -> {
+                    val percent = (state.progress.coerceIn(0f, 1f) * 100).toInt()
+                    Text(
+                        text = stringResource(R.string.settings_model_downloading, percent),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                is ModelState.Ready -> Text(
+                    text = stringResource(
+                        R.string.settings_model_ready,
+                        state.sizeBytes / (1024L * 1024L),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                is ModelState.Failed -> Text(
+                    text = state.reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (state !is ModelState.Ready && state !is ModelState.Downloading) {
+            Spacer(Modifier.size(8.dp))
+            TextButton(onClick = onDownload) {
+                Text(
+                    text = if (state is ModelState.Failed) {
+                        stringResource(R.string.model_download_retry)
+                    } else {
+                        stringResource(R.string.model_download_button)
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * v1.5.4: the Whisper (voice) model row. The state is
+ * binary — `available` is `true` once the file is on disk
+ * and SHA-verified. While downloading we show "Downloading…"
+ * but no progress bar (the underlying `WhisperModelManager`
+ * doesn't yet emit progress to a StateFlow). Tap the
+ * "Download" button to fetch the model.
+ */
+@Composable
+private fun WhisperModelRow(
+    label: String,
+    available: Boolean,
+    onDownload: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = if (available) {
+                    stringResource(R.string.settings_model_ready_short)
+                } else {
+                    stringResource(R.string.settings_model_not_downloaded)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (!available) {
+            Spacer(Modifier.size(8.dp))
+            TextButton(onClick = onDownload) {
+                Text(stringResource(R.string.settings_model_download_short))
+            }
+        }
     }
 }

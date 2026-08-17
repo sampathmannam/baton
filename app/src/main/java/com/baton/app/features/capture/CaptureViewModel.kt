@@ -7,6 +7,8 @@ import android.os.ResultReceiver
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.baton.app.ai.llama.ModelManager
+import com.baton.app.ai.llama.ModelState
 import com.baton.app.data.captures.CaptureMode
 import com.baton.app.data.captures.CaptureRepository
 import com.baton.app.data.instructions.InstructionRepository
@@ -47,7 +49,38 @@ class CaptureViewModel @Inject constructor(
     private val personRepository: PersonRepository,
     private val instructionRepository: InstructionRepository,
     private val tagRepository: RoomTagRepository,
+    // v1.5.4: model lifecycle. The CaptureSheet's
+    // `ModelNotReadyCard` collects [modelState] to render the
+    // "Model not downloaded" affordance, and [downloadModel] is
+    // the button-tap handler. [ModelManager] is hot + process-
+    // wide; injecting it directly is cheaper than threading the
+    // [Extractor] state through.
+    private val modelManager: ModelManager,
 ) : ViewModel() {
+
+    /**
+     * v1.5.4: the live model state. The CaptureSheet's
+     * `ModelNotReadyCard` subscribes to this and renders the
+     * appropriate affordance per [ModelState] variant
+     * (NotStarted → "Download model" button, Downloading →
+     * progress bar, Ready → card is hidden, Failed → "Retry"
+     * button). Re-exposed as a [StateFlow] so the UI can collect
+     * it via `collectAsStateWithLifecycle`.
+     */
+    val modelState: StateFlow<ModelState> = modelManager.state
+
+    /**
+     * v1.5.4: kick off the model download. Idempotent — calling
+     * this while a download is in flight is a no-op
+     * ([ModelManager.download] guards with a state check). The
+     * UI fires this from the "Download model" button in the
+     * CaptureSheet; the same call works for the Settings →
+     * Models entry point.
+     */
+    fun downloadModel() {
+        modelManager.ensureModel()
+        modelManager.download()
+    }
 
     /**
      * v1.4 (F-09): initial state is read from [SavedStateHandle] so
@@ -271,6 +304,18 @@ class CaptureViewModel @Inject constructor(
         if (!_state.value.isVisible) {
             _state.update { it.copy(isVisible = true) }
         }
+    }
+
+    /**
+     * v1.5.4: surface a photo-capture error (e.g. CAMERA perm
+     * denied, OCR threw) as an inline message on the capture
+     * sheet. Used by the HomeScreen's camera-permission flow
+     * when the user declines the runtime perm — without this
+     * the v1.3 path silently dropped the click and the user
+     * had no idea why the camera never opened.
+     */
+    fun onPhotoError(message: String) {
+        _state.update { it.copy(error = "Photo: $message", isVisible = true) }
     }
 
     /**

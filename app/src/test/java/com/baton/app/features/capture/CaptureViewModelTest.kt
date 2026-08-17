@@ -33,6 +33,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import io.mockk.mockk
 
 /**
  * Unit tests for the M1 capture state machine. M1-T4 wired the
@@ -237,6 +238,13 @@ class CaptureViewModelTest {
         ins: FakeInstructionRepository,
         tags: RoomTagRepository = fakeTagRepo(),
         savedStateHandle: androidx.lifecycle.SavedStateHandle = androidx.lifecycle.SavedStateHandle(),
+        // v1.5.4: a fake ModelManager so the v1.5.4 capture
+        // sheet's "Model not downloaded" surface doesn't
+        // // reach into the real OkHttp / model file. The
+        // test files don't exercise the download trigger
+        // (that's a Compose-level test, not a VM test), so
+        // a relaxed mock is fine.
+        modelManager: com.baton.app.ai.llama.ModelManager = mockk(relaxed = true),
     ): CaptureViewModel = CaptureViewModel(
         savedStateHandle = savedStateHandle,
         processor = processor,
@@ -244,6 +252,7 @@ class CaptureViewModelTest {
         personRepository = person,
         instructionRepository = ins,
         tagRepository = tags,
+        modelManager = modelManager,
     )
 
     @Test
