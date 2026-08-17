@@ -71,6 +71,8 @@ import com.baton.app.features.vault.VaultImportSheet
 import com.baton.app.ui.auth.AuthScreen
 import com.baton.app.ui.components.OfflineIndicator
 import com.baton.app.ui.home.HomeScreen
+import com.baton.app.ui.privacy.RecoveryPhraseScreen
+import com.baton.app.ui.privacy.ThreatModelScreen
 import com.baton.app.ui.settings.SettingsSheet
 import com.baton.app.ui.theme.BatonTheme
 import com.baton.app.ui.today.TodayScreen
@@ -349,6 +351,22 @@ private fun MainScaffold(
                         onOpenLinkedPerson = { id -> navController.navigate("person/$id") },
                     )
                 }
+                // v2.0 T3-2: recovery phrase screen. Reachable
+                // from Settings → Privacy → Recovery phrase.
+                // The screen manages its own FLAG_SECURE flag
+                // via [com.baton.app.ui.privacy.FlagSecureEffect].
+                composable(Routes.RECOVERY_PHRASE) {
+                    RecoveryPhraseScreen(
+                        onClose = { navController.popBackStack() },
+                    )
+                }
+                // v2.0 T3-3: threat model screen. Reachable
+                // from Settings → Privacy → Threat model.
+                composable(Routes.THREAT_MODEL) {
+                    ThreatModelScreen(
+                        onClose = { navController.popBackStack() },
+                    )
+                }
             }
             OfflineIndicator(
                 isOnline = isOnline,
@@ -377,6 +395,14 @@ private fun MainScaffold(
         VaultImportSheet(
             onDismiss = { showVaultImport = false },
             onImported = { showVaultImport = false },
+            onOpenRecoveryPhrase = {
+                showSettings = false
+                navController.navigate(Routes.RECOVERY_PHRASE)
+            },
+            onOpenThreatModel = {
+                showSettings = false
+                navController.navigate(Routes.THREAT_MODEL)
+            },
         )
     }
 }
@@ -469,6 +495,15 @@ object Routes {
     const val HOME = "home"
     const val TODAY = "today"
     const val PERSON = "person/{personId}"
+    // v2.0 T3-2 + T3-3: the recovery phrase and threat model
+    // screens. They are reachable from Settings → Privacy
+    // (the Settings bottom sheet) but live as separate
+    // nav destinations so they have their own
+    // `Scaffold + TopAppBar` and the FLAG_SECURE
+    // DisposableEffect in [RecoveryPhraseScreen] can scope
+    // itself to the right window.
+    const val RECOVERY_PHRASE = "privacy/recovery-phrase"
+    const val THREAT_MODEL = "privacy/threat-model"
     fun person(id: String) = "person/$id"
 }
 

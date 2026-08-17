@@ -22,6 +22,32 @@ interface PersonDao {
     @Query("SELECT * FROM persons ORDER BY name COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<PersonEntity>>
 
+    /**
+     * v2.0 T3-1 (deniable vault): the HomeViewModel observes
+     * `persons WHERE vaultMode = :mode` so the list shows only
+     * the rows the user has access to in the current mode. The
+     * `vaultMode` column is indexed (see PersonEntity @Index).
+     */
+    @Query("SELECT * FROM persons WHERE vaultMode = :mode ORDER BY name COLLATE NOCASE ASC")
+    fun observeAllInMode(mode: String): Flow<List<PersonEntity>>
+
+    /**
+     * v2.0 T3-1: count of persons in the OTHER mode (so the
+     * HomeScreen can render an "X items in vault" affordance
+     * when the user is in visible mode and there are hidden
+     * rows; in hidden mode the same affordance is suppressed).
+     */
+    @Query("SELECT COUNT(*) FROM persons WHERE vaultMode = :mode")
+    fun observeCountInMode(mode: String): Flow<Int>
+
+    /**
+     * v2.0 T3-1: flip a single person's vault mode. The repository
+     * also updates the person's instructions (and propagates the
+     * sync outbox) so the rest of the UI doesn't see orphan rows.
+     */
+    @Query("UPDATE persons SET vaultMode = :mode, updatedAt = :updatedAt, syncStatus = :status WHERE id = :id")
+    suspend fun setVaultMode(id: String, mode: String, updatedAt: String, status: String)
+
     @Query("SELECT * FROM persons WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): PersonEntity?
 

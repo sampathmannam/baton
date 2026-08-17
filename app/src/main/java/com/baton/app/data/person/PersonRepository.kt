@@ -11,6 +11,16 @@ interface PersonRepository {
      */
     fun observeAll(): Flow<List<Person>>
 
+    /**
+     * v2.0 T3-1 (deniable vault): same as [observeAll] but
+     * filtered by the `vaultMode` column. The HomeViewModel
+     * picks the mode from [com.baton.app.data.vault.VaultModeHolder]
+     * and `flatMapLatest`s off it so a mode switch re-queries
+     * the DAO. The list still goes through the domain mapper
+     * (so callers see [Person] rows, not [PersonEntity]).
+     */
+    fun observeAllInMode(mode: String): Flow<List<Person>>
+
     suspend fun create(
         name: String,
         designation: String?,
