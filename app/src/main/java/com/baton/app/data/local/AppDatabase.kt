@@ -35,6 +35,10 @@ import com.baton.app.data.local.entities.TagEntity
  *         (DATA-FINDING-04: dedup the outbox so a double-tap of
  *         `markDone` doesn't enqueue two UPDATE rows for the
  *         same instruction)
+ *  - v11 v2.0 T3-1 added `vaultMode` to `persons` and
+ *         `instructions` (deniable vault). Default `'visible'`;
+ *         existing rows are backfilled with the default so no
+ *         data is hidden on upgrade.
  *
  * v8 -> v9 is the first non-destructive migration in the project:
  * `ALTER TABLE sync_queue ADD COLUMN nextAttemptAt INTEGER NOT NULL
@@ -54,15 +58,22 @@ import com.baton.app.data.local.entities.TagEntity
  * because the server side just overwrites). Collapsing to a
  * single row on upgrade is the right cleanup.
  *
+ * v10 -> v11 (T3-1) is also non-destructive:
+ * `ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT
+ * 'visible'` and the matching ALTER on `instructions` plus two
+ * CREATE INDEX statements. The DEFAULT backfill means existing
+ * rows are NOT silently hidden on upgrade — the user opts in
+ * by switching the global vault mode in Settings.
+ *
  * v3 -> v4 -> v5 -> v6 -> v7 -> v8 are all `fallbackToDestructiveMigration`
- * transitions — the local cache is reconstructible from Supabase on
+ * transitions - the local cache is reconstructible from Supabase on
  * the next refresh, and there were no PENDING writes to lose
  * (M2-T6 + M3-T1 wipe before the outbox was in production use).
  *
  * **Encryption:** the database is opened via SQLCipher (see
  * [com.baton.app.di.DatabaseModule]); the key is held in
  * `EncryptedSharedPreferences`. The on-disk file is unreadable
- * without it — important for police data on a personal device.
+ * without it - important for police data on a personal device.
  */
 @Database(
     entities = [
@@ -76,7 +87,7 @@ import com.baton.app.data.local.entities.TagEntity
         AppStateEntity::class,
         NudgeDraftEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -105,7 +116,7 @@ abstract class AppDatabase : RoomDatabase() {
          * (one per `(op, table, rowId)` group, keeping the
          * latest by `id`) so the CREATE INDEX doesn't fail on
          * legacy data. The non-aggregating DELETE + correlated
-         * subquery form is intentional — `DELETE ... WHERE id
+         * subquery form is intentional - `DELETE ... WHERE id
          * NOT IN (SELECT MAX(id) ...)` does the dedupe in a
          * single statement.
          *
@@ -120,7 +131,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // Dedupe any pre-existing duplicate outbox rows
                 // before adding the unique constraint. Keeps the
                 // row with the highest `id` per
-                // (op, table, rowId) — i.e. the latest enqueue.
+                // (op, table, rowId) - i.e. the latest enqueue.
                 db.execSQL(
                     "DELETE FROM sync_queue WHERE id NOT IN (" +
                         "SELECT MAX(id) FROM sync_queue " +
@@ -133,6 +144,35 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE UNIQUE INDEX IF NOT EXISTS " +
                         "`index_sync_queue_op_table_rowId` " +
                         "ON sync_queue (`op`, `table`, rowId)",
+                )
+            }
+        }
+
+        /**
+         * v2.0 (Tier 3, feature 3.1) - deniable vault. Adds
+         * the `vaultMode` column to `persons` and `instructions`.
+         * Default `'visible'` so existing rows are NOT
+         * silently hidden on upgrade - the user opts in by
+         * switching the global vault mode in Settings.
+         *
+         * The `persons_vaultMode` and `instructions_vaultMode`
+         * indices match the `@Index` declarations on the
+         * entity so Room's post-migration schema validation
+         * accepts them.
+         */
+        val MIGRATION_10_11: Migration = object : Migration(10, 11) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_persons_vaultMode` ON persons(vaultMode)",
+                )
+                db.execSQL(
+                    "ALTER TABLE instructions ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_instructions_vaultMode` ON instructions(vaultMode)",
                 )
             }
         }

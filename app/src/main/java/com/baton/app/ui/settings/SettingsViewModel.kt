@@ -7,6 +7,7 @@ import com.baton.app.ai.llama.ModelManager
 import com.baton.app.ai.llama.ModelState
 import com.baton.app.ai.whisper.WhisperModelManager
 import com.baton.app.data.auth.AuthRepository
+import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppInitializer
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
@@ -15,6 +16,9 @@ import com.baton.app.data.local.TagDao
 import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import com.baton.app.data.tags.Tag
+import com.baton.app.data.vault.IdentityCrypto
+import com.baton.app.data.vault.VaultMode
+import com.baton.app.data.vault.VaultModeHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -66,6 +70,14 @@ class SettingsViewModel @Inject constructor(
     // progress bar.
     private val modelManager: ModelManager,
     private val whisperModelManager: WhisperModelManager,
+    // v2.0 T3-1: deniable vault. The holder is a process
+    // singleton; the ViewModel reads its current mode and
+    // exposes a [setVaultMode] entry point for the Settings
+    // sheet. The vault PIN (the auth gate on the
+    // hidden -> visible transition) is stored in
+    // [securePreferences] as a SHA-256 hash.
+    private val vaultModeHolder: VaultModeHolder,
+    private val securePreferences: SecurePreferences,
 ) : ViewModel() {
 
     private val _signingOut = MutableStateFlow(false)
@@ -247,6 +259,108 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { syncEngine.retryPermanentlyFailed() }
         }
+    }
+
+    /**
+     * v2.0 T3-1: the active vault mode, observed from the
+     * process-singleton [VaultModeHolder]. The Settings sheet
+     * renders this value as the "Vault mode" row.
+     */
+    val vaultMode: StateFlow<VaultMode> = vaultModeHolder.mode
+
+    /**
+     * v2.0 T3-1: `true` once the user has set a vault PIN.
+     * The Settings sheet gates the "switch to visible" flow
+     * on this — a user without a PIN is prompted to set one
+     * first. The underlying MutableStateFlow is re-emitted
+     * by [setVaultPin] / [clearVaultPin] so the UI updates
+     * without a process restart.
+     */
+    private val _hasVaultPin = MutableStateFlow(
+        securePreferences.vaultPinHash() != null,
+    )
+    val hasVaultPin: StateFlow<Boolean> = _hasVaultPin.asStateFlow()
+
+    /**
+     * v2.0 T3-2: `true` once the user has generated a recovery
+     * phrase. The Settings sheet renders a "Set up recovery
+     * phrase" affordance when this is `false`; once it's
+     * `true`, the affordance becomes "View recovery phrase"
+     * (which still requires the PIN to re-display).
+     */
+    private val _hasRecoveryPhrase = MutableStateFlow(
+        securePreferences.recoveryPhraseHash() != null,
+    )
+    val hasRecoveryPhrase: StateFlow<Boolean> = _hasRecoveryPhrase.asStateFlow()
+
+    /**
+     * v2.0 T3-1: set the vault PIN. The user supplies a 4-6
+     * digit PIN; we SHA-256 it and store the hash. The PIN
+     * itself is never persisted.
+     *
+     * @return `true` if the PIN was set, `false` if the input
+     *   failed validation (empty or not digits).
+     */
+    fun setVaultPin(pin: String): Boolean {
+        if (!isValidPin(pin)) return false
+        securePreferences.setVaultPinHash(IdentityCrypto.sha256Hex(pin))
+        // Re-emit the `hasVaultPin` flow so the Settings sheet
+        // updates without a process restart.
+        _hasVaultPin.value = securePreferences.vaultPinHash() != null
+        return true
+    }
+
+    /**
+     * v2.0 T3-1: switch the active vault mode. The caller is
+     * responsible for the PIN gate when the target mode is
+     * [VaultMode.Visible] AND the user has a PIN set —
+     * [pinMatches] should be checked first.
+     *
+     * The PIN is not an argument here because we want the
+     * UI to drive the flow: it asks the user for the PIN,
+     * checks it, then calls [setVaultMode] with the result.
+     */
+    fun setVaultMode(mode: VaultMode) {
+        vaultModeHolder.setMode(mode)
+    }
+
+    /**
+     * v2.0 T3-1: validate a candidate PIN against the stored
+     * hash. Returns `true` iff the user has a PIN set AND
+     * [pin]'s SHA-256 matches. Returns `false` on no-PIN-set
+     * (caller should call [setVaultPin] first).
+     */
+    fun pinMatches(pin: String): Boolean {
+        val stored = securePreferences.vaultPinHash() ?: return false
+        return IdentityCrypto.sha256Hex(pin) == stored
+    }
+
+    /**
+     * v2.0 T3-1: clear the vault PIN hash. Used by the
+     * "Erase all data" path (in addition to [AppInitializer]
+     * wiping the DB). The vault mode is reset to
+     * [VaultMode.Visible] by the holder on the next
+     * sign-in.
+     */
+    fun clearVaultPin() {
+        securePreferences.clearVaultPinHash()
+        _hasVaultPin.value = false
+    }
+
+    /**
+     * v2.0 T3-2: the recovery phrase hash was just set by the
+     * [com.baton.app.ui.privacy.RecoveryPhraseViewModel]. We
+     * re-emit [hasRecoveryPhrase] so the Settings sheet's
+     * "View recovery phrase" affordance appears without a
+     * process restart.
+     */
+    fun onRecoveryPhraseChanged() {
+        _hasRecoveryPhrase.value = securePreferences.recoveryPhraseHash() != null
+    }
+
+    private fun isValidPin(pin: String): Boolean {
+        if (pin.length !in 4..6) return false
+        return pin.all { it.isDigit() }
     }
 }
 

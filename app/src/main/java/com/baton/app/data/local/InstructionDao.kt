@@ -14,8 +14,24 @@ interface InstructionDao {
     @Query("SELECT * FROM instructions ORDER BY capturedAt DESC")
     fun observeAll(): Flow<List<InstructionEntity>>
 
+    /**
+     * v2.0 T3-1 (deniable vault): instructions are filtered by
+     * `vaultMode` so a person-level flip propagates to the
+     * instruction list automatically.
+     */
+    @Query("SELECT * FROM instructions WHERE vaultMode = :mode ORDER BY capturedAt DESC")
+    fun observeAllInMode(mode: String): Flow<List<InstructionEntity>>
+
     @Query("SELECT * FROM instructions WHERE personId = :personId ORDER BY capturedAt DESC")
     fun observeForPerson(personId: String): Flow<List<InstructionEntity>>
+
+    /**
+     * v2.0 T3-1: propagate a person's vault-mode flip to all
+     * their instructions. The repository calls this in the
+     * same transaction as `PersonDao.setVaultMode`.
+     */
+    @Query("UPDATE instructions SET vaultMode = :mode, updatedAt = :updatedAt, syncStatus = :status WHERE personId = :personId")
+    suspend fun setVaultModeForPerson(personId: String, mode: String, updatedAt: String, status: String)
 
     @Query("SELECT * FROM instructions WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): InstructionEntity?

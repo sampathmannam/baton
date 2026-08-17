@@ -93,6 +93,13 @@ class CaptureViewModelTest {
         // faithful.
         private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
         override fun observeAll(): Flow<List<Person>> = personsFlow.asStateFlow()
+        // v2.0 T3-1 (deniable vault): the test fake mirrors
+        // the unfiltered flow for the mode-bucket. The
+        // CaptureViewModel doesn't read this method (only the
+        // HomeViewModel does); a no-op return keeps the
+        // interface happy without changing the test's
+        // contract.
+        override fun observeAllInMode(mode: String): Flow<List<Person>> = personsFlow.asStateFlow()
         override suspend fun create(
             name: String,
             designation: String?,

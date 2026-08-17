@@ -22,6 +22,11 @@ import androidx.room.PrimaryKey
         Index(value = ["personId"]),
         Index(value = ["dueAt"]),
         Index(value = ["syncStatus"]),
+        // v2.0 T3-1: the deniable-vault filter. An instruction
+        // inherits the vault mode of its owning person; the
+        // (personId, vaultMode) index is the natural composite
+        // the list filter relies on.
+        Index(value = ["vaultMode"]),
     ],
 )
 data class InstructionEntity(
@@ -46,4 +51,10 @@ data class InstructionEntity(
     // v1.1: lifecycle fields. Set by mark-done / mark-drop.
     val completedAt: String? = null,
     val droppedReason: String? = null,
+    // v2.0 T3-1: deniable vault. See [PersonEntity.vaultMode]
+    // for the threat-model note. An instruction's vaultMode is
+    // mirrored from its person at create time; a person-level
+    // flip propagates to the instructions via the
+    // RoomInstructionRepository.
+    val vaultMode: String = "visible",
 )

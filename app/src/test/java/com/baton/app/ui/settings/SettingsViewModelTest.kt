@@ -76,6 +76,13 @@ class SettingsViewModelTest {
         // surface untouched.
         val modelManager = mockk<com.baton.app.ai.llama.ModelManager>(relaxed = true)
         val whisperManager = mockk<com.baton.app.ai.whisper.WhisperModelManager>(relaxed = true)
+        // v2.0 T3-1: a real [com.baton.app.data.vault.VaultModeHolder]
+        // singleton + a relaxed [com.baton.app.data.auth.SecurePreferences]
+        // so the constructor compiles. The PIN / vault-mode
+        // tests live in `SettingsVaultModeTest.kt` and own
+        // their own VM instance.
+        val vaultModeHolder = com.baton.app.data.vault.VaultModeHolder()
+        val securePreferences = mockk<com.baton.app.data.auth.SecurePreferences>(relaxed = true)
         val vm = SettingsViewModel(
             authRepository = auth,
             appInitializer = init,
@@ -87,6 +94,8 @@ class SettingsViewModelTest {
             tagDao = mockk<TagDao>(relaxed = true),
             modelManager = modelManager,
             whisperModelManager = whisperManager,
+            vaultModeHolder = vaultModeHolder,
+            securePreferences = securePreferences,
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)
     }
