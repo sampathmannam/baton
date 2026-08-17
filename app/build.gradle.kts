@@ -57,8 +57,8 @@ android {
         // the soft keyboard, so the user can always reach
         // them by scrolling. Tests: 291/0/0/7 (no
         // regressions).
-        versionCode = 16
-        versionName = "1.5.5"
+        versionCode = 17
+        versionName = "1.5.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
