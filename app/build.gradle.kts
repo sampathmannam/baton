@@ -278,6 +278,14 @@ dependencies {
     implementation(libs.camerax.camera.view)
     implementation(libs.mlkit.text.recognition)
 
+    // Tier 0.1: Jetpack Glance for the home-screen / lock-screen
+    // capture widget. The Glance composable API + a
+    // GlanceAppWidgetReceiver entry point; replaces the legacy
+    // AppWidgetProvider + RemoteViews implementation in
+    // BatonCaptureWidget.
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
+
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.turbine)

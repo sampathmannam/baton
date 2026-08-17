@@ -1,5 +1,6 @@
 package com.baton.app.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.BuildConfig
@@ -7,6 +8,7 @@ import com.baton.app.ai.llama.ModelManager
 import com.baton.app.ai.llama.ModelState
 import com.baton.app.ai.whisper.WhisperModelManager
 import com.baton.app.data.auth.AuthRepository
+import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.AppInitializer
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
@@ -16,13 +18,19 @@ import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import com.baton.app.data.tags.Tag
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 
 /**
@@ -66,6 +74,13 @@ class SettingsViewModel @Inject constructor(
     // progress bar.
     private val modelManager: ModelManager,
     private val whisperModelManager: WhisperModelManager,
+    // Tier 0.6: storage size in MB. The "On this phone"
+    // row now shows "X.X MB on this phone" alongside the
+    // existing people/instructions/tags counts. The size
+    // is computed off the main thread (see
+    // [computeStorageSizeBytes]) and refreshed whenever the user
+    // adds a person, instruction, or capture.
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     private val _signingOut = MutableStateFlow(false)
@@ -105,18 +120,28 @@ class SettingsViewModel @Inject constructor(
      * count of people + instructions + tags. The number is
      * recomputed on every local write (Room is reactive), so the
      * card updates as the user adds / removes rows.
+     *
+     * Tier 0.6: the same flow also recomputes the on-disk
+     * size in bytes (DB file + WAL + SHM + photos dir). The
+     * bytes are computed off the main thread; the
+     * `WhileSubscribed(5_000)` policy keeps the upstream
+     * active across config changes.
      */
     val storage: StateFlow<StorageInfo> = combine(
         personDao.observeAll(),
         instructionDao.observeAll(),
         tagDao.observeAll(),
     ) { persons, instructions, tags ->
+        Triple(persons.size, instructions.size, tags.size)
+    }.map { (people, instructions, tags) ->
+        val bytes = computeStorageSizeBytes()
         StorageInfo(
-            peopleCount = persons.size,
-            instructionCount = instructions.size,
-            tagCount = tags.size,
+            peopleCount = people,
+            instructionCount = instructions,
+            tagCount = tags,
+            sizeBytes = bytes,
         )
-    }.stateIn(
+    }.flowOn(Dispatchers.IO).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = StorageInfo(),
@@ -141,6 +166,16 @@ class SettingsViewModel @Inject constructor(
      * transitions.
      */
     val llmModelState: StateFlow<ModelState> = modelManager.state
+
+    /**
+     * Tier 0.5: the LLM download progress, exposed as a
+     * `StateFlow<Float>` in the 0.0-1.0 range. The Settings
+     * → Models row uses this to drive a real
+     * `LinearProgressIndicator` (replacing the v1.5.7
+     * "Downloading... 47%" text-only affordance).
+     * Re-exposed from the manager's hot progress flow.
+     */
+    val llmDownloadProgress: StateFlow<Float> = modelManager.progress
 
     /**
      * v1.5.4: the Whisper model availability. The M2-T3
@@ -248,17 +283,60 @@ class SettingsViewModel @Inject constructor(
             runCatching { syncEngine.retryPermanentlyFailed() }
         }
     }
+
+    /**
+     * Tier 0.6: compute the on-disk size of the Baton's
+     * local data. The calculation sums:
+     *
+     *  - the SQLCipher Room DB file (`baton.db`)
+     *  - the WAL (`baton.db-wal`) and SHM (`baton.db-shm`)
+     *    companions; the WAL is often the bulk of the size
+     *    on a write-heavy vault
+     *  - the `filesDir/captures/` directory of photo
+     *    captures (M2-T2's ML Kit OCR pipeline writes the
+     *    JPEG here)
+     *
+     * Runs on [Dispatchers.IO] (the call site maps the storage
+     * flow onto IO via [kotlinx.coroutines.flow.flowOn]). The
+     * function is `private` to the VM because the file layout
+     * is an implementation detail. Tests for the size
+     * computation live in
+     * [com.baton.app.ui.settings.StorageSizeTest] and call an
+     * equivalent helper directly via a Robolectric context.
+     */
+    private suspend fun computeStorageSizeBytes(): Long = withContext(Dispatchers.IO) {
+        val db = appContext.getDatabasePath(AppDatabase.NAME)
+        val wal = File(db.path + "-wal")
+        val shm = File(db.path + "-shm")
+        val captures = File(appContext.filesDir, "captures")
+        var total = 0L
+        listOf(db, wal, shm).forEach { f ->
+            if (f.exists()) total += f.length()
+        }
+        if (captures.isDirectory) {
+            captures.listFiles()?.forEach { f ->
+                if (f.isFile) total += f.length()
+            }
+        }
+        total
+    }
 }
 
 /**
  * v1.5.3 (VAULT-008): the storage card payload. Counts only —
  * no per-row detail on this card (the home tab is the right
  * place to see individual rows).
+ *
+ * Tier 0.6: also carries the on-disk size in bytes (DB file
+ * + WAL + SHM + photos dir). The Settings row formats this
+ * as "X.X MB on this phone". The field is `0L` on a fresh
+ * install before the user has added any data.
  */
 data class StorageInfo(
     val peopleCount: Int = 0,
     val instructionCount: Int = 0,
     val tagCount: Int = 0,
+    val sizeBytes: Long = 0L,
 )
 
 /**

@@ -92,6 +92,9 @@ class VoiceCaptureService : Service() {
     private fun handleStart(intent: Intent) {
         val receiver: ResultReceiver? = intent.getParcelableExtra(EXTRA_RESULT_RECEIVER)
         resultReceiver = receiver
+        // Tier 0.4: flip the process-wide state so the
+        // in-app capture sheet can render a Stop button.
+        VoiceCaptureState.setRecording(true)
         startForegroundWithNotification()
         startRecording()
     }
@@ -111,6 +114,13 @@ class VoiceCaptureService : Service() {
                 Log.e(TAG, "transcribe failed", e)
                 deliverError(e.message ?: "Transcription failed")
             } finally {
+                // Tier 0.4: flip the state back so the
+                // in-app Stop button hides. Must run on
+                // the service's own coroutine (not the
+                // main thread) because VoiceCaptureState
+                // is a plain MutableStateFlow and the
+                // collector is the Compose UI.
+                VoiceCaptureState.setRecording(false)
                 stopForegroundCompat()
                 stopSelf()
             }
@@ -277,6 +287,11 @@ class VoiceCaptureService : Service() {
         recordJob?.cancel()
         audioRecord?.release()
         audioRecord = null
+        // Tier 0.4: also reset the in-app state. If the
+        // service is killed by the system (e.g. memory
+        // pressure) the state must reflect "not recording"
+        // so the capture sheet's Stop button hides.
+        VoiceCaptureState.setRecording(false)
         supervisor.cancel()
         super.onDestroy()
     }

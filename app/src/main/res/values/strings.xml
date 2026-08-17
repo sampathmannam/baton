@@ -174,4 +174,50 @@
     <string name="settings_model_ready">Ready — %1$d MB on disk</string>
     <string name="settings_model_ready_short">Ready</string>
     <string name="settings_model_download_short">Download</string>
+
+    <!-- Tier 0 (cleanup + ship-the-built). v1.6.0 strings.
+         v1.6: Glance widget surface, modernised tile, modernised
+         share receiver, in-app voice stop, model download progress
+         bar, storage size in MB on the "On this phone" row.
+         No red, no "overdue"/"failed" wording anywhere per the
+         no-shame spec rule (§1). -->
+
+    <!-- Tier 0.1: Glance home-screen / lock-screen widget. The
+         widget is a single Capture button (no count badge, no
+         streak counter). Calm palette only. -->
+    <string name="tier0_widget_label">Kaavalan note</string>
+    <string name="tier0_widget_capture">Capture</string>
+    <string name="tier0_widget_capture_desc">Open the capture sheet</string>
+    <string name="tier0_widget_description">Tap to capture a note to Kaavalan.</string>
+
+    <!-- Tier 0.2: Quick-settings tile. Active mode (META_DATA_ACTIVE_TILE
+         = true); tapping fires the capture sheet, long-press shows
+         the system description. -->
+    <string name="tier0_tile_label">Kaavalan note quick-capture</string>
+    <string name="tier0_tile_description">Open the capture sheet</string>
+
+    <!-- Tier 0.3: Share target ingest. The "Saved to Kaavalan"
+         snackbar-style confirmation when a free-floating capture
+         is created from a share intent. -->
+    <string name="tier0_share_saved">Saved a free note. Pick a person on save.</string>
+
+    <!-- Tier 0.4: In-app voice stop button. The user can stop
+         recording without dismissing the notification. -->
+    <string name="tier0_voice_in_app_stop">Stop voice</string>
+    <string name="tier0_voice_in_app_stop_desc">Stop voice capture and transcribe</string>
+
+    <!-- Tier 0.5: Settings "Models" row now exposes a real
+         progress bar with a percent string. -->
+    <string name="tier0_model_progress_label">Downloading… %1$d%%</string>
+
+    <!-- Tier 0.6: Storage size in MB on the "On this phone" row.
+         The string formats a single MB number; the row reads it
+         next to the existing people/instructions/tags line. -->
+    <string name="settings_storage_size_mb">%1$.1f MB on this phone</string>
+
+    <!-- v1.6: TalkBack content description for the in-app stop
+         button on the capture sheet. Read by the
+         AccessibilityContentDescriptionTest as a required a11y
+         string (the static scan also catches the Button call). -->
+    <string name="a11y_voice_in_app_stop">Stop voice capture</string>
 </resources>
