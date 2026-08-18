@@ -27,6 +27,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +43,7 @@ import com.baton.app.R
 import com.baton.app.data.brief.DailyBrief
 import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.instructions.Status
+import com.baton.app.data.person.toEntity
 import com.baton.app.features.search.SearchBar
 import com.baton.app.features.search.SearchViewModel
 import com.baton.app.ui.today.brief.MeetingBriefCard
@@ -90,9 +92,19 @@ fun TodayScreen(
             }
         },
     ) { padding ->
+        // v1.6.2: also pull the person filter from the search VM.
+        // The visible people list is fed in by the
+        // TodayViewModel.persons flow (added in v1.6.2 so the
+        // search placeholder is honest on Today too).
+        val personResults by searchViewModel.personResults.collectAsStateWithLifecycle()
+        val persons by viewModel.persons.collectAsStateWithLifecycle()
+        LaunchedEffect(persons) {
+            searchViewModel.setVisiblePeople(persons.map { it.toEntity() })
+        }
         if (query.isNotEmpty()) {
             com.baton.app.ui.home.HomeScreenSearchResults(
-                results = results,
+                personResults = personResults,
+                instructionResults = results,
                 padding = padding,
                 onPersonClick = { /* search is read-only on Today */ },
             )
@@ -227,11 +239,19 @@ private fun InstructionCard(ins: Instruction, onClick: () -> Unit) {
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(
-                text = ins.rawText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // v1.6.2: skip the body when it duplicates the title.
+            // v1.6.1 capture stores a single line of text in both
+            // `title` and `rawText` (no separate title/body fields);
+            // rendering both makes the card look like it lost a
+            // line. When they differ, `rawText` carries the rest
+            // of the note.
+            if (ins.title != ins.rawText) {
+                Text(
+                    text = ins.rawText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
                 text = formatTime(ins.capturedAt),
                 style = MaterialTheme.typography.bodySmall,

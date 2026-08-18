@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -94,6 +97,10 @@ fun SettingsSheet(
     var showEraseConfirmation by remember { mutableStateOf(false) }
     var plainExportError by remember { mutableStateOf<String?>(null) }
     var plainExportOk by remember { mutableStateOf(false) }
+    // v1.6.2: the developer-only "Load test data" state.
+    var fixtureLoading by remember { mutableStateOf(false) }
+    var fixtureLoadReport by remember { mutableStateOf<com.baton.app.data.dev.FixtureLoader.LoadReport?>(null) }
+    var fixtureLoadError by remember { mutableStateOf<String?>(null) }
 
     val csvLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv"),
@@ -133,10 +140,20 @@ fun SettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
+        // v1.6.2: the Settings sheet is now longer (the
+        // Developer section + its Load test data button were
+        // added in v1.6.2). On a small screen the previous
+        // non-scrolling Column clipped the bottom rows (the
+        // Erase all data button was unreachable on a 1080x2400
+        // emulator). Wrap the inner Column in a verticalScroll
+        // so the entire content is reachable; the sheet itself
+        // stays at full height (`skipPartiallyExpanded = true`)
+        // so the user always sees the top of the Settings list.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -402,6 +419,83 @@ fun SettingsSheet(
                 value = stringResource(R.string.settings_data_mode_vault),
             )
             Spacer(Modifier.height(8.dp))
+
+            // v1.6.2: developer section. Only shown in debug
+            // builds. The "Load test data" button calls
+            // [SettingsViewModel.loadFixture], which delegates to
+            // [com.baton.app.data.dev.FixtureLoader] to bulk-load
+            // the synthetic fixture from `assets/synthetic-data.json`.
+            // Production release builds (BuildConfig.DEBUG = false)
+            // never see this section.
+            if (com.baton.app.BuildConfig.DEBUG) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                Text(
+                    text = stringResource(R.string.settings_section_dev),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.settings_dev_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val r = viewModel.loadFixture()
+                            fixtureLoadReport = r
+                        }
+                    },
+                    enabled = !fixtureLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        text = if (fixtureLoading) {
+                            stringResource(R.string.settings_dev_loading)
+                        } else {
+                            stringResource(R.string.settings_dev_load_fixture)
+                        },
+                    )
+                }
+                fixtureLoadReport?.let { report ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.settings_dev_loaded,
+                            report.persons,
+                            report.instructions,
+                            report.captures,
+                            report.tags,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                fixtureLoadError?.let { err ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = err,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
 
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,

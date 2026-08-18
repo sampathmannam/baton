@@ -35,6 +35,10 @@ interface InstructionDao {
     @Query("DELETE FROM instructions WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    // v1.6.2: bulk delete for the developer fixture loader.
+    @Query("DELETE FROM instructions")
+    suspend fun deleteAll()
+
     // v1.1: state transitions. The repository sets `completedAt = now()`
     // when status = DONE, and `droppedReason` when status = DROPPED.
     // All transitions touch `updatedAt` so the brief's 7-day window

@@ -1,6 +1,7 @@
 ﻿package com.baton.app.ui.settings
 
 import com.baton.app.data.auth.SecurePreferences
+import com.baton.app.data.dev.FixtureLoader
 import com.baton.app.data.export.PlainExporter
 import com.baton.app.data.preferences.BatonPreferences
 import com.baton.app.data.vault.VaultModeHolder
@@ -97,6 +98,11 @@ class SettingsViewModelTest {
             securePreferences = mockk<SecurePreferences>(relaxed = true),
             preferences = mockk<BatonPreferences>(relaxed = true),
             plainExporter = mockk<PlainExporter>(relaxed = true),
+            // v1.6.2: developer-only fixture loader. None of the
+            // existing tests touch this path; a relaxed mock is
+            // sufficient. The dedicated loadFixture() behaviour
+            // is covered by [com.baton.app.data.dev.FixtureLoaderTest].
+            fixtureLoader = mockk<FixtureLoader>(relaxed = true),
             appContext = appContext,
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)

@@ -68,6 +68,10 @@ interface CaptureDao {
     @Query("UPDATE captures SET ocrText = :ocrText WHERE id = :id")
     suspend fun setOcrText(id: String, ocrText: String?)
 
+    // v1.6.2: bulk delete for the developer fixture loader.
+    @Query("DELETE FROM captures")
+    suspend fun deleteAll()
+
     /**
      * §2.9: link a capture to a calendar event. Set when the
      * user accepts the "Attach to your next event" prompt. Null

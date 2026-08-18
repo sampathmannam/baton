@@ -38,4 +38,8 @@ interface TagDao {
 
     @Query("DELETE FROM tags WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    // v1.6.2: bulk delete for the developer fixture loader.
+    @Query("DELETE FROM tags")
+    suspend fun deleteAll()
 }

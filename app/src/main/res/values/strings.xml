@@ -14,8 +14,12 @@
     <string name="tab_today">Today</string>
     <string name="tab_settings">Settings</string>
 
-    <!-- M1: single note bar + capture sheet -->
-    <string name="note_bar_hint">Tap to add a note</string>
+    <!-- M1: single note bar + capture sheet. v1.6.2: the home pill
+         now reads "Quick note" instead of "Tap to add a note" so
+         the difference between the home pill (free-floating,
+         unattributed) and a person row (attributed) is obvious.
+         Tapping a person row still opens an attributed capture. -->
+    <string name="note_bar_hint">Quick note</string>
     <string name="note_bar_mic">Voice</string>
     <string name="note_bar_camera">Photo</string>
     <string name="capture_sheet_title">New note</string>
@@ -57,6 +61,18 @@
     <string name="settings_erase_confirm_body">This deletes every person, every instruction, and every tag. There is no backup. This cannot be undone.</string>
     <string name="settings_erase_confirm_yes">Erase</string>
     <string name="settings_erase_confirm_no">Cancel</string>
+
+    <!-- v1.6.2: developer-only section, hidden in release. The
+         "Load test data" button bulk-loads
+         `assets/synthetic-data.json` so the UI can be exercised
+         with 12 persons, 36 instructions, 7 captures, and 12
+         tags (12 intentional edge cases baked in). Clears all
+         existing data first. -->
+    <string name="settings_section_dev">Developer</string>
+    <string name="settings_dev_body">Loads the synthetic test fixture (12 people, 36 instructions, 7 captures, 12 tags). Erases existing data first. Debug builds only.</string>
+    <string name="settings_dev_load_fixture">Load test data</string>
+    <string name="settings_dev_loading">Loading\u2026</string>
+    <string name="settings_dev_loaded">Loaded %1$d people, %2$d instructions, %3$d captures, %4$d tags.</string>
 
     <!-- v1.5.3 (VAULT-010): TalkBack label for the Today-tab
          instruction row (the card is now clickable to open the
@@ -170,6 +186,12 @@
     <string name="search_hint">Search people and instructions</string>
     <string name="search_no_results">No matches</string>
     <string name="search_clear">Clear search</string>
+    <!-- v1.6.2: search result section headers. People and
+         Instructions each get their own section so the user can
+         see what matched where. -->
+    <string name="search_section_people">People</string>
+    <string name="search_section_instructions">Instructions</string>
+    <string name="search_unassigned">(unassigned)</string>
 
     <!-- Tier 1.4 (v2.0): Theme switcher. -->
     <string name="settings_theme">Theme</string>
