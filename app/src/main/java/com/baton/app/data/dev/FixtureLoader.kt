@@ -116,7 +116,7 @@ class FixtureLoader @Inject constructor(
             instructions = fixture.instructions.size,
             captures = fixture.captures.size,
             tags = fixture.tags.size,
-            worries = fixture.worries.size,
+            worries = fixture.instructions.count { it.urgency != "normal" },
             instructionTags = fixture.instructionTags.size,
         )
     }
@@ -127,7 +127,6 @@ class FixtureLoader @Inject constructor(
         val instructions: List<InstructionDto> = emptyList(),
         val captures: List<CaptureDto> = emptyList(),
         val tags: List<TagDto> = emptyList(),
-        val worries: List<WorryDto> = emptyList(),
         val instructionTags: List<InstructionTagDto> = emptyList(),
     )
 
@@ -201,14 +200,6 @@ class FixtureLoader @Inject constructor(
         val createdAt: String,
         val updatedAt: String,
         val syncStatus: String = "SYNCED",
-    )
-
-    @Serializable
-    private data class WorryDto(
-        val id: String,
-        val instructionId: String,
-        val urgency: String,
-        val reviewAtEpochDay: Long? = null,
     )
 
     @Serializable
