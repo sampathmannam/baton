@@ -79,7 +79,10 @@ object AppModule {
         @ApplicationContext context: Context,
     ): AuthRepository = AuthRepository(httpClient, context)
 
-    /** M1-T3: OkHttp is used by ModelManager to download the GGUF model. */
+    /** M1-T3: OkHttp is used by the Supabase HTTP client and
+     *  (v1.6.0/v1.6.0.1) by the LLM model download. v1.6.1
+     *  drops the LLM, but OkHttp stays for Supabase + vault
+     *  import. */
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient = OkHttpClient()

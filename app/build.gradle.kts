@@ -41,47 +41,20 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.5.5 (QA pass): the v1.5.4 capture-sheet layout
-        // overflowed the visible area on a 1080×2400 phone
-        // when the new `ModelNotReadyCard` is showing — the
-        // primary `Extract` button landed at the very bottom
-        // of the screen and the secondary `Save as text
-        // (skip extraction)` button was pushed below the
-        // bottom edge. The user had no way to save a note on
-        // a fresh install (no model yet). Wrap the
-        // `CaptureSheetContent` Column in a
-        // `verticalScroll(rememberScrollState())` so the user
-        // can scroll to reach every button. The
-        // `windowInsetsPadding(ime ∪ navigationBars)` on the
-        // primary-action column still keeps the buttons above
-        // the soft keyboard, so the user can always reach
-        // them by scrolling. Tests: 291/0/0/7 (no
-        // regressions).
-        versionCode = 18
-        versionName = "1.5.7"
+        // v1.6.1: drop the on-device LLM (llama.cpp + whisper.cpp)
+        // entirely. Capture is text + voice-via-system-service
+        // (`android.speech.SpeechRecognizer`) only. No JNI, no
+        // native build, no abiFilters. The default ABI matrix
+        // (set by AGP) applies -- that's the right shape for an
+        // APK with no bundled `.so` files.  versionCode 19
+        // (one above v1.6.0.1's 18), versionName "1.6.1".
+        versionCode = 19
+        versionName = "1.6.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
-
-        // M1: on-device LLM (llama.cpp JNI). arm64-v8a only per the
-        // global constraint. The CMake build is configured below
-        // (see externalNativeBuild + the vendorLlamaCpp task).
-        ndk { abiFilters += listOf("arm64-v8a") }
-        externalNativeBuild {
-            cmake {
-                cppFlags += "-std=c++17"
-                arguments += "-DANDROID_STL=c++_shared"
-            }
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
     }
 
     signingConfigs {
@@ -145,86 +118,11 @@ android {
     }
 }
 
-// M1-T3: vendor the pinned llama.cpp release into app/src/main/cpp/llama-cpp/
-// at configuration time. CMake's add_subdirectory() then compiles it as
-// part of the externalNativeBuild above. This is a no-op if the directory
-// already exists, so a developer can delete it to force a re-vendor.
-//
-// The fallback (if CMake+NDK doesn't build on a particular host) is to
-// download the prebuilt libllama.so for android-arm64 from the
-// ggerganov/llama.cpp releases page and skip this task — see
-// docs/superpowers/plans/2026-08-11-baton-m1-capture.md Task 3 risks.
-val vendorLlamaCpp = tasks.register("vendorLlamaCpp") {
-    val tag = "b4600"
-    val url = "https://github.com/ggerganov/llama.cpp/archive/refs/tags/$tag.tar.gz"
-    val cppDir = layout.projectDirectory.dir("src/main/cpp/llama-cpp")
-    val marker = layout.buildDirectory.file("llama-cpp/$tag.vendored")
-    outputs.file(marker)
-    doLast {
-        if (cppDir.asFile.exists() && cppDir.asFile.listFiles()?.isNotEmpty() == true) {
-            logger.lifecycle("llama-cpp already present, skipping vendor")
-            marker.get().asFile.parentFile.mkdirs()
-            marker.get().asFile.writeText("present\n")
-            return@doLast
-        }
-        val tarball = layout.buildDirectory.file("llama-cpp/$tag.tar.gz").get().asFile
-        tarball.parentFile.mkdirs()
-        logger.lifecycle("Downloading $url -> ${tarball.absolutePath}")
-        ant.invokeMethod("get", mapOf("src" to url, "dest" to tarball.absolutePath, "verbose" to true))
-        logger.lifecycle("Extracting ${tarball.absolutePath}")
-        ant.invokeMethod("untar", mapOf("src" to tarball.absolutePath, "dest" to cppDir.asFile.parentFile.absolutePath, "compression" to "gzip"))
-        // The tarball extracts into llama.cpp-<tag>/; rename to llama-cpp/.
-        val extracted = cppDir.asFile.parentFile.resolve("llama.cpp-$tag")
-        if (extracted.exists()) {
-            extracted.renameTo(cppDir.asFile)
-        }
-        marker.get().asFile.parentFile.mkdirs()
-        marker.get().asFile.writeText("present\n")
-    }
-}
-tasks.matching { it.name.startsWith("externalNativeBuild") || it.name.startsWith("configureCMake") }
-    .configureEach { dependsOn(vendorLlamaCpp) }
-
-// M2-T3: vendor whisper.cpp alongside llama.cpp. The model is the
-// ggml-tiny.en.bin file (~75 MB) and is downloaded at runtime by
-// WhisperModelManager (not vendored here — the model is large and
-// changes more often than the C++ source). The C++ source tree
-// vendors at v1.6.0 — the last whisper.cpp release that's API-
-// compatible with the b4600-era ggml that llama.cpp uses. v1.7+
-// added GGML_BACKEND_DEVICE_TYPE_IGPU which doesn't exist in the
-// b4600 ggml headers; aligning the two would require bumping
-// llama.cpp, which is out of scope for M2.
-val vendorWhisperCpp = tasks.register("vendorWhisperCpp") {
-    val tag = "v1.6.0"
-    val url = "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/$tag.tar.gz"
-    val cppDir = layout.projectDirectory.dir("src/main/cpp/whisper-cpp")
-    val marker = layout.buildDirectory.file("whisper-cpp/$tag.vendored")
-    outputs.file(marker)
-    doLast {
-        if (cppDir.asFile.exists() && cppDir.asFile.listFiles()?.isNotEmpty() == true) {
-            logger.lifecycle("whisper-cpp already present, skipping vendor")
-            marker.get().asFile.parentFile.mkdirs()
-            marker.get().asFile.writeText("present\n")
-            return@doLast
-        }
-        val tarball = layout.buildDirectory.file("whisper-cpp/$tag.tar.gz").get().asFile
-        tarball.parentFile.mkdirs()
-        logger.lifecycle("Downloading $url -> ${tarball.absolutePath}")
-        ant.invokeMethod("get", mapOf("src" to url, "dest" to tarball.absolutePath, "verbose" to true))
-        logger.lifecycle("Extracting ${tarball.absolutePath}")
-        ant.invokeMethod("untar", mapOf("src" to tarball.absolutePath, "dest" to cppDir.asFile.parentFile.absolutePath, "compression" to "gzip"))
-        // The tarball extracts into whisper.cpp-<tag>/; rename to whisper-cpp/.
-        val extracted = cppDir.asFile.parentFile.resolve("whisper.cpp-$tag")
-        if (extracted.exists()) {
-            extracted.renameTo(cppDir.asFile)
-        }
-        marker.get().asFile.parentFile.mkdirs()
-        marker.get().asFile.writeText("present\n")
-    }
-}
-tasks.matching { it.name.startsWith("externalNativeBuild") || it.name.startsWith("configureCMake") }
-    .configureEach { dependsOn(vendorWhisperCpp) }
-
+// v1.6.1: removed the `vendorLlamaCpp` + `vendorWhisperCpp` tasks.
+// The on-device LLM is gone, so no C++ source to vendor, no
+// JNI library to build, no `libllama.so` / `libwhisper.so` to
+// merge. Capture uses `android.speech.SpeechRecognizer` (a
+// system service) for voice transcription.
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.compose)

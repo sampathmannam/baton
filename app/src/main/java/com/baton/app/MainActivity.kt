@@ -383,6 +383,14 @@ private fun MainScaffold(
             onDismiss = { showSettings = false },
             onVaultExport = { showSettings = false; showVaultExport = true },
             onVaultImport = { showSettings = false; showVaultImport = true },
+            onOpenRecoveryPhrase = {
+                showSettings = false
+                navController.navigate(Routes.RECOVERY_PHRASE)
+            },
+            onOpenThreatModel = {
+                showSettings = false
+                navController.navigate(Routes.THREAT_MODEL)
+            },
         )
     }
     if (showVaultExport) {
@@ -395,14 +403,6 @@ private fun MainScaffold(
         VaultImportSheet(
             onDismiss = { showVaultImport = false },
             onImported = { showVaultImport = false },
-            onOpenRecoveryPhrase = {
-                showSettings = false
-                navController.navigate(Routes.RECOVERY_PHRASE)
-            },
-            onOpenThreatModel = {
-                showSettings = false
-                navController.navigate(Routes.THREAT_MODEL)
-            },
         )
     }
 }

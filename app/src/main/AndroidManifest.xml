@@ -178,10 +178,11 @@
                 android:resource="@xml/baton_capture_widget_info" />
         </receiver>
 
-        <!-- M2-T4: voice capture foreground service. The user
+        <!-- v1.6.1: voice capture foreground service. The user
              taps the mic icon in the NoteBar; the service starts
-             recording, transcribes via WhisperBridge, and emits
-             the transcript back to the activity via a ResultReceiver
+             the system SpeechRecognizer (which does its own
+             recording + transcription), and emits the transcript
+             back to the activity via a ResultReceiver.
              (an Intent extra) so the capture sheet can pre-fill.
              foregroundServiceType=microphone is required on API 34+. -->
         <service
