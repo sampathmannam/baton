@@ -101,6 +101,11 @@ interface PersonDao {
     @Query("DELETE FROM persons WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    // v1.6.2: bulk delete for the developer fixture loader. Not
+    // referenced by any production code path.
+    @Query("DELETE FROM persons")
+    suspend fun deleteAll()
+
     // v2.0 Tier 2 (§2.1, §2.2, §2.3) ----
 
     /**

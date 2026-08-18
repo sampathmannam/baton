@@ -7,9 +7,13 @@ import com.baton.app.data.brief.BriefType
 import com.baton.app.data.brief.DailyBrief
 import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.instructions.RoomInstructionRepository
+import com.baton.app.data.person.Person
+import com.baton.app.data.person.PersonRepository
+import com.baton.app.data.vault.VaultModeHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,11 +32,19 @@ import javax.inject.Inject
  * reopen actions on the instruction detail sheet. Each action
  * goes through the local Room repository (which writes
  * PENDING_UPDATE to the sync_queue, a no-op in vault mode).
+ *
+ * v1.6.2: also exposes the visible-people flow so the search
+ * bar can filter people too. The flow is `flatMapLatest` over
+ * the active vault mode — when the user switches to Hidden,
+ * the people list shrinks, the person filter shrinks, and the
+ * search bar sees it within the next emission.
  */
 @HiltViewModel
 class TodayViewModel @Inject constructor(
     private val briefGenerator: BriefGenerator,
     private val roomInstructionRepository: RoomInstructionRepository,
+    private val personRepository: PersonRepository,
+    private val vaultModeHolder: VaultModeHolder,
 ) : ViewModel() {
 
     val brief: StateFlow<DailyBrief> = briefGenerator
@@ -67,6 +79,22 @@ class TodayViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = EveningReview(),
+        )
+
+    /**
+     * v1.6.2: the visible people list. Re-emits when the
+     * vault mode changes, so the search bar can refilter.
+     * Scope is the same `WhileSubscribed(5_000)` used
+     * elsewhere — survives a config change and short
+     * navigation hops.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val persons: StateFlow<List<Person>> = vaultModeHolder.mode
+        .flatMapLatest { mode -> personRepository.observeAllInMode(mode.storageKey) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
         )
 
     /**

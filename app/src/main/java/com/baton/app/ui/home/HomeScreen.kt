@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
 import com.baton.app.RootViewModel
 import com.baton.app.data.person.Person
+import com.baton.app.data.person.toEntity
 import com.baton.app.features.capture.CameraLauncher
 import com.baton.app.features.capture.CaptureSheet
 import com.baton.app.features.capture.CaptureViewModel
@@ -181,9 +182,23 @@ fun HomeScreen(
             val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val query by searchViewModel.query.collectAsStateWithLifecycle()
             val results by searchViewModel.results.collectAsStateWithLifecycle()
+            val personResults by searchViewModel.personResults.collectAsStateWithLifecycle()
+            // v1.6.2: feed the visible people list to the search VM
+            // so the people filter (new in v1.6.2) has data to work
+            // with. When state is Loaded we have a list; otherwise
+            // the VM sees an empty list (it will receive a non-empty
+            // list on the next state change thanks to
+            // `WhileSubscribed(5_000)`).
+            val visiblePeople = (state as? HomeUiState.Loaded)?.persons
+                ?.map { it.toEntity() }
+                .orEmpty()
+            LaunchedEffect(visiblePeople) {
+                searchViewModel.setVisiblePeople(visiblePeople)
+            }
             if (query.isNotEmpty()) {
                 HomeScreenSearchResults(
-                    results = results,
+                    personResults = personResults,
+                    instructionResults = results,
                     padding = padding,
                     onPersonClick = onOpenPerson,
                 )
@@ -370,19 +385,21 @@ private fun PersonList(
 }
 
 /**
- * v2.0 (Tier 1.3): the search results. The instructions are
- * grouped by their personId so the user sees a per-person
- * list. The names are looked up via the home state's person
- * map (so the search field uses the same person flow that
- * the people list does).
+ * v2.0 (Tier 1.3): the search results. Renders two sections —
+ * "People" (from [personResults]) and "Instructions" (from
+ * [instructionResults]) — so the placeholder "Search people
+ * and instructions" is honest. v1.6.2 added the People section;
+ * the Instructions section keeps the per-person grouping from
+ * v1.6.0.1.
  */
 @Composable
 fun HomeScreenSearchResults(
-    results: List<com.baton.app.data.local.entities.InstructionEntity>,
+    personResults: List<com.baton.app.data.local.entities.PersonEntity>,
+    instructionResults: List<com.baton.app.data.local.entities.InstructionEntity>,
     padding: PaddingValues,
     onPersonClick: (String) -> Unit,
 ) {
-    if (results.isEmpty()) {
+    if (personResults.isEmpty() && instructionResults.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -398,42 +415,101 @@ fun HomeScreenSearchResults(
         }
         return
     }
-    val byPerson = results.groupBy { it.personId }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
     ) {
-        byPerson.forEach { (personId, list) ->
+        if (personResults.isNotEmpty()) {
             item {
                 Text(
-                    text = if (personId == null) "(unassigned)" else personId.take(20),
+                    text = stringResource(R.string.search_section_people),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            items(items = list, key = { it.id }) { ins ->
+            items(items = personResults, key = { it.id }) { person ->
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(
                             onClickLabel = "Open person",
-                            onClick = { personId?.let(onPersonClick) },
+                            onClick = { onPersonClick(person.id) },
                         )
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Text(
-                        text = ins.title,
+                        text = person.name,
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    Text(
-                        text = ins.rawText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    val sub = listOfNotNull(person.designation, person.station)
+                        .joinToString(" \u00b7 ")
+                    if (sub.isNotBlank()) {
+                        Text(
+                            text = sub,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+        if (instructionResults.isNotEmpty()) {
+            item {
+                Text(
+                    text = stringResource(R.string.search_section_instructions),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            val byPerson = instructionResults.groupBy { it.personId }
+            byPerson.forEach { (personId, list) ->
+                item {
+                    Text(
+                        text = if (personId == null) {
+                            stringResource(R.string.search_unassigned)
+                        } else {
+                            // v1.6.2: show "(unassigned)" or a short
+                            // id; the full name lookup happens via
+                            // the visible people list. For now we
+                            // truncate the id (kept from v1.6.0.1).
+                            personId.take(20)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                    )
+                }
+                items(items = list, key = { it.id }) { ins ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClickLabel = "Open person",
+                                onClick = { personId?.let(onPersonClick) },
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = ins.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        // v1.6.2: skip the body when it duplicates the
+                        // title (v1.6.1 capture stores a single line in
+                        // both). Same fix as TodayScreen.InstructionCard.
+                        if (ins.title != ins.rawText) {
+                            Text(
+                                text = ins.rawText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
             }
         }
         item { Spacer(Modifier.height(80.dp)) }

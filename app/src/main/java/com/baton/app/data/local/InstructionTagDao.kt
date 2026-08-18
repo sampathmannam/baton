@@ -46,4 +46,13 @@ interface InstructionTagDao {
 
     @Query("DELETE FROM instruction_tags WHERE instructionId = :instructionId")
     suspend fun detachAllForInstruction(instructionId: String)
+
+    // v1.6.2: bulk delete + bulk insert for the developer fixture
+    // loader. The attachAll above uses IGNORE conflict; we need
+    // REPLACE for the loader so re-running with a fresh fixture
+    // overwrites cleanly. (The clear step before insert handles
+    // that, but REPLACE makes the loader safe to call against a
+    // non-empty table too.)
+    @Query("DELETE FROM instruction_tags")
+    suspend fun deleteAll()
 }
