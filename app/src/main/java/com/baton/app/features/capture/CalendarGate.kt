@@ -35,7 +35,15 @@ object CalendarGate {
 
     /**
      * Parse the proposal and produce the event data. Returns `null`
-     * if [dueAt] is blank, unparseable, or in the past.
+     * only if [dueAt] is provided, parseable, and in the past.
+     *
+     * v1.6.1: with no LLM there is no `due_at` to extract. When
+     * [dueAt] is null or unparseable, the calendar event still
+     * fires — the user toggled "Add to calendar" explicitly, so
+     * we honor it. The begin time defaults to "now" so the event
+     * shows up in the user's "Today" calendar list with a
+     * sensible default duration. The user can move the time in
+     * the system's calendar pick UI.
      */
     fun buildEventData(
         title: String,
@@ -43,8 +51,12 @@ object CalendarGate {
         dueAt: String?,
         durationMinutes: Long = DEFAULT_DURATION_MIN,
     ): CalendarEventData? {
-        val begin = parseDueAt(dueAt) ?: return null
-        if (begin < System.currentTimeMillis()) return null
+        val now = System.currentTimeMillis()
+        val begin = parseDueAt(dueAt) ?: now
+        // If the LLM (or any future due-date source) gave us a
+        // past timestamp, skip the event — the user is not going
+        // to want a 1-hour event for "last Tuesday".
+        if (begin < now) return null
         val end = begin + durationMinutes * 60_000L
         return CalendarEventData(
             title = title,

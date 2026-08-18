@@ -149,12 +149,14 @@ class AccessibilityContentDescriptionTest {
             "a11y_person_count_badge_one",
             "a11y_person_stale_indicator",
             "a11y_status_chip",
-            "a11y_confidence_high",
-            "a11y_confidence_medium",
-            "a11y_confidence_low",
             // v1.6.0 (Tier 0.4): the in-app voice stop button on
             // the capture sheet must be readable by TalkBack.
             "a11y_voice_in_app_stop",
+            // v1.6.1: a11y_confidence_* (high/medium/low) were
+            // removed with the on-device LLM. The confidence
+            // pill UI they labeled is gone; the strings are not
+            // referenced from any composable. (The a11y check
+            // used to require them, but they are now dead.)
         )
         requiredNames.forEach { name ->
             val pattern = Regex("""<string\s+name\s*=\s*"$name"\s*>([^<]*)</string>""")

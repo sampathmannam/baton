@@ -105,7 +105,12 @@
          action-oriented, and non-shame per the no-red / no-shame
          spec rule. The Add Person button uses the same
          home_add_person string as the Home screen entry point. -->
-    <string name="capture_needs_person_message">Add a person first to attach this note to.</string>
+    <!-- v1.6.1: v1.5.4's copy said "attach this note to" but with the LLM
+         gone the note is free-floating (personId = null). The person
+         requirement is a sanity check that the user has used the app
+         enough to set up, not an attribution step. Updated copy says so
+         plainly without the misleading "attach to" promise. -->
+    <string name="capture_needs_person_message">Add a person first, then save your first note.</string>
 
     <!-- Tier 1.1 (v2.0): Encrypted vault backup.
          The export dialog, import dialog, and Settings rows. The

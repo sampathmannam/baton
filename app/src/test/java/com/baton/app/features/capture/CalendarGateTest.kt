@@ -25,17 +25,48 @@ import java.time.Instant
  */
 class CalendarGateTest {
 
+    /**
+     * v1.6.1: with the LLM gone there is no `due_at` to extract.
+     * A null/blank/unparseable [dueAt] now produces a
+     * [CalendarEventData] whose `beginMillis` is "now" so the
+     * user's explicit "Add to calendar" tap still fires a
+     * calendar event (the user can move the time in the
+     * system's calendar pick UI). The pre-v1.6.1 contract of
+     * "return null when there's no due date" was correct for an
+     * LLM-driven capture flow but not for the free-form note
+     * flow that v1.6.1 ships.
+     */
     @Test
-    fun `buildEventData returns null when dueAt is null or blank`() {
-        assertNull(CalendarGate.buildEventData(title = "x", description = "y", dueAt = null))
-        assertNull(CalendarGate.buildEventData(title = "x", description = "y", dueAt = ""))
-        assertNull(CalendarGate.buildEventData(title = "x", description = "y", dueAt = "   "))
+    fun `buildEventData falls back to now when dueAt is null or blank`() {
+        val before = System.currentTimeMillis()
+        val event1 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = null)!!
+        val event2 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "")!!
+        val event3 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "   ")!!
+        val after = System.currentTimeMillis()
+        // begin falls in [before, after] — the test can be flaky
+        // at the millisecond boundary, so allow a small slack.
+        assertTrue("begin=$event1.beginMillis not in [$before, $after]",
+            event1.beginMillis in before..after)
+        assertEquals(event1.beginMillis, event2.beginMillis)
+        assertEquals(event1.beginMillis, event3.beginMillis)
+        // end is begin + default 15 minutes
+        assertEquals(event1.beginMillis + 15L * 60_000L, event1.endMillis)
     }
 
+    /**
+     * v1.6.1: unparseable [dueAt] is treated the same as a
+     * null/blank one (fall back to "now") rather than silently
+     * dropping the calendar event. The user can correct the
+     * time in the calendar pick UI.
+     */
     @Test
-    fun `buildEventData returns null when dueAt is unparseable`() {
-        assertNull(CalendarGate.buildEventData(title = "x", description = "y", dueAt = "not a date"))
-        assertNull(CalendarGate.buildEventData(title = "x", description = "y", dueAt = "2026-13-99"))
+    fun `buildEventData falls back to now when dueAt is unparseable`() {
+        val before = System.currentTimeMillis()
+        val event1 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "not a date")!!
+        val event2 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "2026-13-99")!!
+        val after = System.currentTimeMillis()
+        assertTrue(event1.beginMillis in before..after)
+        assertTrue(event2.beginMillis in before..after)
     }
 
     @Test

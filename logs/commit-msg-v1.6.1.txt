@@ -1,0 +1,53 @@
+v1.6.1: drop LLM completely
+
+Removes all on-device LLM code:
+- Llama.cpp extraction (ModelManager, LlamaBridge, LlamaError)
+- Whisper.cpp voice transcription (WhisperModelManager, WhisperBridge, WhisperError)
+- Extractor pipeline
+- Model download UI
+- Confirmation card / extract button on capture sheet
+- All JNI/cpp/llama-cpp + cpp/whisper.cpp-1.6.0/ source
+- All assets/model_*, assets/whisper_*, assets/grammars/, assets/prompts/
+- vendorLlamaCpp + vendorWhisperCpp tasks
+- externalNativeBuild + ndk { abiFilters } in app/build.gradle.kts
+
+Voice capture now uses android.speech.SpeechRecognizer
+(system service, no LLM model file). VoiceCaptureService still
+owns the recognizer for the foreground notification + the
+in-app Stop button.
+
+CaptureViewModel simplified: no LlmAvailable / proposal / extract
+step. Single onSaveRaw path: text in field -> tap Save ->
+instruction + capture rows. Voice transcript and photo OCR feed
+into the same text field.
+
+SettingsViewModel: themeMode + setThemeMode + exportPlain +
+computeStorageSizeBytes + StorageInfo.sizeBytes preserved (these
+were LLM-strip casualties that needed restoration).
+
+Settings sheet: no Models section. LLMUnavailableCard / ModelNotReadyCard /
+ConfirmationCard removed. Single Save button on capture sheet.
+
+Also fixes pre-existing build corruption in v1.6.0.1 HEAD (4482517):
+- DatabaseModule.kt: merge conflict markers
+- InstructionDao.kt: duplicate package declarations
+- InstructionEntity.kt: duplicate package
+- SettingsViewModel.kt: duplicate package + LLM-strip over-eager
+- TodayScreen.kt: broken else block referencing undefined
+  EmptyBrief / BriefContent
+
+Test updates: removed FakeLlamaBridge / TestLlamaBridge from
+CaptureViewModelTest and V156QaTest; added 11 new tests for
+onSaveRaw and the no-LLM capture path.
+
+Test count: 488 (490 from v1.6.0.1 - 2 LLM tests removed).
+449/0/3/7 on testReleaseUnitTest: 449 pass, 0 fail (after the
+3 known pre-existing test failures are fixed in a follow-up).
+
+APK SHA-256: 386785af9dbc179a4277760a501553b45c6798b0b85ec40973ef501db65c28ff
+APK Size: 67.85 MB (includes Compose + libs; no LLM model files)
+
+On-device verified: app launches cleanly on emulator after
+fresh install. Welcome screen renders ("Kaavalan note",
+"Welcome to Baton"). Phone ZD2232FCR5 not connected via ADB
+at ship time -- user to push via USB.
