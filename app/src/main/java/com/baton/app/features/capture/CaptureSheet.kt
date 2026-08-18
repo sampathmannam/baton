@@ -76,6 +76,14 @@ fun CaptureSheet(
     // "Downloading… 47%" / "Retry" / hidden as the download
     // progresses, without the VM having to mirror the flow.
     val modelState by viewModel.modelState.collectAsStateWithLifecycle()
+    // v1.6.0: whether the on-device LLM JNI library
+    // (libllama.so) is bundled in this APK. When the build
+    // skipped the `vendorLlamaCpp` task, this is `false` and
+    // the Extract flow would crash without a graceful
+    // fallback. The `LlmUnavailableCard` below surfaces this
+    // state to the user so they know the AI extraction is
+    // not available, not that their text was bad.
+    val llmAvailable by viewModel.llmAvailable.collectAsStateWithLifecycle()
     // Tier 0.4: collect the process-wide voice-recording state.
     // When `isRecording == true` the sheet renders an in-app
     // "Stop" button next to the primary action; tapping it
@@ -112,6 +120,12 @@ fun CaptureSheet(
             state = state,
             hasPeople = hasPeople,
             modelState = modelState,
+            // v1.6.0: pass the LLM-availability flag so the
+            // sheet can render the `LlmUnavailableCard` and
+            // disable the Extract button without the inline
+            // error path. The VM also short-circuits
+            // `onExtract` for defense-in-depth.
+            llmAvailable = llmAvailable,
             // Tier 0.4: pass the in-app voice state + a
             // stop-voice callback. The callback is a local
             // lambda that calls `context.stopService(...)`
@@ -151,6 +165,11 @@ private fun CaptureSheetContent(
     state: CaptureUiState,
     hasPeople: Boolean,
     modelState: ModelState,
+    // v1.6.0: see the parent `CaptureSheet`. When `false`,
+    // the sheet renders the `LlmUnavailableCard` at the
+    // top of the column (above the model-card and the
+    // text field) and the Extract button is disabled.
+    llmAvailable: Boolean = true,
     // Tier 0.4: the in-app voice stop button. When
     // `isVoiceRecording == true` the PrimaryAction row
     // renders a second button next to the primary action
@@ -209,6 +228,19 @@ private fun CaptureSheetContent(
         // no-red rule); no shame framing.
         if (!hasPeople) {
             NoPeopleCard(onOpenAddPerson = onOpenAddPerson)
+        }
+        // v1.6.0: the on-device LLM JNI library is missing
+        // from this build. Render the same "honest empty
+        // state" pattern as `ModelNotReadyCard` / `NoPeopleCard`
+        // but with a different message -- the user can still
+        // save the note as plain text via the Save action
+        // (the Extract button is hard-disabled below). We
+        // place this card ABOVE the model-card so the user
+        // sees "AI off" before "Model not downloaded" -- if
+        // both are true, the model card is moot because the
+        // LLM library is the harder constraint.
+        if (!llmAvailable) {
+            LlmUnavailableCard(onSavePlain = onSaveRaw)
         }
         // v1.5.4: the model lifecycle card. The user opens the
         // capture sheet on a fresh install (no model file on
@@ -295,8 +327,14 @@ private fun CaptureSheetContent(
             // is not yet downloaded — Extract requires the LLM
             // and would no-op silently. The inline
             // `ModelNotReadyCard` above is the visible cue.
+            // v1.6.0: hard-disable also applies when the
+            // on-device LLM JNI library is missing from this
+            // build. The `LlmUnavailableCard` above is the
+            // visible cue; the VM's `onExtract` is also a
+            // defense-in-depth short-circuit.
             hasPeople = hasPeople,
             modelReady = modelState is ModelState.Ready,
+            llmAvailable = llmAvailable,
             // Tier 0.4: the in-app stop-voice button is
             // shown when `isVoiceRecording` is true. The
             // button is rendered above the primary action
@@ -399,6 +437,11 @@ private fun PrimaryAction(
     canConfirm: Boolean,
     hasPeople: Boolean,
     modelReady: Boolean,
+    // v1.6.0: when the on-device LLM JNI library is missing
+    // from the APK, hard-disable the Extract button. The
+    // "Save as text" fallback below stays available so the
+    // user can still keep the note.
+    llmAvailable: Boolean = true,
     // Tier 0.4: the in-app stop-voice affordance. The button
     // is only rendered when `isVoiceRecording` is true, and
     // it sits **above** the primary action row (the recording
@@ -470,7 +513,12 @@ private fun PrimaryAction(
                     // the user would tap a blue button that no-ops
                     // and the `onExtract` path would silently
                     // return null.
-                    enabled = canExtract && hasPeople && modelReady,
+                    // v1.6.0: also disabled when the LLM JNI
+                    // library is missing from this APK. The
+                    // `LlmUnavailableCard` above is the visible
+                    // cue. The VM's `onExtract` is also a
+                    // short-circuit for defense-in-depth.
+                    enabled = canExtract && hasPeople && modelReady && llmAvailable,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.capture_sheet_extract))
@@ -605,6 +653,69 @@ private fun ModelNotReadyCard(
                     // this card on Ready. Kept as a no-op branch
                     // so the `when` is exhaustive.
                 }
+            }
+        }
+    }
+}
+
+/**
+ * v1.6.0: the inline "AI extraction off" card. Renders at the
+ * top of the capture sheet when [CaptureViewModel.llmAvailable]
+ * is `false` -- i.e. the on-device LLM JNI library (libllama.so)
+ * is missing from this APK. The card uses the same neutral
+ * `surfaceVariant` colour as `NoPeopleCard` and
+ * `ModelNotReadyCard`, with `Icons.Outlined.Info` and no red.
+ *
+ * Two affordances:
+ *
+ *  - A clear message that the AI extraction is unavailable in
+ *    this build, not that the user's text was bad.
+ *  - A primary-coloured "Save as plain note" button that calls
+ *    [onSavePlain] -- the same path the "Save as text" fallback
+ *    uses. The Extract button is hard-disabled in this state
+ *    (see [PrimaryAction]'s `llmAvailable` gate); the user can
+ *    still keep the note by tapping this button.
+ *
+ * Why the JNI library might be missing: the v1.6.0 build
+ * pipeline can run with `-x vendorLlamaCpp` for fast CI builds
+ * (no NDK). Production builds (signed APK on the user's phone)
+ * include the library, so this card is a defensive safeguard
+ * for sideloaded test builds and a "build mismatch" signal if
+ * the production build path ever drifts.
+ */
+@Composable
+private fun LlmUnavailableCard(
+    onSavePlain: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.capture_sheet_llm_unavailable_card_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = stringResource(R.string.capture_sheet_llm_unavailable_card_body),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = onSavePlain,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = "Save note as plain text" },
+            ) {
+                Text(stringResource(R.string.capture_sheet_llm_unavailable_save_plain))
             }
         }
     }
