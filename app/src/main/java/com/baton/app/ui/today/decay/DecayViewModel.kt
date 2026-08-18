@@ -54,7 +54,13 @@ class DecayViewModel @Inject constructor(
         val now = Instant.now().toEpochMilli()
         val quiet = people
             .map { it.toDecayRow(now) }
-            .filter { it.daysQuiet >= filter }
+            // v1.6.1: exclude "never touched" people from the
+            // Quiet a while list. A person the user just added
+            // is not quiet — they're new. Without this filter
+            // the row passes `daysQuiet = Long.MAX_VALUE >= filter`
+            // and the UI renders "haven't touched in -1 days"
+            // (Long.MAX_VALUE.toInt() is -1).
+            .filter { it.lastInteractionAt != null && it.daysQuiet >= filter }
             .sortedByDescending { it.daysQuiet }
         DecayUiState(
             filterDays = filter,
@@ -112,6 +118,7 @@ class DecayViewModel @Inject constructor(
             designation = designation,
             station = station,
             daysQuiet = daysQuiet,
+            lastInteractionAt = last,
             tier = tier,
             cadenceDays = cadence,
             status = status,
@@ -141,6 +148,11 @@ data class DecayRow(
     val cadenceDays: Int,
     val status: ReachOutStatus,
     val person: Person,
+    // v1.6.1: pass through the last interaction timestamp so the
+    // VM can exclude never-touched people from the Quiet a while
+    // list (otherwise the `Long.MAX_VALUE.toInt() = -1` overflow
+    // renders "-1 days" for a person the user just added).
+    val lastInteractionAt: Long?,
 )
 
 enum class ReachOutStatus(val label: String) {
