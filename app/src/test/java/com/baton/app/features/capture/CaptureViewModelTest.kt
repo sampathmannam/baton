@@ -13,6 +13,7 @@ import com.baton.app.data.instructions.Status
 import com.baton.app.data.person.Person
 import com.baton.app.data.person.PersonRepository
 import com.baton.app.data.tags.RoomTagRepository
+import com.baton.app.ai.llama.LlamaBridge
 import com.baton.app.data.tags.Tag
 import com.baton.app.data.tags.TagKind
 import kotlinx.coroutines.Dispatchers
@@ -252,6 +253,13 @@ class CaptureViewModelTest {
         // (that's a Compose-level test, not a VM test), so
         // a relaxed mock is fine.
         modelManager: com.baton.app.ai.llama.ModelManager = mockk(relaxed = true),
+        // v1.6.0: a fake LlamaBridge so the v1.6.0 capture
+        // sheet's "AI extraction unavailable" surface can
+        // be exercised in tests. The `llmAvailable` flag is
+        // read once at class-load time; we use a dedicated
+        // test subclass that exposes the flag instead of
+        // mocking the JNI probe.
+        llamaBridge: LlamaBridge = FakeLlamaBridge(isNativeAvailable = true),
     ): CaptureViewModel = CaptureViewModel(
         savedStateHandle = savedStateHandle,
         processor = processor,
@@ -260,7 +268,43 @@ class CaptureViewModelTest {
         instructionRepository = ins,
         tagRepository = tags,
         modelManager = modelManager,
+        llamaBridge = llamaBridge,
     )
+
+    /**
+     * v1.6.0: a `LlamaBridge` subclass that bypasses the
+     * JNI probe. The real probe (`nativeGetLastEvalMs`)
+     * throws [UnsatisfiedLinkError] in a JVM-only test
+     * because `libllama.so` is not on the test classpath.
+     * The production class sets [LlamaBridge.isNativeAvailable]
+     * based on whether the probe succeeds; for tests we want
+     * to control the flag directly. The bridge's
+     * `load` / `infer` are not called by the unit tests
+     * (the Extractor is mocked away via the `CaptureProcessor`
+     * parameter), so the no-op overrides are safe.
+     */
+    private class FakeLlamaBridge(
+        isNativeAvailable: Boolean = true,
+    ) : LlamaBridge() {
+        // v1.6.0: the production class's `isNativeAvailable`
+        // is a `val` initialised by the JNI probe. We can't
+        // `override val` because the JNI probe in the parent
+        // initialiser throws [UnsatisfiedLinkError] in a
+        // JVM-only test (no `libllama.so` on the classpath)
+        // and short-circuits to `false`. The parent's
+        // `isNativeAvailable` is now `open` so we can
+        // override it; this block is the override.
+        override val isNativeAvailable: Boolean = isNativeAvailable
+
+        override suspend fun load(modelPath: java.io.File, nCtx: Int, nThreads: Int) {
+            // no-op for unit tests; the CaptureProcessor is
+            // faked so `Extractor.load` is never called.
+        }
+        override suspend fun infer(prompt: String, maxTokens: Int): String {
+            // no-op; the CaptureProcessor is faked.
+            return ""
+        }
+    }
 
     @Test
     fun `openSheet makes the sheet visible`() = runTest(testDispatcher) {
@@ -356,6 +400,81 @@ class CaptureViewModelTest {
         // came out of the LLM).
         assertEquals(1, repo.created.size)
         assertTrue(repo.markedProcessed.isEmpty())
+    }
+
+    @Test
+    fun `onExtract with no LLM library short-circuits to the unavailable message`() = runTest(testDispatcher) {
+        // v1.6.0: when the on-device LLM JNI library
+        // (libllama.so) is missing from the APK, the
+        // CaptureViewModel must short-circuit the
+        // `onExtract` flow with a clear, honest error
+        // message. The previous "No instruction found.
+        // Try rephrasing." was misleading -- the user's
+        // text was never even read. This test guards the
+        // new contract: the capture row is NOT created
+        // (we never reached the LLM), the proposal is
+        // null, the state-machine has the unavailable
+        // message, and the sheet stays open for the user
+        // to choose the plain-text save path.
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val vm = makeVm(
+            processor = CaptureProcessor { null },
+            repo = repo,
+            person = person,
+            ins = ins,
+            llamaBridge = FakeLlamaBridge(isNativeAvailable = false),
+        )
+        // The exposed StateFlow must reflect the JNI
+        // probe result so the UI can render the
+        // `LlmUnavailableCard` and disable the Extract
+        // button.
+        assertEquals(false, vm.llmAvailable.value)
+        vm.openSheet()
+        vm.onTextChanged("Tell SHO Ramu to file FIR 47 by Friday")
+        vm.onExtract()
+        advanceUntilIdle()
+        val s = vm.state.value
+        assertTrue("Sheet should stay open", s.isVisible)
+        assertFalse("Should not be extracting", s.isExtracting)
+        assertNull(s.proposal)
+        // v1.6.0: the error message is the LLM-unavailable
+        // copy, NOT the misleading rephrasing prompt.
+        val err = s.error
+        assertNotNull("error must be set when LLM is unavailable", err)
+        assertTrue(
+            "Error must mention AI/LLM unavailable, was: $err",
+            err!!.contains("AI", ignoreCase = true) ||
+                err.contains("LLM", ignoreCase = true) ||
+                err.contains("not available", ignoreCase = true),
+        )
+        // The capture row is NOT created because we
+        // never reached the `processor.process(text)`
+        // call. The user can still save via the
+        // "Save as plain note" path in the UI.
+        assertEquals(0, repo.created.size)
+    }
+
+    @Test
+    fun `llmAvailable StateFlow reflects the LlamaBridge probe result`() = runTest(testDispatcher) {
+        // v1.6.0: the `llmAvailable` StateFlow must be
+        // wired to the JNI probe result, NOT a default
+        // `true`. Without this test, a future refactor
+        // could swap the bridge for a hardcoded `true`
+        // and the UX would silently regress to the
+        // misleading "No instruction found" message.
+        val fakes = fakes(); val repo = fakes.a; val person = fakes.b; val ins = fakes.c
+        val available = makeVm(
+            processor = CaptureProcessor { null },
+            repo = repo, person = person, ins = ins,
+            llamaBridge = FakeLlamaBridge(isNativeAvailable = true),
+        )
+        val missing = makeVm(
+            processor = CaptureProcessor { null },
+            repo = repo, person = person, ins = ins,
+            llamaBridge = FakeLlamaBridge(isNativeAvailable = false),
+        )
+        assertEquals(true, available.llmAvailable.value)
+        assertEquals(false, missing.llmAvailable.value)
     }
 
     @Test

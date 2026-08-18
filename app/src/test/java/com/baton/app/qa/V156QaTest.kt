@@ -1,6 +1,7 @@
 package com.baton.app.qa
 
 import app.cash.turbine.test
+import com.baton.app.ai.llama.LlamaBridge
 import com.baton.app.ai.llama.ModelManager
 import com.baton.app.ai.llama.ModelState
 import com.baton.app.data.captures.Capture
@@ -215,6 +216,20 @@ class V156QaTest {
         person: FakePersonRepository,
         ins: FakeInstructionRepository,
         modelManager: ModelManager = mockk(relaxed = true),
+        // v1.6.0: a real LlamaBridge subclass that
+        // reports the JNI library as available. The QA
+        // tests exercise the full `onExtract` /
+        // `onConfirm` / `onSaveRaw` paths, which the
+        // v1.6.0 `onExtract` short-circuit skips when
+        // the LLM library is reported as missing. A
+        // `mockk(relaxed = true)` would return the
+        // Boolean default `false` and trigger the
+        // short-circuit, which would make the QA tests
+        // assert the wrong error message. The
+        // [TestLlamaBridge] below is a thin subclass
+        // that bypasses the JNI probe (which would
+        // throw `UnsatisfiedLinkError` under JVM).
+        llamaBridge: LlamaBridge = TestLlamaBridge(isNativeAvailable = true),
         savedStateHandle: androidx.lifecycle.SavedStateHandle = androidx.lifecycle.SavedStateHandle(),
     ): CaptureViewModel = CaptureViewModel(
         savedStateHandle = savedStateHandle,
@@ -224,7 +239,37 @@ class V156QaTest {
         instructionRepository = ins,
         tagRepository = fakeTagRepo(),
         modelManager = modelManager,
+        llamaBridge = llamaBridge,
     )
+
+    /**
+     * v1.6.0: a thin [LlamaBridge] subclass that
+     * bypasses the JNI probe. The production
+     * `isNativeAvailable` runs `nativeGetLastEvalMs(0L)`
+     * at class-load time, which throws
+     * [UnsatisfiedLinkError] in a JVM-only test
+     * (`libllama.so` is not on the classpath). We
+     * override the property directly with a constructor
+     * parameter. The `load` / `infer` overrides are
+     * no-ops because the QA tests use a
+     * `CaptureProcessor` lambda, so the real
+     * [com.baton.app.ai.extraction.Extractor] is never
+     * invoked. This is the same pattern as the
+     * [com.baton.app.features.capture.CaptureViewModelTest.FakeLlamaBridge]
+     * sibling.
+     */
+    private class TestLlamaBridge(
+        isNativeAvailable: Boolean,
+    ) : LlamaBridge() {
+        override val isNativeAvailable: Boolean = isNativeAvailable
+        override suspend fun load(modelPath: java.io.File, nCtx: Int, nThreads: Int) {
+            // no-op
+        }
+        override suspend fun infer(prompt: String, maxTokens: Int): String {
+            // no-op
+            return ""
+        }
+    }
 
     // ============================================================================
     // E — Edge cases
@@ -534,6 +579,13 @@ class V156QaTest {
             instructionRepository = throwingIns,
             tagRepository = fakeTagRepo(),
             modelManager = mockk(relaxed = true),
+            // v1.6.0: the new constructor param. Use the
+            // test bridge that reports the JNI library as
+            // available, otherwise the `onExtract` short-
+            // circuit kicks in and the `onConfirm` path
+            // is never reached (which is what the test
+            // exercises).
+            llamaBridge = TestLlamaBridge(isNativeAvailable = true),
         )
         vm.openSheet()
         vm.onTextChanged("SHO Ramu send FIR 47")

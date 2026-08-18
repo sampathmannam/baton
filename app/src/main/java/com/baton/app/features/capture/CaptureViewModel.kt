@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.baton.app.ai.llama.ModelManager
 import com.baton.app.ai.llama.ModelState
+import com.baton.app.ai.llama.LlamaBridge
 import com.baton.app.data.captures.CaptureMode
 import com.baton.app.data.captures.CaptureRepository
 import com.baton.app.data.instructions.InstructionRepository
@@ -56,6 +57,16 @@ class CaptureViewModel @Inject constructor(
     // wide; injecting it directly is cheaper than threading the
     // [Extractor] state through.
     private val modelManager: ModelManager,
+    // v1.6.0: probe the on-device LLM JNI library at class-load
+    // time. When the build excluded `vendorLlamaCpp`, the
+    // library is missing and every inference call would throw
+    // [UnsatisfiedLinkError]. The [LlamaBridge] catches that
+    // case and surfaces a clear "AI not available in this
+    // build" error instead of the misleading "No instruction
+    // found" message. The flag is a `val` (set once at
+    // class-load); we wrap it in a [StateFlow] for parity with
+    // the other UI-facing state.
+    private val llamaBridge: LlamaBridge,
 ) : ViewModel() {
 
     /**
@@ -68,6 +79,19 @@ class CaptureViewModel @Inject constructor(
      * it via `collectAsStateWithLifecycle`.
      */
     val modelState: StateFlow<ModelState> = modelManager.state
+
+    /**
+     * v1.6.0: whether the on-device LLM JNI library
+     * (libllama.so) is bundled in this APK. When the build
+     * skipped the `vendorLlamaCpp` task, this is `false` and
+     * the Extract flow will fail even if a model file is on
+     * disk. The CaptureSheet reads this and renders a clear
+     * "AI extraction unavailable in this build" card so the
+     * user is not asked to download a model that cannot run.
+     * Wrapped in a [StateFlow] for the same lifecycle
+     * reasons as [modelState].
+     */
+    val llmAvailable: StateFlow<Boolean> = MutableStateFlow(llamaBridge.isNativeAvailable).asStateFlow()
 
     /**
      * v1.5.4: kick off the model download. Idempotent — calling
@@ -391,6 +415,23 @@ class CaptureViewModel @Inject constructor(
         val current = _state.value
         if (!current.canExtract) return
         val text = current.text
+        // v1.6.0: short-circuit when the on-device LLM JNI library
+        // is not bundled. Showing "No instruction found. Try
+        // rephrasing." was misleading -- the user's text was
+        // never even read. The CaptureSheet also renders an
+        // "AI extraction unavailable" card in this state (see
+        // [llmAvailable] in the Composable), but the inline error
+        // here is the authoritative state-machine value.
+        if (!llamaBridge.isNativeAvailable) {
+            _state.update {
+                it.copy(
+                    isExtracting = false,
+                    error = "AI extraction isn't available in this build. Save the note as-is, or update to a build with the on-device LLM.",
+                    errorType = ErrorType.UNKNOWN,
+                )
+            }
+            return
+        }
         _state.update { it.copy(isExtracting = true, error = null) }
         viewModelScope.launch {
             val capture = runCatching {
@@ -417,9 +458,23 @@ class CaptureViewModel @Inject constructor(
                     }
                     _state.update {
                         if (proposal == null) {
+                            // v1.6.0: the processor returns null in
+                            // two distinct cases -- low confidence
+                            // (the LLM ran but no useful instruction
+                            // was found) and the JNI library being
+                            // missing (we short-circuit above). The
+                            // remaining null case is the low-confidence
+                            // path. The honest message names what
+                            // actually happened.
+                            val msg = if (!llamaBridge.isNativeAvailable) {
+                                "AI extraction isn't available in this build. Save the note as-is."
+                            } else {
+                                "No instruction found. Try rephrasing."
+                            }
                             it.copy(
                                 isExtracting = false,
-                                error = "No instruction found. Try rephrasing.",
+                                error = msg,
+                                errorType = ErrorType.UNKNOWN,
                             )
                         } else {
                             it.copy(
