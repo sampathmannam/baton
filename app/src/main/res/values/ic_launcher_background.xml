@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-        v1.5.7 launcher-icon background. Kept as a single color so
-        OEM launchers (and the v1.0 vector foreground) have a
-        deterministic fallback. The actual adaptive icon uses
-        drawable/ic_launcher_background.xml (gradient) on API 26+.
+        v1.6.3 launcher-icon background. Solid warm cream so the
+        indigo shield foreground reads cleanly on API 26+ adaptive
+        launchers and the v1.5.7-era gradient is gone.
     -->
-    <color name="ic_launcher_background">#2A6B73</color>
+    <color name="ic_launcher_background">#F2EBDC</color>
 </resources>

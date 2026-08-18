@@ -41,23 +41,36 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.6.2: UI/UX round 2. Search now resolves people
-        // (Inspector_Ramu / SHO Patel / etc.) alongside instructions;
-        // InstructionCard no longer shows duplicate title==body
-        // text; home pill renamed to "Quick note" so it doesn't
-        // collide with person-row tap (which opens attributed
-        // capture). Settings sheet is now scrollable so "Erase all
-        // data" and the (debug-only) Developer section are
-        // reachable on small screens. Adds a BuildConfig.DEBUG-
-        // gated Developer section in Settings that loads a
-        // synthetic test fixture (12 persons, 36 instructions, 7
-        // captures, 12 tags, 3 worries) into the local DB. No
-        // LLM work in this release -- still text + system-speech
-        // capture only, no JNI / no abiFilters / no bundled .so.
-        // versionCode 20 (one above v1.6.1's 19), versionName
-        // "1.6.2".
-        versionCode = 20
-        versionName = "1.6.2"
+        // v1.6.3: UI/UX round 3 (Obsidian-style pass + app icon).
+        // (1) App icon redesigned — new adaptive foreground
+        // (indigo shield on cream) shipped to all 5 mipmap
+        // densities + the launcher round variants. Notification
+        // small icon (24x24 white silhouette) added; the
+        // adaptive background switched from a teal-to-coral
+        // gradient to a solid cream so the shield carries full
+        // visual weight. (2) HomeScreen Quick-note bar moved
+        // from a floating Box overlay into the Scaffold's
+        // bottomBar slot — the previous overlay hid the last
+        // person row on 1080x2400. (3) Open-count badge dropped
+        // the prominent tertiaryContainer CircleShape pill and
+        // is now a small labelMedium text on the right (Obsidian
+        // document density). (4) HomeScreen and TodayScreen
+        // TopAppBar titles re-styled to titleSmall + onSurface
+        // with a 4dp start inset to compensate for
+        // `windowInsets(0)`. (5) Typography tokens retuned to
+        // Obsidian scale (16sp body, 14sp UI, 12sp small,
+        // 1.5 line height, weight 400-500). (6) TodayScreen
+        // passes personNameById to search results so the
+        // instruction group header shows "K. Ramana" not a
+        // truncated UUID. (7) TodayScreen "Review" button
+        // switched from OutlinedButton to TextButton (secondary
+        // to content). (8) PersonList / search-results
+        // LazyColumns now use horizontal contentPadding so
+        // rows have full-width click hit-targets.
+        // versionCode 21 (one above v1.6.2's 20), versionName
+        // "1.6.3".
+        versionCode = 21
+        versionName = "1.6.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

@@ -285,7 +285,10 @@ private fun PersonTimeline(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        // v1.6.3: 16dp horizontal contentPadding so the
+        // cards no longer need their own horizontal padding
+        // (full-width clickable hit targets).
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
@@ -327,8 +330,10 @@ private fun PersonTimeline(
                 )
             }
         }
-        // Leave room for the NoteBar (carried over from M2).
-        item { Spacer(Modifier.height(80.dp)) }
+        // v1.6.3: removed the trailing 80dp Spacer. The
+        // LazyColumn's contentPadding(bottom) is the bottom
+        // buffer; nothing else lives below the list on this
+        // screen.
     }
 }
 
@@ -349,12 +354,14 @@ private fun PersonHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            // v1.6.3: no horizontal padding here; the
+            // LazyColumn's contentPadding handles it.
+            .padding(vertical = 8.dp),
     ) {
         Text(
             text = person.name,
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         val subtitle = listOfNotNull(person.designation, person.station).joinToString(" • ")
         if (subtitle.isNotEmpty()) {
@@ -369,7 +376,12 @@ private fun PersonHeader(
         // the user is on this screen because they want to do
         // something involving this person. Don't make them
         // navigate away to capture.
-        Button(
+        // v1.6.3: switched from filled Button to OutlinedButton
+        // — the filled variant was the loudest element on the
+        // screen and pulled attention away from the timeline.
+        // OutlinedButton keeps the action discoverable but
+        // lets the instructions read as the primary content.
+        androidx.compose.material3.OutlinedButton(
             onClick = onAddInstruction,
             modifier = Modifier
                 .fillMaxWidth()
@@ -427,8 +439,9 @@ private fun InstructionRow(
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .fillMaxWidth(),
+        // v1.6.3: no horizontal padding here; the
+        // LazyColumn's contentPadding handles it.
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

@@ -157,75 +157,50 @@ fun HomeScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                Column {
-                    TopAppBar(
-                        title = { Text(stringResource(R.string.home_title)) },
-                    )
-                    // v2.0 (Tier 1.3): the search bar below the
-                    // top app bar. The results show on the same
-                    // screen when the user types something
-                    // matching; when the query is empty the
-                    // existing PersonList renders.
-                    val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-                    SearchBar(viewModel = searchViewModel)
-                }
-            },
-            floatingActionButton = {
-                FloatingActionButton(onClick = { showAddPerson = true }) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
-                }
-            },
-        ) { padding ->
-            val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-            val query by searchViewModel.query.collectAsStateWithLifecycle()
-            val results by searchViewModel.results.collectAsStateWithLifecycle()
-            val personResults by searchViewModel.personResults.collectAsStateWithLifecycle()
-            // v1.6.2: feed the visible people list to the search VM
-            // so the people filter (new in v1.6.2) has data to work
-            // with. When state is Loaded we have a list; otherwise
-            // the VM sees an empty list (it will receive a non-empty
-            // list on the next state change thanks to
-            // `WhileSubscribed(5_000)`).
-            val visiblePeople = (state as? HomeUiState.Loaded)?.persons
-                ?.map { it.toEntity() }
-                .orEmpty()
-            LaunchedEffect(visiblePeople) {
-                searchViewModel.setVisiblePeople(visiblePeople)
-            }
-            if (query.isNotEmpty()) {
-                HomeScreenSearchResults(
-                    personResults = personResults,
-                    instructionResults = results,
-                    padding = padding,
-                    onPersonClick = onOpenPerson,
+    Scaffold(
+        topBar = {
+            Column {
+                // v1.6.3: Obsidian-style title. The default Material
+                // titleLarge is too loud for a document-density
+                // app; we use titleSmall with onSurface so the
+                // title reads as a section label, not a banner.
+                // Vertical padding trimmed to keep the top bar
+                // compact. We also add an explicit start padding
+                // because `windowInsets(0)` strips the leading
+                // inset the TopAppBar would normally add, leaving
+                // the title flush against the left edge.
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.home_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                    },
+                    windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 )
-            } else {
-                when (val s = state) {
-                    HomeUiState.Empty -> EmptyState(
-                        padding = padding,
-                        onAddPersonClick = { showAddPerson = true },
-                    )
-                    HomeUiState.Loading -> LoadingSkeleton(padding)
-                    is HomeUiState.Loaded -> PersonList(
-                        persons = s.persons,
-                        openCountByPersonId = s.openCountByPersonId,
-                        stalePersonIds = s.stalePersonIds,
-                        padding = padding,
-                        onPersonClick = onOpenPerson,
-                    )
-                    is HomeUiState.Error -> ErrorState(s.message, padding)
-                }
+                // v2.0 (Tier 1.3): the search bar below the
+                // top app bar. The results show on the same
+                // screen when the user types something
+                // matching; when the query is empty the
+                // existing PersonList renders.
+                val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                SearchBar(viewModel = searchViewModel)
             }
-        }
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 12.dp),
-        ) {
+        },
+        // v1.6.3: the Quick note bar moved from a floating Box
+        // overlay into the Scaffold's bottomBar slot. The
+        // previous floating overlay sat on top of the last
+        // person row (a hard-to-reach "P..." entry was hidden
+        // behind it on a 1080x2400 emulator). With the bar in
+        // bottomBar the Scaffold's content slot is auto-padded
+        // so the LazyColumn can scroll the last row above the
+        // bar. The MainActivity's outer Scaffold still draws the
+        // tab bar (Home/Today/Settings) below this bottomBar,
+        // so the layout order is: LazyColumn -> Quick note
+        // bar -> tab bar.
+        bottomBar = {
             NoteBar(
                 onTextClick = { captureViewModel.openSheet() },
                 onCameraClick = {
@@ -263,8 +238,64 @@ fun HomeScreen(
                     }
                 },
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddPerson = true }) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
+            }
+        },
+    ) { padding ->
+            val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val query by searchViewModel.query.collectAsStateWithLifecycle()
+            val results by searchViewModel.results.collectAsStateWithLifecycle()
+            val personResults by searchViewModel.personResults.collectAsStateWithLifecycle()
+            // v1.6.2: feed the visible people list to the search VM
+            // so the people filter (new in v1.6.2) has data to work
+            // with. When state is Loaded we have a list; otherwise
+            // the VM sees an empty list (it will receive a non-empty
+            // list on the next state change thanks to
+            // `WhileSubscribed(5_000)`).
+            val visiblePeople = (state as? HomeUiState.Loaded)?.persons
+                ?.map { it.toEntity() }
+                .orEmpty()
+            LaunchedEffect(visiblePeople) {
+                searchViewModel.setVisiblePeople(visiblePeople)
+            }
+            if (query.isNotEmpty()) {
+                // v1.6.3: pass the person name map so the
+                // instruction group header reads as a person
+                // name (e.g. "K. Ramana"), not a truncated
+                // UUID like "8bc44494-016f-4cd0-8". The map
+                // is built from the same `visiblePeople` we
+                // feed to SearchViewModel.
+                val personNameById = remember(visiblePeople) {
+                    visiblePeople.associate { it.id to it.name }
+                }
+                HomeScreenSearchResults(
+                    personResults = personResults,
+                    instructionResults = results,
+                    personNameById = personNameById,
+                    padding = padding,
+                    onPersonClick = onOpenPerson,
+                )
+            } else {
+                when (val s = state) {
+                    HomeUiState.Empty -> EmptyState(
+                        padding = padding,
+                        onAddPersonClick = { showAddPerson = true },
+                    )
+                    HomeUiState.Loading -> LoadingSkeleton(padding)
+                    is HomeUiState.Loaded -> PersonList(
+                        persons = s.persons,
+                        openCountByPersonId = s.openCountByPersonId,
+                        stalePersonIds = s.stalePersonIds,
+                        padding = padding,
+                        onPersonClick = onOpenPerson,
+                    )
+                    is HomeUiState.Error -> ErrorState(s.message, padding)
+                }
+            }
         }
-    }
 
     if (showAddPerson) {
         AddPersonSheet(
@@ -313,9 +344,13 @@ private fun EmptyState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // v1.6.3: dropped headlineMedium (24sp, too loud
+            // for a document-density app). Now headlineSmall
+            // (20sp) reads as a quiet section header.
             Text(
                 text = stringResource(R.string.home_empty_title),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
                 text = stringResource(R.string.home_empty_subtitle),
@@ -370,6 +405,15 @@ private fun PersonList(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
+        // v1.6.3: 16dp horizontal + 16dp bottom contentPadding.
+        // The horizontal padding here means each row's
+        // clickable hit-target extends to the screen edges
+        // (better UX than rows that stop short of the edge).
+        // The row's internal `padding(horizontal = 16.dp)`
+        // can then be removed in a follow-up. Bottom 16dp is
+        // a small visual buffer above the Scaffold's
+        // bottomBar (Quick note).
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
     ) {
         items(items = persons, key = { it.id }) { person ->
             PersonRow(
@@ -378,9 +422,7 @@ private fun PersonList(
                 isStale = person.id in stalePersonIds,
                 onClick = { onPersonClick(person.id) },
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
-        item { Spacer(Modifier.height(80.dp)) }
     }
 }
 
@@ -390,12 +432,15 @@ private fun PersonList(
  * [instructionResults]) — so the placeholder "Search people
  * and instructions" is honest. v1.6.2 added the People section;
  * the Instructions section keeps the per-person grouping from
- * v1.6.0.1.
+ * v1.6.0.1. v1.6.3: [personNameById] resolves the instruction's
+ * `personId` UUID to a real name so each instruction group is
+ * headed by the person's name, not a truncated UUID.
  */
 @Composable
 fun HomeScreenSearchResults(
     personResults: List<com.baton.app.data.local.entities.PersonEntity>,
     instructionResults: List<com.baton.app.data.local.entities.InstructionEntity>,
+    personNameById: Map<String, String>,
     padding: PaddingValues,
     onPersonClick: (String) -> Unit,
 ) {
@@ -419,6 +464,11 @@ fun HomeScreenSearchResults(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
+        // v1.6.3: 16dp bottom buffer for breathing room above the
+        // Scaffold's bottomBar (Quick note). The bottomBar is
+        // already accounted for by `padding`, this is just visual
+        // whitespace.
+        contentPadding = PaddingValues(bottom = 16.dp),
     ) {
         if (personResults.isNotEmpty()) {
             item {
@@ -472,11 +522,14 @@ fun HomeScreenSearchResults(
                         text = if (personId == null) {
                             stringResource(R.string.search_unassigned)
                         } else {
-                            // v1.6.2: show "(unassigned)" or a short
-                            // id; the full name lookup happens via
-                            // the visible people list. For now we
-                            // truncate the id (kept from v1.6.0.1).
-                            personId.take(20)
+                            // v1.6.3: resolve UUID to a real name via
+                            // the visible people map (passed in by
+                            // the caller). Falls back to "(unknown
+                            // person)" if the id is not in the
+                            // visible set (e.g. a sensitive person
+                            // that's currently hidden).
+                            personNameById[personId]
+                                ?: "(unknown person)"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -512,7 +565,6 @@ fun HomeScreenSearchResults(
                 }
             }
         }
-        item { Spacer(Modifier.height(80.dp)) }
     }
 }
 
@@ -589,7 +641,11 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClickLabel = openPersonLabel) { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            // v1.6.3: 8dp vertical, no horizontal padding (the
+            // LazyColumn's contentPadding handles horizontal).
+            // Smaller vertical padding = denser list = more
+            // people on screen = Obsidian document density.
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -597,7 +653,11 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             androidx.compose.foundation.layout.Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(person.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    person.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 // M4-T3: stale surface. After 3 days of no activity on
                 // an OUTGOING instruction (spec §8.2), the row shows
                 // a quiet amber dot. Not red, not a count-up — just
@@ -628,30 +688,28 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             }
         }
         if (openCount > 0) {
-            // v1.3 (F-19): the count badge is just a number on a
-            // tinted background. TalkBack would read "3" without
-            // context; the semantics modifier replaces that with
-            // "3 open instructions" so the user knows what the
-            // number is counting.
+            // v1.3 (F-19): the count badge. TalkBack would read
+            // "3" without context; the semantics modifier
+            // replaces that with "3 open instructions".
+            // v1.6.3: dropped the prominent tertiaryContainer
+            // CircleShape pill — it was the loudest element on the
+            // row and pulled the eye away from the name. Now a
+            // small labelMedium in onSurfaceVariant sits at the
+            // row's right; the badge recedes and the row reads
+            // as a document line (Obsidian-style).
             val countDesc = if (openCount == 1) {
                 stringResource(R.string.a11y_person_count_badge_one)
             } else {
                 stringResource(R.string.a11y_person_count_badge, openCount)
             }
-            Surface(
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                shape = androidx.compose.foundation.shape.CircleShape,
+            Text(
+                text = openCount.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
-                    .padding(start = 8.dp)
+                    .padding(start = 12.dp, end = 4.dp)
                     .semantics { contentDescription = countDesc },
-            ) {
-                Text(
-                    text = openCount.toString(),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                )
-            }
+            )
         }
     }
 }

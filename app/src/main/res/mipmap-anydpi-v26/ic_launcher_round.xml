@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  v1.5.7 adaptive icon (round). On Android 7+ the OS masks the
-  adaptive icon to a circle, so the foreground needs the same
-  72dp safe-zone as the square variant. Identical asset layout.
--->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
