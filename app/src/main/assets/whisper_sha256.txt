@@ -1,7 +1,0 @@
-# Replace this line with the SHA-256 of the ggml-tiny.en.bin file
-# (lower-case, no prefix). While this file starts with `#`, the
-# WhisperModelManager skips the SHA check — useful for the first
-# cold start. Set the real hash for production:
-#   shasum -a 256 ggml-tiny.en.bin
-# or:
-#   curl -sL https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin | sha256sum

@@ -65,8 +65,6 @@ class SettingsVaultPinTest {
         val auth = mockk<AuthRepository>(relaxed = true)
         val realtime = mockk<RealtimeSync>(relaxed = true)
         val syncEngine = mockk<SyncEngine>(relaxed = true)
-        val modelManager = mockk<com.baton.app.ai.llama.ModelManager>(relaxed = true)
-        val whisperManager = mockk<com.baton.app.ai.whisper.WhisperModelManager>(relaxed = true)
         val vaultModeHolder = VaultModeHolder()
         val securePreferences = mockk<SecurePreferences>(relaxed = true)
         // The mock SecurePreferences holds the current PIN
@@ -89,10 +87,11 @@ class SettingsVaultPinTest {
             personDao = mockk<PersonDao>(relaxed = true),
             instructionDao = mockk<InstructionDao>(relaxed = true),
             tagDao = mockk<TagDao>(relaxed = true),
-            modelManager = modelManager,
-            whisperModelManager = whisperManager,
             vaultModeHolder = vaultModeHolder,
             securePreferences = securePreferences,
+            preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
+            plainExporter = mockk<com.baton.app.data.export.PlainExporter>(relaxed = true),
+            appContext = mockk<android.content.Context>(relaxed = true),
         )
         return Triple(vm, vaultModeHolder, securePreferences)
     }

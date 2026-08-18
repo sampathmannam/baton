@@ -17,9 +17,9 @@ import javax.inject.Singleton
  * plugin needs WebSockets; the Android engine does not advertise
  * the `WebSocketCapability` and throws at install time. OkHttp
  * supports WebSockets out of the box and is already a transitive
- * dep (ModelManager uses it to download the GGUF model). The
- * [WebSockets] plugin is installed explicitly so the Ktor client
- * reports the capability regardless of which engine is underneath.
+ * dep of the Supabase client. The [WebSockets] plugin is
+ * installed explicitly so the Ktor client reports the
+ * capability regardless of which engine is underneath.
  *
  * **Why no [SupabaseClient] binding here:** Hilt's KSP1 processor cannot
  * resolve KMP AAR classes (e.g. `io.github.jan.supabase.SupabaseClient`) at

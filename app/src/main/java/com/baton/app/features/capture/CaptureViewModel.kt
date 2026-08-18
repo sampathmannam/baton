@@ -1,15 +1,11 @@
 ﻿package com.baton.app.features.capture
 
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.os.ResultReceiver
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.baton.app.ai.llama.ModelManager
-import com.baton.app.ai.llama.ModelState
-import com.baton.app.ai.llama.LlamaBridge
 import com.baton.app.data.captures.CaptureMode
 import com.baton.app.data.captures.CaptureRepository
 import com.baton.app.data.instructions.InstructionRepository
@@ -35,85 +31,37 @@ import javax.inject.Inject
 /**
  * Drives the note bar + capture sheet.
  *
- *  - M1-T1: the no-op state machine + capture sheet UI.
- *  - M1-T2: inserts a `captures` row before the LLM runs.
- *  - M1-T4: wires the on-device LLM; produces the `ExtractedInstruction`
- *    proposal.
- *  - M1-T5: on Confirm, `findOrCreate` the named person and
- *    `create` the instruction row, then dismiss.
+ * v1.6.1: the on-device LLM (llama.cpp + whisper.cpp) is gone.
+ * There is no extraction, no proposal, no confirmation card.
+ * The capture flow is:
+ *
+ *   1. User taps the note bar — the sheet opens.
+ *   2. User types, or speaks (`android.speech.SpeechRecognizer`),
+ *      or photographs (CameraX + ML Kit on-device OCR).
+ *   3. User taps Save — the note is persisted with the current
+ *      [CaptureMode] (TEXT / VOICE / PHOTO), `personId = null`,
+ *      `priority = NORMAL`, and the title is the first 40 chars
+ *      of the note.
+ *
+ * The "Add to Calendar" toggle still works (M1-T6) — the
+ * calendar event is fired on Save, not on Extract. The tag
+ * picker is unchanged.
  */
 @HiltViewModel
 class CaptureViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val processor: CaptureProcessor,
     private val captureRepository: CaptureRepository,
     private val personRepository: PersonRepository,
     private val instructionRepository: InstructionRepository,
     private val tagRepository: RoomTagRepository,
-    // v1.5.4: model lifecycle. The CaptureSheet's
-    // `ModelNotReadyCard` collects [modelState] to render the
-    // "Model not downloaded" affordance, and [downloadModel] is
-    // the button-tap handler. [ModelManager] is hot + process-
-    // wide; injecting it directly is cheaper than threading the
-    // [Extractor] state through.
-    private val modelManager: ModelManager,
-    // v1.6.0: probe the on-device LLM JNI library at class-load
-    // time. When the build excluded `vendorLlamaCpp`, the
-    // library is missing and every inference call would throw
-    // [UnsatisfiedLinkError]. The [LlamaBridge] catches that
-    // case and surfaces a clear "AI not available in this
-    // build" error instead of the misleading "No instruction
-    // found" message. The flag is a `val` (set once at
-    // class-load); we wrap it in a [StateFlow] for parity with
-    // the other UI-facing state.
-    private val llamaBridge: LlamaBridge,
 ) : ViewModel() {
-
-    /**
-     * v1.5.4: the live model state. The CaptureSheet's
-     * `ModelNotReadyCard` subscribes to this and renders the
-     * appropriate affordance per [ModelState] variant
-     * (NotStarted → "Download model" button, Downloading →
-     * progress bar, Ready → card is hidden, Failed → "Retry"
-     * button). Re-exposed as a [StateFlow] so the UI can collect
-     * it via `collectAsStateWithLifecycle`.
-     */
-    val modelState: StateFlow<ModelState> = modelManager.state
-
-    /**
-     * v1.6.0: whether the on-device LLM JNI library
-     * (libllama.so) is bundled in this APK. When the build
-     * skipped the `vendorLlamaCpp` task, this is `false` and
-     * the Extract flow will fail even if a model file is on
-     * disk. The CaptureSheet reads this and renders a clear
-     * "AI extraction unavailable in this build" card so the
-     * user is not asked to download a model that cannot run.
-     * Wrapped in a [StateFlow] for the same lifecycle
-     * reasons as [modelState].
-     */
-    val llmAvailable: StateFlow<Boolean> = MutableStateFlow(llamaBridge.isNativeAvailable).asStateFlow()
-
-    /**
-     * v1.5.4: kick off the model download. Idempotent — calling
-     * this while a download is in flight is a no-op
-     * ([ModelManager.download] guards with a state check). The
-     * UI fires this from the "Download model" button in the
-     * CaptureSheet; the same call works for the Settings →
-     * Models entry point.
-     */
-    fun downloadModel() {
-        modelManager.ensureModel()
-        modelManager.download()
-    }
 
     /**
      * v1.4 (F-09): initial state is read from [SavedStateHandle] so
      * a process death + relaunch restores the partial capture note
      * instead of silently losing it. We persist text / mode /
      * selectedTagIds via an [init] observer below; the Bundle only
-     * holds plain types (String, Int, ArrayList<String>) — the
-     * typed [ExtractedInstruction] proposal is NOT persisted (a
-     * relaunched user can re-tap Extract to repopulate it).
+     * holds plain types (String, Int, ArrayList<String>).
      */
     private val _state: MutableStateFlow<CaptureUiState> = MutableStateFlow(
         CaptureUiState(
@@ -146,9 +94,9 @@ class CaptureViewModel @Inject constructor(
 
     /**
      * v1.4 (F-09): explicit wipe of the in-flight draft. Called by
-     * the Save success path ([onConfirm], [onSaveRaw]). Unlike
-     * [dismissSheet], this clears the SavedStateHandle-backed fields
-     * so a process death + relaunch does not restore a stale draft.
+     * the Save success path ([onSaveRaw]). Unlike [dismissSheet],
+     * this clears the SavedStateHandle-backed fields so a process
+     * death + relaunch does not restore a stale draft.
      */
     fun clearDraft() {
         savedStateHandle.remove<String>(KEY_TEXT)
@@ -164,25 +112,18 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * v1.4 (PHONE-FINDING-8): the capture sheet now refuses to
+     * v1.4 (PHONE-FINDING-8): the capture sheet refuses to
      * accept a save when the user has zero people — there is no
-     * person to attribute the instruction to, and the previous
-     * behaviour ("Could not save note. Try again.") was a vague
-     * silent failure. The UI observes [hasPeople] and renders an
-     * inline "Add a person first" card with a primary-coloured
-     * button that opens the AddPersonSheet; the Extract button is
-     * disabled when this is `false`. Defaulting to `false` is the
-     * safe direction: the first emission of [hasPeople] is the
-     * synchronous initial value, so a brand-new user who taps the
-     * note bar before the Room flow has emitted is protected by
-     * the inline card until [personRepository.observeAll] confirms
-     * the empty state. A real "has people" emit flips the flag on.
-     *
-     * The flow is `stateIn` with [SharingStarted.Eagerly] so the
-     * first reader sees the latest snapshot, not the default
-     * value — a user with 5 people won't flash the "Add a person
-     * first" card for a frame between activity create and first
-     * Room emission.
+     * person to attribute the instruction to. The UI observes
+     * [hasPeople] and renders an inline "Add a person first"
+     * card with a primary-coloured button that opens the
+     * AddPersonSheet; the Save button is disabled when this is
+     * `false`. Defaulting to `false` is the safe direction: the
+     * first emission of [hasPeople] is the synchronous initial
+     * value, so a brand-new user who taps the note bar before
+     * the Room flow has emitted is protected by the inline card
+     * until [personRepository.observeAll] confirms the empty
+     * state. A real "has people" emit flips the flag on.
      */
     val hasPeople: StateFlow<Boolean> = personRepository.observeAll()
         .map { it.isNotEmpty() }
@@ -193,35 +134,12 @@ class CaptureViewModel @Inject constructor(
         )
 
     /**
-     * v1.4 (PHONE-FINDING-8): the [personId] the capture sheet
-     * should use to attribute the next saved instruction. The
-     * v1.3 path called [PersonRepository.findOrCreate] inside
-     * [onConfirm] which `findOrCreate`s by name and is fine for a
-     * proposal that already has a person. The v1.4 "no people"
-     * path means the user has no one to assign; the [onSave]
-     * guard (the brief calls this [selectedPersonId] derivation)
-     * is the explicit "we have a person to attribute to"
-     * derivation. The first person in [personRepository.observeAll]
-     * is the auto-selected default when the user has people but
-     * hasn't picked a specific one in the proposal yet. Returns
-     * `null` when [hasPeople] is `false` — the inline card in
-     * [CaptureSheet] blocks Extract in that case.
-     */
-    val selectedPersonId: StateFlow<String?> = personRepository.observeAll()
-        .map { persons -> persons.firstOrNull()?.id }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = null,
-        )
-
-    /**
-     * M1-T6: one-shot side effects. The ViewModel emits an [Intent]
-     * here when the user confirms with "Add to Calendar" on and the
-     * LLM extracted a `due_at`. The Composable collects this and
-     * launches via [android.content.Context.startActivity]. The
-     * [Channel] buffers the event so a config change (rotation)
-     * doesn't drop the intent.
+     * M1-T6: one-shot side effects. The ViewModel emits an
+     * [CalendarEventData] here when the user saves with "Add to
+     * Calendar" on. The Composable collects this and launches
+     * via [android.content.Context.startActivity]. The [Channel]
+     * buffers the event so a config change (rotation) doesn't
+     * drop the intent.
      */
     internal val calendarIntentsChannel: Channel<CalendarEventData> = Channel(capacity = Channel.BUFFERED)
     val calendarIntents: Flow<CalendarEventData> = calendarIntentsChannel.receiveAsFlow()
@@ -255,9 +173,9 @@ class CaptureViewModel @Inject constructor(
      * M3-T7: toggle a tag chip in the capture sheet. The set
      * is in memory only until the user taps Save; on Save the
      * instruction row is created, then each tag in the set is
-     * linked via `instruction_tags`. The PENDING_INSERT status on
-     * a freshly-created free-form tag is preserved through this
-     * path: the sync queue drains on the next work run.
+     * linked via `instruction_tags`. The PENDING_INSERT status
+     * on a freshly-created free-form tag is preserved through
+     * this path: the sync queue drains on the next work run.
      */
     fun onTagToggled(tagId: String) {
         _state.update {
@@ -268,10 +186,8 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * M3-T7: add a free-form `#tag` to the proposal. The LLM
-     * extractor may surface `proposal.tags` in a future revision;
-     * until then the user can pre-emptively add a tag from the
-     * picker.
+     * M3-T7: add a free-form `#tag` to the note. The user
+     * can pre-emptively add a tag from the picker.
      */
     fun onAddFreeTag(name: String) {
         val clean = name.trim().trimStart('#').take(40)
@@ -292,35 +208,13 @@ class CaptureViewModel @Inject constructor(
         _state.update { it.copy(addToCalendar = checked) }
     }
 
-    fun onProposalPersonChange(value: String) {
-        _state.update {
-            val proposal = it.proposal ?: return@update it
-            it.copy(proposal = proposal.copy(person = value.ifBlank { null }))
-        }
-    }
-
-    fun onProposalActionChange(value: String) {
-        _state.update {
-            val proposal = it.proposal ?: return@update it
-            it.copy(proposal = proposal.copy(action = value))
-        }
-    }
-
-    fun onProposalTextChange(value: String) {
-        _state.update {
-            val proposal = it.proposal ?: return@update it
-            it.copy(proposal = proposal.copy(instructionText = value))
-        }
-    }
-
     /**
-     * M2-T2: the camera returned an image. OCR it via ML Kit, drop
-     * the recognised text into the capture sheet's text field,
-     * open the sheet, and let the user tap Extract.
-     *
-     * The caller (HomeScreen) does the actual camera launch; this
-     * method is invoked from the Composable's camera-result
-     * callback once we have the content:// URI.
+     * M2-T2: the camera returned an image. OCR it via ML Kit,
+     * drop the recognised text into the capture sheet's text
+     * field, open the sheet, and let the user tap Save. With
+     * the v1.6.1 LLM drop there is no automatic extraction
+     * step — the user reads the text and saves it as a
+     * `CaptureMode.PHOTO` note.
      */
     fun onPhotoTextRecognized(text: String) {
         if (text.isBlank()) return
@@ -334,24 +228,18 @@ class CaptureViewModel @Inject constructor(
      * v1.5.4: surface a photo-capture error (e.g. CAMERA perm
      * denied, OCR threw) as an inline message on the capture
      * sheet. Used by the HomeScreen's camera-permission flow
-     * when the user declines the runtime perm — without this
-     * the v1.3 path silently dropped the click and the user
-     * had no idea why the camera never opened.
+     * when the user declines the runtime perm.
      */
     fun onPhotoError(message: String) {
         _state.update { it.copy(error = "Photo: $message", isVisible = true) }
     }
 
     /**
-     * M2-T4: start the voice-capture service. The caller must hold
-     * `RECORD_AUDIO` already. The service is responsible for
-     * AudioRecord + WhisperBridge; this VM just hands the
-     * [ResultReceiver] over and waits for the transcript (delivered
-     * via [onVoiceTranscript]) or an error ([onVoiceError]).
-     *
-     * The receiver must be `Parcelable` because it crosses the
-     * Intent extra boundary. The Activity creates the receiver and
-     * passes it in; the VM owns the actual `send()` call.
+     * Start the voice-capture flow. v1.6.1: voice transcription
+     * is via the system `android.speech.SpeechRecognizer`
+     * service (no LLM). The service posts the partial / final
+     * transcript back through the [ResultReceiver]; we drop the
+     * text into the capture sheet's field.
      */
     fun onVoiceStart(context: Context) {
         val receiver = object : ResultReceiver(android.os.Handler(android.os.Looper.getMainLooper())) {
@@ -372,7 +260,7 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * M2-T4: stop the service early. The user can also let it
+     * Cancel the voice-capture flow. The user can also let it
      * complete naturally; this is the cancel path.
      */
     fun onVoiceStop(context: Context) {
@@ -380,9 +268,9 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * M2-T4: a transcript came back from the service. Pre-fill the
-     * capture sheet's text and open it. The user then taps Extract
-     * (or edits) and the regular flow takes over.
+     * A transcript came back from the service. Pre-fill the
+     * capture sheet's text and open it. The user then taps
+     * Save and the regular flow takes over.
      */
     fun onVoiceTranscript(text: String) {
         if (text.isBlank()) return
@@ -390,7 +278,7 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * M2-T4: an error came back from the service. Surface it
+     * An error came back from the voice service. Surface it
      * inline on the capture sheet.
      */
     fun onVoiceError(message: String) {
@@ -398,288 +286,44 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * Run the LLM extraction on the current [CaptureUiState.text].
+     * v1.6.1: the only save path. The user types (or
+     * voice-transcribes, or photo-OCR's) a note, taps Save,
+     * and the note is persisted. The instruction lands with:
+     *   - `personId = null` (free-floating; a future
+     *     "link to person" flow can attach one).
+     *   - `source = TEXT | VOICE | PHOTO` (preserved).
+     *   - `priority = NORMAL`.
+     *   - `title = rawText.take(40)` with a trailing `…` if
+     *     truncated.
+     *   - `dueAt = null` (the user can set a due date in the
+     *     instruction row's edit sheet, not the capture flow).
      *
-     * Sequence:
-     *  1. Insert a `captures` row (`mode=TEXT, raw_text=text,
-     *     processed=false`). The row id is logged but not currently
-     *     surfaced in the UI.
-     *  2. Hand the text to the [CaptureProcessor]. The M1 default
-     *     returns `null`; M1-T4 wires the on-device LLM.
-     *  3. On success, mark the capture `processed=true` (M1-T5 will
-     *     also write the linked `instructions` row in the same
-     *     operation). On failure, the capture stays `processed=false`
-     *     and the user can retry.
-     */
-    fun onExtract() {
-        val current = _state.value
-        if (!current.canExtract) return
-        val text = current.text
-        // v1.6.0: short-circuit when the on-device LLM JNI library
-        // is not bundled. Showing "No instruction found. Try
-        // rephrasing." was misleading -- the user's text was
-        // never even read. The CaptureSheet also renders an
-        // "AI extraction unavailable" card in this state (see
-        // [llmAvailable] in the Composable), but the inline error
-        // here is the authoritative state-machine value.
-        if (!llamaBridge.isNativeAvailable) {
-            _state.update {
-                it.copy(
-                    isExtracting = false,
-                    error = "AI extraction isn't available in this build. Save the note as-is, or update to a build with the on-device LLM.",
-                    errorType = ErrorType.UNKNOWN,
-                )
-            }
-            return
-        }
-        _state.update { it.copy(isExtracting = true, error = null) }
-        viewModelScope.launch {
-            val capture = runCatching {
-                captureRepository.create(rawText = text, mode = CaptureMode.TEXT)
-            }.getOrElse { e ->
-                _state.update {
-                    it.copy(
-                        isExtracting = false,
-                        error = SafeError.forUserSave(
-                            e = e,
-                            default = "Could not save note. Try again.",
-                        ),
-                        errorType = SafeError.classifyForCapture(e),
-                    )
-                }
-                return@launch
-            }
-            runCatching { processor.process(text) }
-                .onSuccess { proposal ->
-                    if (proposal != null) {
-                        // M1-T5 will replace this with the full save flow;
-                        // for now, marking processed is the best we can do.
-                        runCatching { captureRepository.markProcessed(capture.id) }
-                    }
-                    _state.update {
-                        if (proposal == null) {
-                            // v1.6.0: the processor returns null in
-                            // two distinct cases -- low confidence
-                            // (the LLM ran but no useful instruction
-                            // was found) and the JNI library being
-                            // missing (we short-circuit above). The
-                            // remaining null case is the low-confidence
-                            // path. The honest message names what
-                            // actually happened.
-                            val msg = if (!llamaBridge.isNativeAvailable) {
-                                "AI extraction isn't available in this build. Save the note as-is."
-                            } else {
-                                "No instruction found. Try rephrasing."
-                            }
-                            it.copy(
-                                isExtracting = false,
-                                error = msg,
-                                errorType = ErrorType.UNKNOWN,
-                            )
-                        } else {
-                            it.copy(
-                                isExtracting = false,
-                                proposal = proposal,
-                                error = null,
-                            )
-                        }
-                    }
-                }
-                .onFailure { e ->
-                    _state.update {
-                        it.copy(
-                            isExtracting = false,
-                            error = SafeError.forUserSave(
-                                e = e,
-                                default = "Could not extract instruction.",
-                            ),
-                            errorType = SafeError.classifyForCapture(e),
-                        )
-                    }
-                }
-        }
-    }
-
-    /**
-     * M2-T2 photo path. Same as [onExtract] but writes the
-     * capture with `mode=PHOTO` and a `image_uri` so the captures
-     * table reflects the source. M1's `create()` signature doesn't
-     * accept image_uri; M3's Room mirror will. For M2 we pass
-     * mode=PHOTO with raw_text = OCR text (the same as the text
-     * path); the image is held in cacheDir/captures/ until the
-     * user closes the sheet, then uploaded as part of a future
-     * M3 sync. M2 ships a capture row that points at the URI
-     * indirectly via the row id mapping.
-     */
-    fun onPhotoExtract(ocrText: String, imageUriString: String) {
-        if (ocrText.isBlank()) return
-        viewModelScope.launch {
-            val capture = runCatching {
-                captureRepository.create(rawText = ocrText, mode = CaptureMode.PHOTO)
-            }.getOrNull()
-            if (capture == null) {
-                _state.update {
-                    it.copy(error = "Could not save photo. Try again.")
-                }
-                return@launch
-            }
-            runCatching { processor.process(ocrText) }
-                .onSuccess { proposal ->
-                    if (proposal != null) {
-                        runCatching { captureRepository.markProcessed(capture.id) }
-                    }
-                    _state.update {
-                        if (proposal == null) {
-                            it.copy(
-                                isExtracting = false,
-                                error = "No instruction found in the photo. Try rephrasing.",
-                            )
-                        } else {
-                            it.copy(
-                                isExtracting = false,
-                                proposal = proposal,
-                                error = null,
-                            )
-                        }
-                    }
-                }
-                .onFailure { e ->
-                    _state.update {
-                        it.copy(
-                            isExtracting = false,
-                            error = SafeError.forUserSave(
-                                e = e,
-                                default = "Could not extract instruction.",
-                            ),
-                            errorType = SafeError.classifyForCapture(e),
-                        )
-                    }
-                }
-        }
-    }
-
-    /**
-     * Confirm the proposal and save. Sequence:
-     *  1. `personRepository.findOrCreate(name)` if the proposal named a
-     *     person. If `proposal.person` is `null`, the instruction is
-     *     stored with `person_id = null` (a free-floating note).
-     *  2. `instructionRepository.create(...)` writes the row.
-     *  3. Dismiss the sheet. On error, surface a user-readable message
-     *     and keep the sheet open so the user can retry.
+     * If the user has selected tags in the tag picker, the
+     * tag links are attached in the same success path.
      *
-     * M1 only saves; the M2 nudge flow will move the instruction
-     * through `ACK_PENDING` → `DONE`. The M1-T6 calendar toggle, when
-     * on, also fires a `CalendarContract.Events.Insert` intent in
-     * parallel (added in T6).
-     */
-    fun onConfirm() {
-        val current = _state.value
-        val proposal = current.proposal ?: return
-        if (!current.canConfirm) return
-        // v1.4 (PHONE-FINDING-8): note — v1.3 contract preserved.
-        // The capture sheet already disables Extract when
-        // [hasPeople] is `false`, so this path is only reachable
-        // when the proposal already names a person (v1.3
-        // `onConfirm` always saves a free-floating instruction
-        // when `proposal.person == null`, and the v1.3 test
-        // `onConfirm with no person still saves a free-floating
-        // instruction` locks this behaviour). The UI gate is
-        // the primary enforcement; the VM stays permissive so
-        // the v1.3 free-floating path is unbroken.
-        _state.update { it.copy(isSaving = true, error = null) }
-        viewModelScope.launch {
-            val personId: String? = proposal.person?.let { name ->
-                runCatching { personRepository.findOrCreate(name = name) }
-                    .onFailure {
-                        _state.update {
-                            it.copy(
-                                isSaving = false,
-                                error = "Could not save person. Try again.",
-                            )
-                        }
-                    }
-                    .getOrNull()
-                    ?.id
-            }
-            if (_state.value.error != null) return@launch
-            val title = buildTitle(proposal)
-            val priority = parsePriority(proposal.priority)
-            val result = runCatching {
-                instructionRepository.create(
-                    personId = personId,
-                    // v1.1: source reflects how the user actually
-                    // captured the thought, not a hard-coded TEXT.
-                    source = modeToSource(current.mode),
-                    priority = priority,
-                    title = title,
-                    rawText = proposal.instructionText,
-                    dueAt = proposal.dueAt,
-                )
-            }
-            result.onSuccess { created ->
-                if (current.addToCalendar) {
-                    val event = CalendarGate.buildEventData(
-                        title = title,
-                        description = proposal.instructionText,
-                        dueAt = proposal.dueAt,
-                    )
-                    if (event != null) {
-                        calendarIntentsChannel.trySend(event)
-                    }
-                }
-                if (current.selectedTagIds.isNotEmpty()) {
-                    runCatching {
-                        tagRepository.attachToInstruction(
-                            instructionId = created.id,
-                            tagIds = current.selectedTagIds.toList(),
-                        )
-                    }
-                }
-                // v1.4 (F-09): success path wipes the in-flight draft
-                // so the next capture starts from a clean slate.
-                clearDraft()
-            }.onFailure { e ->
-                _state.update {
-                    it.copy(
-                        isSaving = false,
-                        error = SafeError.forUserSave(
-                            e = e,
-                            default = "Could not save instruction.",
-                        ),
-                        errorType = SafeError.classifyForCapture(e),
-                    )
-                }
-            }
-        }
-    }
-
-    /**
-     * v1.1: spec §12 — "LLM extraction fails → raw text saved as-is
-     * with a `needs_review=true` flag; user can tag/edit later."
-     *
-     * The M1 UX surface for this is a "Save as text" button shown
-     * when the LLM returned no proposal (or the user wants to skip
-     * extraction entirely). The instruction lands with a generic
-     * title (`rawText` truncated to 40 chars), no person, no due
-     * date, and a `priority = NORMAL`. The audit trail preserves
-     * the capture mode so a future review can show "you typed this
-     * but didn't extract" vs "you spoke this and the LLM missed it".
+     * The "Add to Calendar" toggle fires a calendar intent
+     * with the first 40 chars as the title and the full
+     * text as the description.
      */
     fun onSaveRaw() {
         val current = _state.value
         if (!current.canSaveRaw) return
-        // v1.4 (PHONE-FINDING-8): "Save as text" still needs a
-        // person to attribute to. The UI already hides this button
-        // when [hasPeople] is false (the inline "Add a person first"
-        // card replaces it), so this guard is the same
-        // defensive-backstop as [onConfirm] above. The user sees a
-        // clear error and the sheet stays open; the locked message
-        // tells them to add a person first.
+        // v1.4 (PHONE-FINDING-8): the no-people guard. The
+        // UI hides the Save button when [hasPeople] is false
+        // (the inline "Add a person first" card replaces it),
+        // so this guard is the same defensive backstop. The
+        // user sees a clear error and the sheet stays open.
+        // v1.6.1 note: the v1.5.4 NoPeopleCard copy says
+        // "capture instructions" — the user is now saving a
+        // free-floating note, not an instruction. We keep the
+        // same exception type for test stability but the
+        // copy in the capture sheet is the user-facing truth.
         if (!hasPeople.value) {
             _state.update {
                 it.copy(
                     isSaving = false,
                     error = NoPeopleException().message,
+                    errorType = ErrorType.NEEDS_PERSON_FIRST,
                 )
             }
             return
@@ -700,6 +344,23 @@ class CaptureViewModel @Inject constructor(
                 )
             }
             result.onSuccess { created ->
+                // v1.6.1: insert a captures row so the audit
+                // trail preserves the capture source. The
+                // captures table is the "raw" record; the
+                // instructions table is the saved note.
+                runCatching {
+                    captureRepository.create(rawText = rawText, mode = current.mode)
+                }
+                if (current.addToCalendar) {
+                    val event = CalendarGate.buildEventData(
+                        title = title,
+                        description = rawText,
+                        dueAt = null,
+                    )
+                    if (event != null) {
+                        calendarIntentsChannel.trySend(event)
+                    }
+                }
                 if (current.selectedTagIds.isNotEmpty()) {
                     runCatching {
                         tagRepository.attachToInstruction(
@@ -716,7 +377,7 @@ class CaptureViewModel @Inject constructor(
                         isSaving = false,
                         error = SafeError.forUserSave(
                             e = e,
-                            default = "Could not save raw note.",
+                            default = "Could not save note.",
                         ),
                         errorType = SafeError.classifyForCapture(e),
                     )
@@ -730,18 +391,6 @@ class CaptureViewModel @Inject constructor(
         CaptureMode.VOICE -> Source.VOICE
         CaptureMode.PHOTO -> Source.PHOTO
     }
-
-    private fun buildTitle(proposal: ExtractedInstruction): String {
-        val action = proposal.action.trim().ifBlank { proposal.instructionText.take(40) }
-        val person = proposal.person?.takeIf { it.isNotBlank() }
-        return if (person != null) "$action — $person" else action
-    }
-
-    private fun parsePriority(raw: String): Priority = when (raw.trim().uppercase()) {
-        "HIGH", "URGENT" -> Priority.HIGH
-        "LOW" -> Priority.LOW
-        else -> Priority.NORMAL
-    }
 }
 
 /**
@@ -754,11 +403,11 @@ class CaptureViewModel @Inject constructor(
  *  1. UI: when [com.baton.app.features.capture.CaptureViewModel.hasPeople]
  *     is `false`, [com.baton.app.features.capture.CaptureSheet]
  *     renders an inline "Add a person first" card and disables
- *     the Extract button. The user sees the recovery path before
+ *     the Save button. The user sees the recovery path before
  *     they can fail.
- *  2. VM: even if the UI somehow fires [onConfirm] / [onSaveRaw]
- *     with [hasPeople] false (a stale state from a delete race),
- *     the VM surfaces [NoPeopleException.message] as the inline
+ *  2. VM: even if the UI somehow fires [onSaveRaw] with
+ *     [hasPeople] false (a stale state from a delete race), the
+ *     VM surfaces [NoPeopleException.message] as the inline
  *     error instead of attempting an un-attributable save.
  *  3. Test: the VM's `onSave` test asserts this exception type,
  *     so a future "let's just save with personId = null" shortcut

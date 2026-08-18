@@ -8,71 +8,62 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.ResultReceiver
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Log
 import com.baton.app.MainActivity
 import com.baton.app.R
-import com.baton.app.ai.whisper.WhisperBridge
-import com.baton.app.ai.whisper.WhisperModelManager
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import javax.inject.Inject
+import java.util.Locale
 
 /**
- * M2-T4: foreground voice-capture service.
+ * v1.6.1: voice capture via the system
+ * `android.speech.SpeechRecognizer` service. Whisper.cpp is
+ * gone -- no on-device LLM, no model file, no JNI library,
+ * no PCM capture. The system service handles recording +
+ * transcription natively (Google's on-device or cloud STT
+ * depending on the device + locale).
  *
  * Lifecycle:
  *  1. Activity calls [start] with a [ResultReceiver] (the
- *     Activity's `MainActivity` typically).
+ *     Activity's `MainActivity` typically). The caller must
+ *     already hold `RECORD_AUDIO`.
  *  2. Service starts as a foreground service with
  *     `foregroundServiceType=microphone`, posts a sticky
- *     notification, and begins recording with `AudioRecord` at
- *     16 kHz mono PCM-16.
- *  3. User taps "Stop" in the notification (or the caller
- *     invokes [stop] from outside the service), the service
- *     stops the AudioRecord, writes the PCM to a temp file, and
- *     hands it to [WhisperBridge.transcribe].
- *  4. The transcribed text is delivered to the [ResultReceiver]
- *     via `RESULT_OK` + a `KEY_TEXT` bundle. Errors are
- *     delivered as `RESULT_ERROR` with a `KEY_ERROR` message.
- *  5. The service stops itself and tears down the notification.
+ *     notification, and calls `SpeechRecognizer.startListening`.
+ *  3. The [RecognitionListener] receives partial results
+ *     (logged, not surfaced) and a final result. The final
+ *     text is delivered to the [ResultReceiver] via
+ *     `RESULT_OK` + a `KEY_TEXT` bundle. Errors are delivered
+ *     as `RESULT_ERROR` with a `KEY_ERROR` message.
+ *  4. The service stops itself and tears down the notification.
  *
- * **Threading:** recording runs on a dedicated coroutine on
- * `Dispatchers.IO`. Transcription is dispatched via
- * [WhisperBridge.transcribe] which already uses
- * `Dispatchers.Default.limitedParallelism(1)` internally.
+ * **Why keep a Service at all:** the system SpeechRecognizer
+ * itself does not require a foreground service to record.
+ * The Service is preserved so:
+ *   - the existing notification UX is unchanged for users
+ *     who already rely on the "swipe to stop" affordance
+ *   - the RECORD_AUDIO perm is foregrounded (the user can
+ *     see the mic is live) on Android 14+ which enforces
+ *     `foregroundServiceType=microphone`
+ *   - the existing `VoiceCaptureState` process-wide
+ *     StateFlow wiring (Tier 0.4) keeps working -- the
+ *     in-app capture sheet renders the in-app Stop button
+ *     from the same state source
  *
- * **Permissions:** the caller must hold `RECORD_AUDIO` before
- * invoking [start]. The service does NOT request the permission
- * itself; the UI flow does.
+ * **Threading:** all SpeechRecognizer callbacks are on the
+ * main thread. We deliver the result + stop the service on
+ * the same thread; `stopSelf()` is safe on main.
  */
 @AndroidEntryPoint
 class VoiceCaptureService : Service() {
 
-    @Inject lateinit var whisper: WhisperBridge
-    @Inject lateinit var modelManager: WhisperModelManager
-
-    private val supervisor = SupervisorJob()
-    private val scope = CoroutineScope(Dispatchers.IO + supervisor)
-    private var recordJob: Job? = null
-
-    private var audioRecord: AudioRecord? = null
-    private var pcmFile: File? = null
+    private var speechRecognizer: SpeechRecognizer? = null
     private var resultReceiver: ResultReceiver? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -96,116 +87,59 @@ class VoiceCaptureService : Service() {
         // in-app capture sheet can render a Stop button.
         VoiceCaptureState.setRecording(true)
         startForegroundWithNotification()
-        startRecording()
+        startRecognizing()
     }
 
-    private fun handleStop() {
-        stopRecording()
-        scope.launch {
-            try {
-                val pcmBytes = pcmFile?.takeIf { it.exists() && it.length() > 0 }?.readBytes()
-                if (pcmBytes == null || pcmBytes.isEmpty()) {
-                    deliverError("No audio captured.")
-                    return@launch
-                }
-                val text = transcribe(pcmBytes)
-                deliverText(text)
-            } catch (e: Exception) {
-                Log.e(TAG, "transcribe failed", e)
-                deliverError(e.message ?: "Transcription failed")
-            } finally {
-                // Tier 0.4: flip the state back so the
-                // in-app Stop button hides. Must run on
-                // the service's own coroutine (not the
-                // main thread) because VoiceCaptureState
-                // is a plain MutableStateFlow and the
-                // collector is the Compose UI.
+    private fun startRecognizing() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            deliverError("Speech recognition is not available on this device.")
+            VoiceCaptureState.setRecording(false)
+            stopForegroundCompat()
+            stopSelf()
+            return
+        }
+        val recognizer = SpeechRecognizer.createSpeechRecognizer(this).also {
+            speechRecognizer = it
+            it.setRecognitionListener(BatonRecognitionListener())
+        }
+        val listenIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        runCatching { recognizer.startListening(listenIntent) }
+            .onFailure { e ->
+                Log.e(TAG, "startListening failed", e)
+                deliverError(e.message ?: "Could not start voice recognition.")
                 VoiceCaptureState.setRecording(false)
                 stopForegroundCompat()
                 stopSelf()
             }
-        }
     }
 
-    private suspend fun transcribe(pcmBytes: ByteArray): String {
-        // Lazy-load the model the first time we have PCM to feed
-        // it. This is one-shot per process; subsequent calls reuse
-        // the loaded model.
-        if (!whisper.isLoaded0()) {
-            val modelFile = modelManager.modelFile()
-            if (!modelFile.exists()) {
-                throw IllegalStateException(
-                    "Whisper model not downloaded. Run WhisperModelManager.downloadModel() first."
-                )
+    private fun handleStop() {
+        // `stopListening` fires `onResults` (or `onError` if
+        // nothing was captured). The listener delivers the
+        // text and stops the service. The in-app Stop button
+        // shares this code path with the notification action.
+        runCatching { speechRecognizer?.stopListening() }
+            .onFailure { e -> Log.w(TAG, "stopListening failed", e) }
+        // Belt + suspenders: if the listener never fires
+        // (some devices are flaky), still tear down within
+        // a few hundred ms. The user sees the recording
+        // stop in the notification either way.
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (VoiceCaptureState.isRecording.value) {
+                Log.w(TAG, "listener never fired, forcing teardown")
+                VoiceCaptureState.setRecording(false)
+                stopForegroundCompat()
+                stopSelf()
             }
-            whisper.load(modelFile)
-        }
-        return whisper.transcribe(pcmBytes, sampleRate = SAMPLE_RATE)
-    }
-
-    private fun startRecording() {
-        val minBuf = AudioRecord.getMinBufferSize(
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        )
-        if (minBuf <= 0) {
-            deliverError("AudioRecord: invalid buffer size $minBuf")
-            stopSelf()
-            return
-        }
-        val record = try {
-            @Suppress("MissingPermission")  // The caller must hold RECORD_AUDIO.
-            AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                minBuf * 4,
-            )
-        } catch (e: SecurityException) {
-            deliverError("RECORD_AUDIO permission denied")
-            stopSelf()
-            return
-        }
-        if (record.state != AudioRecord.STATE_INITIALIZED) {
-            deliverError("AudioRecord failed to initialize")
-            record.release()
-            stopSelf()
-            return
-        }
-        audioRecord = record
-        val file = File(cacheDir, "voice-${System.currentTimeMillis()}.pcm")
-        pcmFile = file
-
-        record.startRecording()
-        recordJob = scope.launch {
-            try {
-                FileOutputStream(file).use { out ->
-                    val buf = ByteArray(minBuf)
-                    while (isActive) {
-                        val n = record.read(buf, 0, buf.size)
-                        if (n > 0) out.write(buf, 0, n)
-                        if (n < 0) break
-                    }
-                }
-            } catch (e: IOException) {
-                Log.e(TAG, "recording io", e)
-                deliverError("Audio I/O failed: ${e.message}")
-            }
-        }
-    }
-
-    private fun stopRecording() {
-        recordJob?.cancel()
-        recordJob = null
-        audioRecord?.let {
-            try {
-                if (it.recordingState == AudioRecord.RECORDSTATE_RECORDING) it.stop()
-            } catch (_: IllegalStateException) { }
-            it.release()
-        }
-        audioRecord = null
+        }, STOP_TIMEOUT_MS)
     }
 
     private fun startForegroundWithNotification() {
@@ -225,10 +159,6 @@ class VoiceCaptureService : Service() {
         val notif: Notification = Notification.Builder(this, channelId)
             .setContentTitle(getString(R.string.voice_capture_title))
             .setContentText(getString(R.string.voice_capture_text))
-            // v1.2 (F-MED-19): use a vector monochrome small icon,
-            // not the launcher mipmap. The system tints the small
-            // icon; a launcher mipmap renders as a coloured blob
-            // (or invisible on some launchers).
             .setSmallIcon(R.drawable.ic_voice_notification)
             .setOngoing(true)
             .setContentIntent(tapIntent)
@@ -284,20 +214,82 @@ class VoiceCaptureService : Service() {
     }
 
     override fun onDestroy() {
-        recordJob?.cancel()
-        audioRecord?.release()
-        audioRecord = null
-        // Tier 0.4: also reset the in-app state. If the
-        // service is killed by the system (e.g. memory
-        // pressure) the state must reflect "not recording"
-        // so the capture sheet's Stop button hides.
+        // Tier 0.4: reset the in-app state. If the service
+        // is killed by the system (e.g. memory pressure)
+        // the state must reflect "not recording" so the
+        // capture sheet's Stop button hides.
         VoiceCaptureState.setRecording(false)
-        supervisor.cancel()
+        runCatching { speechRecognizer?.destroy() }
+        speechRecognizer = null
         super.onDestroy()
+    }
+
+    /**
+     * The [RecognitionListener] that funnels the system
+     * SpeechRecognizer callbacks into the existing
+     * ResultReceiver contract. The previous Whisper
+     * implementation had its own AudioRecord + PCM
+     * capture; the system service does all of that
+     * internally.
+     */
+    private inner class BatonRecognitionListener : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle?) {}
+        override fun onBeginningOfSpeech() {}
+        override fun onRmsChanged(rmsdB: Float) {}
+        override fun onBufferReceived(buffer: ByteArray?) {}
+        override fun onEndOfSpeech() {}
+        override fun onEvent(eventType: Int, params: Bundle?) {}
+        override fun onPartialResults(partialResults: Bundle?) {
+            // v1.6.1: partial results are not surfaced to
+            // the capture sheet. The TextField is updated
+            // only when the final transcript arrives so the
+            // user sees a single, clean "your speech as
+            // text" event rather than flickering partial
+            // strings.
+        }
+        override fun onResults(results: Bundle?) {
+            val text = results
+                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                ?.firstOrNull()
+                .orEmpty()
+            if (text.isBlank()) {
+                deliverError("No speech detected.")
+            } else {
+                deliverText(text)
+            }
+            VoiceCaptureState.setRecording(false)
+            stopForegroundCompat()
+            stopSelf()
+        }
+        override fun onError(error: Int) {
+            val message = when (error) {
+                SpeechRecognizer.ERROR_AUDIO -> "Audio recording error."
+                SpeechRecognizer.ERROR_CLIENT -> "Client error."
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission denied."
+                SpeechRecognizer.ERROR_NETWORK -> "Network error."
+                SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout."
+                SpeechRecognizer.ERROR_NO_MATCH -> "No speech detected."
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer is busy."
+                SpeechRecognizer.ERROR_SERVER -> "Server error."
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech input."
+                else -> "Voice recognition failed (code $error)."
+            }
+            deliverError(message)
+            VoiceCaptureState.setRecording(false)
+            stopForegroundCompat()
+            stopSelf()
+        }
     }
 
     companion object {
         private const val TAG = "BatonVoice"
+
+        // v1.6.1: belt-and-suspenders teardown timeout. If
+        // the system SpeechRecognizer never fires its final
+        // callback after `stopListening`, we tear down
+        // ourselves after this delay. The user sees the
+        // recording end either way.
+        private const val STOP_TIMEOUT_MS = 1500L
 
         const val ACTION_START = "com.baton.app.action.VOICE_START"
         const val ACTION_STOP = "com.baton.app.action.VOICE_STOP"
@@ -313,13 +305,12 @@ class VoiceCaptureService : Service() {
         const val CHANNEL_ID = "voice_capture"
         const val NOTIFICATION_ID = 1011
 
-        const val SAMPLE_RATE = 16000
-
         /**
-         * Convenience for callers. The receiver is delivered the
-         * transcript (or error) when the service finishes. The
-         * caller must hold the `RECORD_AUDIO` runtime permission
-         * before invoking.
+         * Convenience for callers. The receiver is
+         * delivered the transcript (or error) when the
+         * service finishes. The caller must hold the
+         * `RECORD_AUDIO` runtime permission before
+         * invoking.
          */
         fun start(context: Context, receiver: ResultReceiver) {
             val intent = Intent(context, VoiceCaptureService::class.java).apply {
@@ -334,9 +325,9 @@ class VoiceCaptureService : Service() {
         }
 
         /**
-         * Convenience to stop the service. The service also stops
-         * itself when transcription completes; this is the
-         * user-cancel path.
+         * Convenience to stop the service. The service
+         * also stops itself when recognition completes;
+         * this is the user-cancel path.
          */
         fun stop(context: Context) {
             val intent = Intent(context, VoiceCaptureService::class.java).apply {

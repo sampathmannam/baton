@@ -97,13 +97,8 @@ fun TodayScreen(
                 onPersonClick = { /* search is read-only on Today */ },
             )
         } else if (brief.isEmpty) {
-            EmptyBrief(padding)
-        } else {
-            BriefContent(
-                brief = brief,
-                padding = padding,
-                onInstructionClick = { selected = it },
-            )
+            EmptyBriefContent()
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()

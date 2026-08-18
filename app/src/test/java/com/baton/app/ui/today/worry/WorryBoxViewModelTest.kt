@@ -49,6 +49,7 @@ class WorryBoxViewModelTest {
     private lateinit var instructionDao: InstructionDao
     private lateinit var captureDao: CaptureDao
     private lateinit var syncQueueDao: SyncQueueDao
+    private lateinit var instructionFtsDao: com.baton.app.data.local.InstructionFtsDao
 
     @Before
     fun setUp() {
@@ -62,6 +63,7 @@ class WorryBoxViewModelTest {
         instructionDao = db.instructionDao()
         captureDao = db.captureDao()
         syncQueueDao = db.syncQueueDao()
+        instructionFtsDao = db.instructionFtsDao()
     }
 
     @After
@@ -150,6 +152,7 @@ class WorryBoxViewModelTest {
             syncQueueDao = syncQueueDao,
             syncEngine = mockk<SyncEngine>(relaxed = true),
             touchOnActivity = mockk<TouchPersonOnActivity>(relaxed = true),
+            ftsDao = instructionFtsDao,
             appScope = kotlinx.coroutines.GlobalScope,
         ),
     )
