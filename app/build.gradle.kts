@@ -41,15 +41,23 @@ android {
         applicationId = "com.baton.app"
         minSdk = 26
         targetSdk = 35
-        // v1.6.1: drop the on-device LLM (llama.cpp + whisper.cpp)
-        // entirely. Capture is text + voice-via-system-service
-        // (`android.speech.SpeechRecognizer`) only. No JNI, no
-        // native build, no abiFilters. The default ABI matrix
-        // (set by AGP) applies -- that's the right shape for an
-        // APK with no bundled `.so` files.  versionCode 19
-        // (one above v1.6.0.1's 18), versionName "1.6.1".
-        versionCode = 19
-        versionName = "1.6.1"
+        // v1.6.2: UI/UX round 2. Search now resolves people
+        // (Inspector_Ramu / SHO Patel / etc.) alongside instructions;
+        // InstructionCard no longer shows duplicate title==body
+        // text; home pill renamed to "Quick note" so it doesn't
+        // collide with person-row tap (which opens attributed
+        // capture). Settings sheet is now scrollable so "Erase all
+        // data" and the (debug-only) Developer section are
+        // reachable on small screens. Adds a BuildConfig.DEBUG-
+        // gated Developer section in Settings that loads a
+        // synthetic test fixture (12 persons, 36 instructions, 7
+        // captures, 12 tags, 3 worries) into the local DB. No
+        // LLM work in this release -- still text + system-speech
+        // capture only, no JNI / no abiFilters / no bundled .so.
+        // versionCode 20 (one above v1.6.1's 19), versionName
+        // "1.6.2".
+        versionCode = 20
+        versionName = "1.6.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

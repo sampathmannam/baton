@@ -92,6 +92,7 @@ class SettingsVaultPinTest {
             preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
             plainExporter = mockk<com.baton.app.data.export.PlainExporter>(relaxed = true),
             appContext = mockk<android.content.Context>(relaxed = true),
+            fixtureLoader = mockk<com.baton.app.data.dev.FixtureLoader>(relaxed = true),
         )
         return Triple(vm, vaultModeHolder, securePreferences)
     }

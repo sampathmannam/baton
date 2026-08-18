@@ -110,14 +110,14 @@ fun TodayScreen(
             )
         } else if (brief.isEmpty) {
             EmptyBriefContent()
-        }
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
             // v2.0 Tier 2 (§2.11): Today's win summary.
             item { TodaysWinCard() }
             // v2.0 Tier 2 (§2.1, §2.13, §2.14): the "Haven't
@@ -154,6 +154,7 @@ fun TodayScreen(
                 }
             }
             item { Spacer(Modifier.height(80.dp)) }
+        }
         }
     }
     if (showReview) {
