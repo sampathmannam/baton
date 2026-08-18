@@ -80,13 +80,33 @@ fun TodayScreen(
     Scaffold(
         topBar = {
             Column {
+                // v1.6.3: Obsidian-style title (see HomeScreen
+                // for the rationale). Smaller, quieter, reads as
+                // a section label.
                 TopAppBar(
-                    title = { Text(stringResource(R.string.tab_today)) },
+                    title = {
+                        Text(
+                            text = stringResource(R.string.tab_today),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            // v1.6.3: explicit start padding to
+                            // compensate for `windowInsets(0)` which
+                            // strips the leading inset the
+                            // TopAppBar would normally add.
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                    },
                     actions = {
-                        OutlinedButton(onClick = { showReview = true }) {
+                        // v1.6.3: the "Review" button was an
+                        // OutlinedButton which competed visually
+                        // with the title. A TextButton is more
+                        // Obsidian-like (the action is secondary
+                        // to the content).
+                        TextButton(onClick = { showReview = true }) {
                             Text("Review")
                         }
                     },
+                    windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
                 )
                 SearchBar(viewModel = searchViewModel)
             }
@@ -102,20 +122,40 @@ fun TodayScreen(
             searchViewModel.setVisiblePeople(persons.map { it.toEntity() })
         }
         if (query.isNotEmpty()) {
+            // v1.6.3: pass the person name map so the instruction
+            // group header reads as a person name (e.g. "K. Ramana"),
+            // not a truncated UUID like "8bc44494-016f-4cd0-8".
+            // The map is computed from the same `persons` flow
+            // we already feed to SearchViewModel.
+            val personNameById = remember(persons) {
+                persons.associate { it.id to it.name }
+            }
             com.baton.app.ui.home.HomeScreenSearchResults(
                 personResults = personResults,
                 instructionResults = results,
+                personNameById = personNameById,
                 padding = padding,
                 onPersonClick = { /* search is read-only on Today */ },
             )
         } else if (brief.isEmpty) {
-            EmptyBriefContent()
+            // v1.6.3: the EmptyBriefContent used to render at the
+            // top of the body, overlapping the topBar Column (the
+            // headline "Nothing on your plate." was hidden behind
+            // the search bar). Wrap in a Box with the Scaffold
+            // padding so the empty state is centered BELOW the
+            // search bar.
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                EmptyBriefContent()
+            }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(vertical = 8.dp),
+                // v1.6.3: 16dp horizontal contentPadding so the
+                // cards no longer need their own horizontal
+                // padding (consistent with HomeScreen.PersonList).
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
             // v2.0 Tier 2 (§2.11): Today's win summary.
@@ -153,7 +193,10 @@ fun TodayScreen(
                     }
                 }
             }
-            item { Spacer(Modifier.height(80.dp)) }
+            // v1.6.3: removed the trailing 80dp Spacer; the
+            // LazyColumn's contentPadding(bottom) is the only
+            // bottom buffer now (Scaffold.bottomBar is empty
+            // on Today, so no overlap to clear).
         }
         }
     }
@@ -186,22 +229,29 @@ fun TodayScreen(
 
 @Composable
 private fun EmptyBriefContent() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    // v1.6.3: Box + center-align so the empty state sits in the
+    // visual middle of the available space, not the top. Same
+    // Obsidian-document pattern as the HomeScreen empty state.
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = "Nothing on your plate.",
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "When instructions come in, they'll show up here.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(
+            modifier = Modifier.padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "Nothing on your plate.",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "When instructions come in, they'll show up here.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -228,7 +278,9 @@ private fun InstructionCard(ins: Instruction, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            // v1.6.3: no horizontal padding here; the
+            // LazyColumn's contentPadding handles it (and
+            // gives a full-width clickable hit target).
             .clickable(onClickLabel = openLabel, onClick = onClick),
     ) {
         Column(

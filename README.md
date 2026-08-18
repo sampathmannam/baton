@@ -1,10 +1,12 @@
 # Baton
 
+![Baton app icon](docs/icon-shield-1024.png)
+
 **An ADHD-friendly instruction tracker for IPS officers and other coordination-heavy roles.**
 
 Baton is built for one job: keeping up with what seniors tell you, what you tell subordinates, and what you told yourself you'd do — without dropping the ball, without shame, and without leaking the data.
 
-The name comes from the police baton: a symbol of authority, and the thing you pass from person to person.
+The name comes from the police baton: a symbol of authority, and the thing you pass from person to person. The app icon is the Tamil word **காவலன்** (Kaavalan — "guardian") reimagined as a shieldmark, in indigo on cream.
 
 ## The problem it solves
 

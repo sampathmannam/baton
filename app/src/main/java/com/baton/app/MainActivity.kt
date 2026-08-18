@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -422,7 +423,19 @@ private fun BottomNav(
     currentRoute: String,
     onSettingsClick: () -> Unit,
 ) {
-    NavigationBar {
+    // v1.6.3: with `enableEdgeToEdge()` the system 3-button
+    // nav (or gesture indicator) sits at the very bottom of
+    // the screen and the app draws behind it. Without
+    // explicit navigation-bar inset the Material 3
+    // NavigationBar would overlap the system home button,
+    // making the bottom tab area un-tappable on 3-button
+    // devices. navigationBarsPadding() pushes the bar above
+    // the system nav. On gesture-nav devices the inset is
+    // only ~16dp so this is invisible to the user; on
+    // 3-button devices it's the full 48dp system nav.
+    NavigationBar(
+        modifier = Modifier.navigationBarsPadding(),
+    ) {
         NavEntry(
             label = stringResource(R.string.tab_home),
             icon = Icons.Default.Home,

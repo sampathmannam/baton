@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  v1.5.7 adaptive icon. Background is a teal-to-coral gradient;
-  foreground is the bold "K" with a coral recording dot, on a
-  transparent PNG (the modern note-taking-app silhouette).
+  v1.6.3 adaptive icon. Background is solid warm cream
+  (drawable/ic_launcher_background.xml). Foreground is the indigo
+  shield with a W-shaped negative-space cutout (transparent inside
+  the W) — see drawable/ic_launcher_foreground.png. The cream shows
+  through the W cutout and around the shield silhouette. The
+  monochrome variant (Android 13+ themed icons) uses the same
+  foreground so the W cutout remains transparent on a monochrome
+  background.
+
+  v1.5.7 used a K + recording dot; v1.6.3 replaces it with the
+  shield mark to give Baton a more permanent, less playful identity.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
