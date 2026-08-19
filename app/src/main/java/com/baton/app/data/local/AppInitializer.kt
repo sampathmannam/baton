@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.launch
 
 /**
  * M3-T1: one-shot startup tasks that have to run before [AppDatabase]
@@ -51,6 +52,9 @@ import javax.inject.Singleton
 class AppInitializer @Inject constructor(
     @ApplicationContext private val context: Context,
     private val securePreferences: com.baton.app.data.auth.SecurePreferences,
+    private val fixtureLoader: com.baton.app.data.dev.FixtureLoader,
+    private val personDao: PersonDao,
+    @com.baton.app.di.ApplicationScope private val appScope: kotlinx.coroutines.CoroutineScope,
 ) {
 
     @Volatile
@@ -113,6 +117,26 @@ class AppInitializer @Inject constructor(
         // brand-new install (where the file is gone) and on a
         // subsequent launch (where the key is already persisted).
         securePreferences.databasePassphrase()
+        // v1.6.4: debug builds auto-load the synthetic fixture
+        // on first launch so the systematic-debugging test pass
+        // has realistic data without needing to navigate to
+        // Settings → Developer → Load test data. DISABLED —
+        // the load is 200 instructions and the system UI ANRs
+        // for 2-3s during the load on a Pixel 6 emulator. The
+        // user can trigger the load from Settings → Developer
+        // → "Load test data" or "Clear & reload" after the
+        // first frame paints.
+        //
+        // if (com.baton.app.BuildConfig.DEBUG) {
+        //     appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        //         val isEmpty = runCatching { personDao.count() == 0 }.getOrDefault(false)
+        //         if (isEmpty) {
+        //             runCatching { fixtureLoader.loadFromAssets() }
+        //                 .onSuccess { report -> ... }
+        //                 .onFailure { e -> ... }
+        //         }
+        //     }
+        // }
         appStartRan = true
     }
 

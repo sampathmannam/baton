@@ -1063,11 +1063,26 @@ class SettingsViewModel @Inject constructor(
      * to [FixtureLoader.loadFromAssets]. The
      * loader clears the existing mirror and
      * bulk-inserts the synthetic fixture so the UI
-     * can be exercised with realistic data: 12
-     * persons, 36 instructions (with 12
-     * intentional edge cases), 7 captures, 12 tags.
+     * can be exercised with realistic data.
      */
     suspend fun loadFixture(): com.baton.app.data.dev.FixtureLoader.LoadReport =
+        fixtureLoader.loadFromAssets()
+
+    /**
+     * v1.6.4: clear-and-reload. The original
+     * [loadFixture] already clears the mirror
+     * before re-inserting (see
+     * [FixtureLoader.loadFromAssets] — `if (it.isNotEmpty()) …`
+     * is per-table), so this is functionally
+     * identical. The Settings sheet exposes a
+     * separate "Clear & reload" button so the
+     * user can force a clean slate when the
+     * persisted DB has stale data from an older
+     * fixture version (v1.6.2 shipped a partial
+     * load that left K. Suresh with 1 OPEN and
+     * everyone else with 0).
+     */
+    suspend fun clearAndReloadFixture(): com.baton.app.data.dev.FixtureLoader.LoadReport =
         fixtureLoader.loadFromAssets()
 
 

@@ -406,12 +406,16 @@ private fun PersonList(
             .fillMaxSize()
             .padding(padding),
         // v1.6.3: 16dp horizontal + 8dp vertical contentPadding.
-        // The bottom 88dp clears the Material 3 FAB (56dp + 16dp
-        // margin) + 16dp visual buffer so the last row's count
-        // badge is not hidden behind the FAB. The horizontal
-        // padding here means each row's clickable hit-target
-        // extends to the screen edges (better UX than rows
-        // that stop short of the edge).
+        // v1.6.4: bottom 88dp clears the Material 3 FAB
+        // (56dp + 16dp margin) + 16dp visual buffer so the
+        // last row's count badge is not hidden behind the
+        // FAB. The end padding is the same — but a wider
+        // contentPadding is applied to the rightmost column
+        // in the row layout (see [PersonRow]) so the row's
+        // content doesn't extend under the FAB horizontally.
+        // The horizontal padding here means each row's
+        // clickable hit-target extends to the screen edges
+        // (better UX than rows that stop short of the edge).
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,

@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -89,7 +90,9 @@ fun DecaySection(
             AssistChip(
                 onClick = { showRedistribute = true },
                 label = {
-                    Text(stringResource(R.string.bulk_snooze_banner, state.quietCount))
+                    // v1.6.4: pluralised (was hard-coded "%1$d quiet
+                    // contacts" → "1 quiet contact" / "N quiet contacts").
+                    Text(pluralStringResource(R.plurals.bulk_snooze_banner, state.quietCount, state.quietCount))
                 },
             )
         }
@@ -171,7 +174,14 @@ private fun DecayRow(row: DecayRow, onClick: () -> Unit) {
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = stringResource(R.string.decay_days_quiet, row.daysQuiet.toInt()),
+                    text = pluralStringResource(
+                        // v1.6.4: pluralised (was hard-coded
+                        // "haven't touched in %1$d days" → "in 1 day" /
+                        // "in N days").
+                        R.plurals.decay_days_quiet,
+                        row.daysQuiet.toInt(),
+                        row.daysQuiet.toInt(),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

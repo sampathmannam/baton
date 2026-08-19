@@ -88,8 +88,11 @@ class MorningBriefWorker @AssistedInject constructor(
             applicationContext.getString(
                 R.string.morning_brief_dates_today,
                 dateLabels.joinToString(", "),
-            ) + "  -  " + applicationContext.getString(
-                R.string.morning_brief_carried_over,
+            ) + "  -  " + applicationContext.resources.getQuantityString(
+                // v1.6.4: pluralised (was hard-coded "%1$d carried over"
+                // → "1 carried over" / "N carried over").
+                R.plurals.morning_brief_carried_over,
+                openCount,
                 openCount,
             )
         }

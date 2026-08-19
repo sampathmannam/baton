@@ -32,6 +32,15 @@ interface PersonDao {
     fun observeAllInMode(mode: String): Flow<List<PersonEntity>>
 
     /**
+     * v1.6.4: total count of persons, used by
+     * [com.baton.app.data.local.AppInitializer] to decide
+     * whether to auto-load the synthetic fixture on first
+     * launch (debug builds only). One-shot read, not a Flow.
+     */
+    @Query("SELECT COUNT(*) FROM persons")
+    suspend fun count(): Int
+
+    /**
      * v2.0 T3-1: count of persons in the OTHER mode (so the
      * HomeScreen can render an "X items in vault" affordance
      * when the user is in visible mode and there are hidden

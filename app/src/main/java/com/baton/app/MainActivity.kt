@@ -433,8 +433,34 @@ private fun BottomNav(
     // the system nav. On gesture-nav devices the inset is
     // only ~16dp so this is invisible to the user; on
     // 3-button devices it's the full 48dp system nav.
+    // v1.6.4: with `enableEdgeToEdge()` the system 3-button
+    // nav (or gesture indicator) sits at the very bottom of
+    // the screen and the app draws behind it. Without
+    // explicit navigation-bar inset the Material 3
+    // NavigationBar would overlap the system home button,
+    // making the bottom tab area un-tappable on 3-button
+    // devices.
+    //
+    // v1.6.3: navigationBarsPadding() (the system inset
+    // value) was 63px on Pixel 6 / 420dpi, but the actual
+    // 3-button nav is 126px tall. The remaining 63px overlap
+    // puts the Compose nav labels inside the system nav
+    // hit area — the recents button captures taps at
+    // (x=907, y=2200) and the user is dropped into a
+    // background app. Drive-verified on emulator-5554
+    // (A14, 1080x2400) and ZD2232FCR5 (A17, 1264x2780).
+    //
+    // v1.6.4 fix: hardcoded 48dp (126px at 420dpi)
+    // bottom padding on top of the inset. On 3-button
+    // devices this guarantees the Compose nav ends ABOVE
+    // the system nav. On gesture-nav devices the inset is
+    // already ~16dp so adding 48dp makes the bar sit 64dp
+    // above the bottom — slightly more space, still
+    // standard Material 3.
     NavigationBar(
-        modifier = Modifier.navigationBarsPadding(),
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(bottom = 48.dp),
     ) {
         NavEntry(
             label = stringResource(R.string.tab_home),
