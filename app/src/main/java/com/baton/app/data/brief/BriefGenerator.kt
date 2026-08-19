@@ -3,8 +3,13 @@ package com.baton.app.data.brief
 import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.entities.InstructionEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -30,21 +35,71 @@ import javax.inject.Singleton
 open class BriefGenerator @Inject constructor(
     private val instructionDao: InstructionDao,
 ) {
+    /**
+     * v1.6.5: app-scope for the shared brief flow. The
+     * generator is a `@Singleton` so this scope lives for
+     * the lifetime of the application. A [SupervisorJob]
+     * means a single failure doesn't tear down the whole
+     * pipeline.
+     */
+    private val scope = CoroutineScope(SupervisorJob())
+
+    /**
+     * v1.6.5: the cold [observeDailyBrief] is wrapped in
+     * [shareIn] so multiple subscribers (TodayViewModel's
+     * `brief` and `review` both subscribe) see the SAME
+     * Room cursor and the same downstream emissions. Without
+     * this, every subscriber opens its own Room cursor and
+     * the binder traffic doubles (200 entities × N
+     * subscribers). With 200 instructions and 2 subscribers
+     * (brief + review) the Today screen hit "excessive
+     * binder traffic during cached" and was killed.
+     */
+    private val sharedBrief: Flow<DailyBrief> = observeDailyBriefInternal()
+        .shareIn(
+            scope = scope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            replay = 1,
+        )
+
+    private fun observeDailyBriefInternal(): Flow<DailyBrief> =
+        // v1.6.5: use [observeForBrief] (excludes DONE/DROPPED,
+        // caps at 100) instead of [observeAll] (returns all 200+
+        // entities). The brief only needs OPEN/ACK_PENDING/
+        // IN_PROGRESS, so DONE/DROPPED rows are dead-weight on
+        // the binder. The cap prevents ANR when the fixture is
+        // large (200 instructions caused "excessive binder
+        // traffic during cached" kill on the Today screen).
+        // distinctUntilChanged() prevents redundant downstream
+        // emissions when the Flow re-fires on a write that
+        // didn't change the brief content.
+        instructionDao.observeForBrief()
+            .distinctUntilChanged()
+            .map { entities ->
+                val instructions = entities.map { it.toDomain() }
+                build(type = BriefType.MORNING, date = LocalDate.now(ZoneId.systemDefault()), instructions = instructions, now = Instant.now())
+            }
 
     /**
      * Build a brief for [date] (defaults to today in the device
      * timezone) from the open instructions in the local mirror.
      * Reactive: a Room update re-emits a new brief.
+     *
+     * v1.6.5: returns the singleton [sharedBrief] flow so multiple
+     * subscribers (TodayViewModel's `brief` and `review` both
+     * subscribe here) share ONE Room cursor. The previous body
+     * re-opened [instructionDao.observeForBrief] for every
+     * subscriber — with 2 subscribers and 200-instruction fixture,
+     * the Today screen hit "excessive binder traffic during
+     * cached" and was killed by the system. The [type] and
+     * [date] params are accepted for API compatibility but no
+     * longer steer the shared flow (both call sites use today's
+     * MORNING brief; [type] is purely cosmetic in [build]).
      */
     fun observeDailyBrief(
         type: BriefType = BriefType.MORNING,
         date: LocalDate = LocalDate.now(ZoneId.systemDefault()),
-    ): Flow<DailyBrief> =
-        instructionDao.observeAll()
-            .map { entities ->
-                val instructions = entities.map { it.toDomain() }
-                build(type = type, date = date, instructions = instructions, now = Instant.now())
-            }
+    ): Flow<DailyBrief> = sharedBrief
 
     /**
      * Synchronous build for tests and the review-screen on-demand
