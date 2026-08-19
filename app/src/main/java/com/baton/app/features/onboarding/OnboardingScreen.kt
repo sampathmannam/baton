@@ -188,22 +188,20 @@ private fun WelcomePage() {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // "K+dot" — the Kaavalan mark. We render the lock icon
-        // as a stand-in (semantic meaning, not visual fidelity).
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(64.dp),
-            )
-        }
+        // v1.6.3: replaced the placeholder `Icons.Default.Lock`
+        // with the new 05-shieldmark adaptive foreground. The
+        // brand mark on the onboarding now matches the launcher
+        // icon. The cream background of the shield is the
+        // Baton brand surface; we render the shield on its
+        // native background (no clip / circle) so the W
+        // cutout is visible.
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(
+                id = com.baton.app.R.drawable.ic_launcher_foreground,
+            ),
+            contentDescription = null,
+            modifier = Modifier.size(120.dp),
+        )
         Text(
             text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineLarge,

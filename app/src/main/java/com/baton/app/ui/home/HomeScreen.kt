@@ -405,15 +405,19 @@ private fun PersonList(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
-        // v1.6.3: 16dp horizontal + 16dp bottom contentPadding.
-        // The horizontal padding here means each row's
-        // clickable hit-target extends to the screen edges
-        // (better UX than rows that stop short of the edge).
-        // The row's internal `padding(horizontal = 16.dp)`
-        // can then be removed in a follow-up. Bottom 16dp is
-        // a small visual buffer above the Scaffold's
-        // bottomBar (Quick note).
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        // v1.6.3: 16dp horizontal + 8dp vertical contentPadding.
+        // The bottom 88dp clears the Material 3 FAB (56dp + 16dp
+        // margin) + 16dp visual buffer so the last row's count
+        // badge is not hidden behind the FAB. The horizontal
+        // padding here means each row's clickable hit-target
+        // extends to the screen edges (better UX than rows
+        // that stop short of the edge).
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 8.dp,
+            bottom = 88.dp,
+        ),
     ) {
         items(items = persons, key = { it.id }) { person ->
             PersonRow(
@@ -464,11 +468,16 @@ fun HomeScreenSearchResults(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding),
-        // v1.6.3: 16dp bottom buffer for breathing room above the
-        // Scaffold's bottomBar (Quick note). The bottomBar is
-        // already accounted for by `padding`, this is just visual
-        // whitespace.
-        contentPadding = PaddingValues(bottom = 16.dp),
+        // v1.6.3: 16dp horizontal + 88dp bottom contentPadding
+        // to clear the FAB (56dp + 16dp margin) + 16dp visual
+        // buffer. Same reason as PersonList — the FAB
+        // overlaps the last row otherwise.
+        contentPadding = PaddingValues(
+            start = 16.dp,
+            end = 16.dp,
+            top = 8.dp,
+            bottom = 88.dp,
+        ),
     ) {
         if (personResults.isNotEmpty()) {
             item {
