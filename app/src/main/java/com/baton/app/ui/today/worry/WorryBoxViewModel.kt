@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.format.DateTimeParseException
 import javax.inject.Inject
 
 /**
@@ -89,7 +91,7 @@ class WorryBoxViewModel @Inject constructor(
         title = title,
         rawText = rawText,
         reviewEpochDay = reviewAtEpochDay,
-        createdEpochMs = Instant.parse(createdAt).toEpochMilli(),
+        createdEpochMs = parseCreatedAt(createdAt),
     )
 
     private fun CaptureEntity.toItem(): WorryItemData = WorryItemData(
@@ -97,8 +99,33 @@ class WorryBoxViewModel @Inject constructor(
         title = rawText?.take(80) ?: "(photo)",
         rawText = rawText,
         reviewEpochDay = reviewAtEpochDay,
-        createdEpochMs = Instant.parse(createdAt).toEpochMilli(),
+        createdEpochMs = parseCreatedAt(createdAt),
     )
+
+    /**
+     * v1.6.5: defensive parse of the `createdAt` column.
+     *
+     * `Instant.parse()` only accepts UTC strings ("...Z"); our
+     * synthetic fixture (and any real Indian-timezone row) writes
+     * the offset form ("...+0530"), which `Instant.parse()` rejects
+     * with a [DateTimeParseException] and crashes the Today screen
+     * whenever the worry box tries to render.
+     *
+     * Strategy: prefer [OffsetDateTime.parse] (handles both `Z` and
+     * `+HH:MM` offsets, plus the no-offset local form). On any
+     * failure, fall back to [Instant.parse] (UTC-only) and finally
+     * to `System.currentTimeMillis()` so the row still renders
+     * instead of taking the app down.
+     */
+    private fun parseCreatedAt(value: String): Long = try {
+        OffsetDateTime.parse(value).toInstant().toEpochMilli()
+    } catch (_: DateTimeParseException) {
+        try {
+            Instant.parse(value).toEpochMilli()
+        } catch (_: DateTimeParseException) {
+            System.currentTimeMillis()
+        }
+    }
 }
 
 data class WorryBoxUiState(

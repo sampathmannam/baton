@@ -14,6 +14,31 @@ interface InstructionDao {
     @Query("SELECT * FROM instructions ORDER BY capturedAt DESC")
     fun observeAll(): Flow<List<InstructionEntity>>
 
+    /**
+     * v1.6.5: brief-source view. Excludes DONE / DROPPED
+     * (closed states that the brief never reads) and
+     * limits to the 100 most-recent rows. The previous
+     * [observeAll] call from [com.baton.app.data.brief.BriefGenerator]
+     * passed 200+ entities through the binder on every
+     * recomposition, which ANR'd on a Pixel 6 emulator
+     * ("Kaavalan note keeps stopping" with "excessive
+     * binder traffic during cached" in logcat).
+     *
+     * Limiting to 100 still covers the spec's "30 days
+     * of activity" window for the brief (with 200
+     * instructions spread across 11-12 persons the 100
+     * most-recent are the active set the user actually
+     * cares about). DONE / DROPPED rows are excluded
+     * because [BriefGenerator] filters them out in
+     * memory anyway.
+     */
+    @Query(
+        "SELECT * FROM instructions " +
+            "WHERE status NOT IN ('DONE', 'DROPPED') " +
+            "ORDER BY capturedAt DESC LIMIT 100",
+    )
+    fun observeForBrief(): Flow<List<InstructionEntity>>
+
     @Query("SELECT * FROM instructions WHERE personId = :personId ORDER BY capturedAt DESC")
     fun observeForPerson(personId: String): Flow<List<InstructionEntity>>
 
