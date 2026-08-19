@@ -69,8 +69,9 @@
          tags (12 intentional edge cases baked in). Clears all
          existing data first. -->
     <string name="settings_section_dev">Developer</string>
-    <string name="settings_dev_body">Loads the synthetic test fixture (12 people, 36 instructions, 7 captures, 12 tags). Erases existing data first. Debug builds only.</string>
+    <string name="settings_dev_body">Loads the synthetic test fixture (55 people, 200 instructions, 50 captures, 16 tags in v1.6.4). Erases existing data first. Debug builds only.</string>
     <string name="settings_dev_load_fixture">Load test data</string>
+    <string name="settings_dev_clear_reload">Clear &amp; reload</string>
     <string name="settings_dev_loading">Loading\u2026</string>
     <string name="settings_dev_loaded">Loaded %1$d people, %2$d instructions, %3$d captures, %4$d tags.</string>
 
@@ -229,13 +230,19 @@
     <string name="decay_filter_30d">30 d</string>
     <string name="decay_filter_60d">60 d</string>
     <string name="decay_filter_90d">90 d</string>
-    <string name="decay_days_quiet">haven\'t touched in %1$d days</string>
+    <plurals name="decay_days_quiet">
+        <item quantity="one">haven\'t touched in %1$d day</item>
+        <item quantity="other">haven\'t touched in %1$d days</item>
+    </plurals>
     <string name="decay_empty">Everyone\'s been touched recently. Nice.</string>
     <string name="a11y_decay_row_open">Open person</string>
     <string name="status_quiet_a_while">Quiet a while</string>
     <string name="status_getting_due">Getting due</string>
     <string name="status_on_track">On track</string>
-    <string name="bulk_snooze_banner">%1$d quiet contacts — redistribute?</string>
+    <plurals name="bulk_snooze_banner">
+        <item quantity="one">%1$d quiet contact — redistribute?</item>
+        <item quantity="other">%1$d quiet contacts — redistribute?</item>
+    </plurals>
     <string name="bulk_snooze_title">Reschedule the quiet pile?</string>
     <string name="bulk_snooze_body">We\'ll push the snooze to 2 weeks from now for the oldest half.</string>
     <string name="bulk_snooze_confirm">Reschedule</string>
@@ -262,7 +269,10 @@
     <string name="morning_brief_title">Kaavalan brief</string>
     <string name="morning_brief_nothing">Nothing on your plate.</string>
     <string name="morning_brief_dates_today">%1$s today</string>
-    <string name="morning_brief_carried_over">%1$d carried over</string>
+    <plurals name="morning_brief_carried_over">
+        <item quantity="one">%1$d carried over</item>
+        <item quantity="other">%1$d carried over</item>
+    </plurals>
     <string name="morning_brief_permission_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
     <string name="meeting_brief_title">Brief me before a meeting</string>
     <string name="meeting_brief_no_events">No matching events in the next 15 minutes.</string>

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
@@ -33,6 +34,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -425,6 +427,11 @@ fun SettingsSheet(
             // [SettingsViewModel.loadFixture], which delegates to
             // [com.baton.app.data.dev.FixtureLoader] to bulk-load
             // the synthetic fixture from `assets/synthetic-data.json`.
+            // The "Clear & reload" button (v1.6.4) forces a clean
+            // slate — useful when the persisted DB has stale data
+            // from an older fixture version (v1.6.2 shipped a
+            // partial load that left K. Suresh with 1 OPEN and
+            // everyone else with 0).
             // Production release builds (BuildConfig.DEBUG = false)
             // never see this section.
             if (com.baton.app.BuildConfig.DEBUG) {
@@ -472,6 +479,30 @@ fun SettingsSheet(
                             stringResource(R.string.settings_dev_load_fixture)
                         },
                     )
+                }
+                Spacer(Modifier.height(8.dp))
+                // v1.6.4: "Clear & reload" — same effect as
+                // [loadFixture] (the FixtureLoader already
+                // clears the mirror before inserting) but with
+                // a more explicit label so the user knows the
+                // existing data will be wiped.
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            val r = viewModel.clearAndReloadFixture()
+                            fixtureLoadReport = r
+                        }
+                    },
+                    enabled = !fixtureLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteSweep,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.settings_dev_clear_reload))
                 }
                 fixtureLoadReport?.let { report ->
                     Spacer(Modifier.height(8.dp))
