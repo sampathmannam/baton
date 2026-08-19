@@ -416,9 +416,15 @@ private fun PersonHeader(
         // ViewModel and only render the line when the count is
         // non-zero — the spec says "no counts shown when 0".
         if (openInstructionCount > 0) {
+            // v1.6.3: use the plural resource (1 instruction vs
+            // N instructions). The `pluralStringResource` API
+            // reads the `person_detail_timeline_count` <plurals>
+            // element and applies the correct quantity string
+            // based on the count.
             Text(
-                text = stringResource(
-                    R.string.person_detail_timeline_count,
+                text = androidx.compose.ui.res.pluralStringResource(
+                    id = R.plurals.person_detail_timeline_count,
+                    count = openInstructionCount,
                     openInstructionCount,
                 ),
                 style = MaterialTheme.typography.bodySmall,
@@ -656,9 +662,16 @@ private fun StatusChip(status: Status) {
         Status.DONE ->
             MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
         Status.CARRIED_OVER ->
-            // "Carried over, not overdue" — uses the calm
-            // tertiary tone, not error/red.
-            MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+            // v1.6.3: changed from tertiaryContainer (pink/coral)
+            // to surfaceVariant (calm grey). The spec rule is
+            // "no shame language, no red badges" — but the
+            // pink tertiaryContainer was almost as loud. Use
+            // surfaceVariant (the same as DONE / DROPPED) and
+            // let the text "Carried over" carry the meaning.
+            // The chip still distinguishes from DONE because
+            // of the surrounding context (the row stays
+            // actionable) and the label text itself.
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
         Status.DROPPED ->
             MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }

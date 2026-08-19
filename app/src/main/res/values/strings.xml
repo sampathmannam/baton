@@ -96,7 +96,11 @@
     <!-- M3-T6: person detail screen -->
     <string name="person_detail_title">Person</string>
     <string name="person_detail_back">Back</string>
-    <string name="person_detail_timeline_count">%1$d instructions</string>
+    <!-- v1.6.3: plural-aware. "1 instruction" vs "N instructions" -->
+    <plurals name="person_detail_timeline_count">
+        <item quantity="one">%1$d instruction</item>
+        <item quantity="other">%1$d instructions</item>
+    </plurals>
     <string name="person_detail_empty">No instructions yet. Tap the note bar to start.</string>
 
     <!-- v1.3: TalkBack content descriptions for accessibility.
