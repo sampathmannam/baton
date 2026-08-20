@@ -618,11 +618,33 @@ fun SettingsSheet(
     // backup in vault mode. The dialog uses neutral wording
     // ("Erase") instead of "Delete" / "Destroy" to match the
     // no-shame tone the rest of the app uses.
+    //
+    // v1.7.2 (Debt-2): the confirm button is disabled until the
+    // user types "ERASE" in the text field. The previous v1.5.1
+    // dialog was a single-tap irreversible action - the user
+    // could lose every person/instruction/tag with a single
+    // misclick on the "Erase" button. The typed-confirmation
+    // pattern is the standard safe-by-default for destructive
+    // actions (matching GitHub's "type the repo name to delete",
+    // AWS's "type 'delete' to confirm", and others).
     if (showEraseConfirmation) {
+        var eraseTyped by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showEraseConfirmation = false },
             title = { Text(stringResource(R.string.settings_erase_confirm_title)) },
-            text = { Text(stringResource(R.string.settings_erase_confirm_body)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_erase_confirm_body))
+                    Spacer(Modifier.size(12.dp))
+                    androidx.compose.material3.OutlinedTextField(
+                        value = eraseTyped,
+                        onValueChange = { eraseTyped = it },
+                        label = { Text(stringResource(R.string.settings_erase_confirm_typed_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -631,6 +653,7 @@ fun SettingsSheet(
                             viewModel.signOut()
                         }
                     },
+                    enabled = eraseTyped == "ERASE",
                 ) {
                     Text(stringResource(R.string.settings_erase_confirm_yes))
                 }
@@ -1006,9 +1029,23 @@ private fun TagsSection(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 groups.forEach { (kind, list) ->
+                    // v1.7.2 (P1-F): the FREE kind (user-authored
+                    // tags) was rendering its section header as the
+                    // bare word "Free" — a developer term that
+                    // leaks into the user-facing UI. The user has
+                    // no context for what "Free" means here. The
+                    // other kinds (PERSON, DESIGNATION, CASE, etc.)
+                    // read as nouns the user already knows, so we
+                    // leave them alone and only special-case FREE
+                    // to "Your tags" so the section reads as the
+                    // user's own tag pile.
+                    val sectionLabel = when (kind) {
+                        TagKind.FREE -> "Your tags"
+                        else -> kind.name.lowercase()
+                            .replaceFirstChar { it.uppercase() }
+                    }
                     Text(
-                        text = kind.name.lowercase()
-                            .replaceFirstChar { it.uppercase() },
+                        text = sectionLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),

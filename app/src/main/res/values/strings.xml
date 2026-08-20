@@ -59,9 +59,16 @@
     <string name="settings_subtitle">Erase all data on this phone: every person, every instruction, and every tag. This cannot be undone.</string>
     <string name="settings_sign_out">Erase all data</string>
     <string name="settings_signing_out">Erasing…</string>
-    <!-- v1.5.1 (VAULT-007): the confirmation dialog. -->
+    <!-- v1.5.1 (VAULT-007): the confirmation dialog.
+         v1.7.2 (Debt-2): added a typed confirmation ("ERASE")
+         so a single tap-tap-tap sequence can't wipe the data
+         even if the user lands on the confirm button
+         accidentally. The previous AlertDialog was a one-tap
+         irreversible action - the strongest safe-by-default
+         pattern is "type the destructive word to confirm". -->
     <string name="settings_erase_confirm_title">Erase all data on this phone?</string>
     <string name="settings_erase_confirm_body">This deletes every person, every instruction, and every tag. There is no backup. This cannot be undone.</string>
+    <string name="settings_erase_confirm_typed_label">Type ERASE to confirm</string>
     <string name="settings_erase_confirm_yes">Erase</string>
     <string name="settings_erase_confirm_no">Cancel</string>
 

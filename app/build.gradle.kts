@@ -67,6 +67,51 @@ android {
         // to content). (8) PersonList / search-results
         // LazyColumns now use horizontal contentPadding so
         // rows have full-width click hit-targets.
+        // v1.7.2: versionCode 28, versionName "1.7.2".
+        // v1.7.1 fresh-eyes critique came back at 6.5/10.
+        // v1.7.2 is a single-ship monolith that closes the new
+        // P0 + P1 items and the two carry-over debts from the
+        // v1.7.0 critique:
+        //   P0-A (worry box "Review in 719163 days"): the
+        //     synthetic fixture's reviewAtEpochDay values mapped
+        //     to year 3995, so the Worry box rendered "Review
+        //     in 719163 days (3995-08-21)" on the default Today
+        //     view. v1.7.2 caps the days display to year-only
+        //     when >365 days out, and tightens the fixture so
+        //     the dated worries use days 3..21 from today.
+        //   P1-B (Home last row clipped): when a person row
+        //     has no designation + station, the inner Column
+        //     collapses to just the name TextView. On a 7-row
+        //     initial viewport the 7th row's name was clipped
+        //     to h=14. v1.7.2 adds a minHeight=88.dp on the
+        //     PersonRow so empty-subtitle rows are still
+        //     readable.
+        //   P1-C (PersonDetail header duplicated): the
+        //     TopAppBar title showed the person's name AND the
+        //     body's PersonHeader showed the name again. The
+        //     TopAppBar is now just a chevron back icon; the
+        //     body's PersonHeader is the single source of
+        //     truth.
+        //   P1-D (Today search person = no-op): tapping a
+        //     person result on Today did nothing (comment said
+        //     "search is read-only on Today"). Now routes to
+        //     onOpenPerson, matching the Home behaviour.
+        //   P1-F (Settings "Free" badge): the TagKind.FREE
+        //     section header rendered as the bare word "Free"
+        //     — a developer term that leaked into the user-
+        //     facing UI. Now renders as "Your tags" for the
+        //     FREE kind.
+        //   Debt-1: TagPicker.kt's Color(0xFF6F6F6F) literal
+        //     replaced with BatonColors.KindNeutralLight.
+        //   Debt-2: Erase all data confirmation dialog now
+        //     requires the user to type "ERASE" before the
+        //     confirm button enables (was: single-tap
+        //     irreversible action).
+        // Bugfix release; no public-surface changes (version
+        // bump because the v1.7.1 → v1.7.2 changes are
+        // user-visible: worry box dates, home row height,
+        // person-detail header, today search, settings tag
+        // section label, and erase confirmation flow).
         // v1.7.1: versionCode 27, versionName "1.7.1".
         // v1.7.0 fresh-eyes critique came back at 4.5/10
         // (down from v1.6.8's 6.5 because the v1.6.8 nav
@@ -125,8 +170,8 @@ android {
         // because C changes the search-result tap behaviour
         // — it's a user-visible contract change worth its own
         // minor bump.
-        versionCode = 27
-        versionName = "1.7.1"
+        versionCode = 28
+        versionName = "1.7.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

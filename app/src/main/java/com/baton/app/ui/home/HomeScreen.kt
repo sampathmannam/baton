@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -708,7 +709,19 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             // LazyColumn's contentPadding handles horizontal).
             // Smaller vertical padding = denser list = more
             // people on screen = Obsidian document density.
-            .padding(vertical = 10.dp),
+            .padding(vertical = 10.dp)
+            // v1.7.2 (P1-B): when a person has no designation +
+            // station, the inner Column only renders the name
+            // (no sub-text). Without a minHeight the row's
+            // height collapses to ~72 px, which under
+            // v1.6.4's 88dp contentPadding + 96dp bottom-nav
+            // lift clipped the seventh row's name to h=14 in
+            // the visible viewport (see
+            // `ui_v172_home.xml`). 88dp = 10dp top + 49dp name
+            // line + 10dp bottom + a 19dp buffer so the name
+            // TextView never gets the parent-clip on a
+            // 7-row initial viewport.
+            .heightIn(min = 88.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
