@@ -48,6 +48,9 @@
 
     <!-- M3-T4: settings sheet + sign-out -->
     <string name="settings_title">Settings</string>
+    <!-- v1.7.1 (P1 St1): the visible Close button in the
+         Settings sheet top-right. -->
+    <string name="settings_close">Close settings</string>
     <!-- v1.5.1: vault-mode copy. There is no Supabase data to
          preserve, so the v1.4 "Supabase data stays" line is
          misleading. The destructive action is now framed as
@@ -117,6 +120,11 @@
     <string name="a11y_person_row_open">Open person</string>
     <string name="a11y_person_count_badge">%1$d open instructions</string>
     <string name="a11y_person_count_badge_one">1 open instruction</string>
+    <!-- v1.7.1 (P1 T3): short "open" label that follows the
+         count in the PersonList row so the digit is self-
+         explanatory without needing TalkBack. Used inline
+         as " 3 open". -->
+    <string name="today_count_open_short">open</string>
     <string name="a11y_person_stale_indicator">No recent activity for 3 or more days</string>
     <string name="a11y_status_chip">Status: %1$s</string>
 

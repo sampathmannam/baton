@@ -451,16 +451,27 @@ private fun BottomNav(
     // (A14, 1080x2400) and ZD2232FCR5 (A17, 1264x2780).
     //
     // v1.6.4 fix: hardcoded 48dp (126px at 420dpi)
-    // bottom padding on top of the inset. On 3-button
-    // devices this guarantees the Compose nav ends ABOVE
-    // the system nav. On gesture-nav devices the inset is
-    // already ~16dp so adding 48dp makes the bar sit 64dp
-    // above the bottom — slightly more space, still
-    // standard Material 3.
+    // bottom padding on top of the inset.
+    //
+    // v1.7.1 fix (CRIT-H1+H2): the v1.6.4 48dp extra
+    // padding was JUST barely enough — the system's
+    // 3-button nav has an extended touch area that
+    // reaches ~30-50dp above the visible buttons, so the
+    // TOP 24-30% of the Compose NavigationBar overlapped
+    // the recents-button hit area. Tapping the Today or
+    // Settings tab from the Home screen on ZD2232FCR5
+    // (Android 17, 1264x2780, 3-button nav) was captured
+    // by the system recents and the user was dropped
+    // into a background app (e.g. BSA for Dummies).
+    // Bumped the explicit bottom padding to 96dp so the
+    // Compose bar ends ~48dp above the system nav touch
+    // area top. Drive-verified: bottom nav tappable from
+    // every screen; the NoteBar above it still has a 12dp
+    // visual gap.
     NavigationBar(
         modifier = Modifier
             .navigationBarsPadding()
-            .padding(bottom = 48.dp),
+            .padding(bottom = 96.dp),
     ) {
         NavEntry(
             label = stringResource(R.string.tab_home),
