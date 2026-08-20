@@ -43,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
 import com.baton.app.RootViewModel
+import com.baton.app.data.instructions.toDomain
 import com.baton.app.data.person.Person
 import com.baton.app.data.person.toEntity
 import com.baton.app.features.capture.CameraLauncher
@@ -88,6 +89,14 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
+    // v1.7.0: search-result → instruction detail sheet state.
+    // The entity is the row that came back from FTS; the domain
+    // model is what the sheet renders. We hold the entity and
+    // convert on demand (cheaper than a second query).
+    var selectedInstructionEntity by remember {
+        mutableStateOf<com.baton.app.data.local.entities.InstructionEntity?>(null)
+    }
+    val searchDetailViewModel: SearchResultDetailViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(sharedText) {
@@ -277,6 +286,7 @@ fun HomeScreen(
                     personNameById = personNameById,
                     padding = padding,
                     onPersonClick = onOpenPerson,
+                    onInstructionClick = { entity -> selectedInstructionEntity = entity },
                 )
             } else {
                 when (val s = state) {
@@ -323,6 +333,34 @@ fun HomeScreen(
             onOpenAddPerson = {
                 captureViewModel.dismissSheet()
                 showAddPerson = true
+            },
+        )
+    }
+    // v1.7.0: tapping an instruction in search results now
+    // opens the instruction detail sheet directly (was: nav
+    // to the person screen). The sheet uses the same shared
+    // component as TodayScreen and the same 1-arg
+    // markDone / markDropped / reopen helpers on
+    // RoomInstructionRepository that TodayViewModel uses,
+    // so the search-result transition ends up in the
+    // sync-engine outbox exactly as a transition from the
+    // brief would.
+    selectedInstructionEntity?.let { entity ->
+        val ins = entity.toDomain()
+        com.baton.app.ui.components.InstructionDetailSheet(
+            instruction = ins,
+            onDismiss = { selectedInstructionEntity = null },
+            onMarkDone = {
+                searchDetailViewModel.markDone(ins)
+                selectedInstructionEntity = null
+            },
+            onDrop = {
+                searchDetailViewModel.markDropped(ins)
+                selectedInstructionEntity = null
+            },
+            onReopen = {
+                searchDetailViewModel.reopen(ins)
+                selectedInstructionEntity = null
             },
         )
     }
@@ -452,6 +490,12 @@ fun HomeScreenSearchResults(
     personNameById: Map<String, String>,
     padding: PaddingValues,
     onPersonClick: (String) -> Unit,
+    // v1.7.0: tapping an instruction in search results now
+    // opens the instruction detail sheet. The previous
+    // behaviour was to navigate to the person (which is
+    // reachable via the person-header tap above each
+    // instruction group), so this split is non-breaking.
+    onInstructionClick: (com.baton.app.data.local.entities.InstructionEntity) -> Unit,
 ) {
     if (personResults.isEmpty() && instructionResults.isEmpty()) {
         Box(
@@ -555,8 +599,13 @@ fun HomeScreenSearchResults(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(
-                                onClickLabel = "Open person",
-                                onClick = { personId?.let(onPersonClick) },
+                                // v1.7.0: tap on the instruction
+                                // row opens the instruction
+                                // detail sheet. Tap on the
+                                // person-header above still
+                                // navigates to the person.
+                                onClickLabel = "Open instruction",
+                                onClick = { onInstructionClick(ins) },
                             )
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {

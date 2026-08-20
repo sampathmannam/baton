@@ -67,22 +67,33 @@ android {
         // to content). (8) PersonList / search-results
         // LazyColumns now use horizontal contentPadding so
         // rows have full-width click hit-targets.
-        // v1.6.8: versionCode 25, versionName "1.6.8". UI/UX
-        // overhaul — the complete polish pass that finishes the
-        // v1.6.x series. Every user-facing English literal in the
-        // UI surface is now in strings.xml so the next locale
-        // pass covers them. v1.6.6 fixed the P0 Settings crash
-        // + 3 multi-count plural bugs; v1.6.7 fixed the 5 Compose
-        // deprecations; v1.6.7-r2 fixed the 5 hardcoded TalkBack
-        // a11y strings; v1.6.8 finishes the localisation (34
-        // new strings) and adds theme-aware color tokens for
-        // the tag-chip dots + the home-list stale-person dot
-        // (the v1.6.7 fixed colors disappeared on the dark
-        // surface). Also converts 2 <plurals> entries with
-        // identical one/other items to <string>. No functional
-        // changes; UI is now fully localisable and dark-mode-safe.
-        versionCode = 25
-        versionName = "1.6.8"
+        // v1.7.0: versionCode 26, versionName "1.7.0". Closes
+        // the three gaps flagged by the v1.6.8 fresh-eyes
+        // critique (6.5/10):
+        //   A. Real-user test: 1-page structured handoff in
+        //      docs/v1.7.0_user_test.md (the test itself is a
+        //      30-minute observation, not code).
+        //   B. Backup story: encrypted local export/import
+        //      was already built (VaultExporter/Importer with
+        //      Argon2id KDF + AES-256-GCM). v1.7.0 is the first
+        //      release to actually exercise it on a real
+        //      device round trip (export → wipe → import →
+        //      verify counts match). Previously: code path
+        //      existed since v1.5.0 but no APK on a phone had
+        //      used it.
+        //   C. Search: bar + debounce + FTS4 + person filter
+        //      were already wired into Home + Today. v1.7.0
+        //      closes the remaining gap — tapping an instruction
+        //      in search results now opens the InstructionDetailSheet
+        //      directly (used to navigate to the person). Lifts
+        //      InstructionDetailSheet into ui/components/ so
+        //      Home + Today share one implementation.
+        // No new public surface; ship as v1.7.0 (not v1.6.9)
+        // because C changes the search-result tap behaviour
+        // — it's a user-visible contract change worth its own
+        // minor bump.
+        versionCode = 26
+        versionName = "1.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
