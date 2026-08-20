@@ -43,16 +43,16 @@ import com.baton.app.R
 import com.baton.app.data.brief.DailyBrief
 import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.instructions.Status
+import com.baton.app.data.instructions.toDomain
 import com.baton.app.data.person.toEntity
 import com.baton.app.features.search.SearchBar
 import com.baton.app.features.search.SearchViewModel
+import com.baton.app.ui.components.InstructionDetailSheet
+import com.baton.app.ui.components.formatTimeIso
 import com.baton.app.ui.today.brief.MeetingBriefCard
 import com.baton.app.ui.today.decay.DecaySection
 import com.baton.app.ui.today.win.TodaysWinCard
 import com.baton.app.ui.today.worry.WorryBoxSection
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * M4-T1: Today screen. The morning brief content lives here.
@@ -136,6 +136,12 @@ fun TodayScreen(
                 personNameById = personNameById,
                 padding = padding,
                 onPersonClick = { /* search is read-only on Today */ },
+                // v1.7.0: instruction tap opens the existing
+                // InstructionDetailSheet (same component the
+                // brief cards open). Reuses TodayViewModel
+                // handlers — the same markDone / markDropped
+                // / reopen used for the brief cards.
+                onInstructionClick = { entity -> selected = entity.toDomain() },
             )
         } else if (brief.isEmpty) {
             // v1.6.3: the EmptyBriefContent used to render at the
@@ -306,136 +312,11 @@ private fun InstructionCard(ins: Instruction, onClick: () -> Unit) {
                 )
             }
             Text(
-                text = formatTime(ins.capturedAt),
+                text = formatTimeIso(ins.capturedAt),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-private fun formatTime(iso: String): String = try {
-    val inst = Instant.parse(iso)
-    DateTimeFormatter.ofPattern("d MMM, HH:mm")
-        .withZone(ZoneId.systemDefault())
-        .format(inst)
-} catch (e: Exception) { iso }
-
-/**
- * v1.5.3 (VAULT-010): the instruction detail sheet. Shows the
- * full raw text + a status pill + one of three action buttons
- * depending on the current status.
- *
- *  - OPEN / IN_PROGRESS / WAITING_ON_OTHER / ACK_PENDING:
- *    [Mark done] [Drop]
- *  - DONE:
- *    [Reopen]
- *  - DROPPED:
- *    [Reopen]
- *  - CARRIED_OVER:
- *    [Mark done] [Drop]
- *
- * The actions use the same neutral wording as the rest of the
- * app (no "Delete" / "Destroy" / red colour).
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun InstructionDetailSheet(
-    instruction: Instruction,
-    onDismiss: () -> Unit,
-    onMarkDone: () -> Unit,
-    onDrop: () -> Unit,
-    onReopen: () -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = instruction.title,
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            StatusPill(instruction.status)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Text(
-                text = instruction.rawText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            if (instruction.dueAt != null) {
-                Text(
-                    text = stringResource(R.string.today_due_at, formatTime(instruction.dueAt)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = stringResource(R.string.today_captured_at, formatTime(instruction.capturedAt)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            // The action row. Reopen-only for DONE / DROPPED.
-            val isClosed = instruction.status == Status.DONE ||
-                instruction.status == Status.DROPPED
-            if (isClosed) {
-                Button(
-                    onClick = onReopen,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.action_reopen))
-                }
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Button(
-                        onClick = onMarkDone,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(stringResource(R.string.action_mark_done))
-                    }
-                    OutlinedButton(
-                        onClick = onDrop,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    ) {
-                        Text(stringResource(R.string.action_drop))
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
-
-/**
- * v1.5.3 (VAULT-010): a soft status pill. The colour is
- * surfaceVariant (not red, not amber) — the spec's
- * "no-shame" rule means we never shout at the user about
- * an instruction's state, only label it.
- */
-@Composable
-private fun StatusPill(status: Status) {
-    androidx.compose.material3.Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.small,
-    ) {
-        Text(
-            text = status.name.lowercase().replaceFirstChar { it.uppercase() },
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
     }
 }
 
