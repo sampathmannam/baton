@@ -95,11 +95,20 @@ class BatonTileService : TileService() {
             // is started from the background.
             // CATEGORY_LAUNCHER + NEW_TASK works for our
             // launch-from-shade case.
-            startActivityAndCollapse(
+            // v1.6.7: startActivityAndCollapse(p0: Intent) is
+            // deprecated in Q+. The replacement is a plain
+            // startActivity() call -- the system auto-dismisses
+            // the tile once the activity is launched (this is
+            // the standard quick-settings-tile behaviour; no
+            // explicit dismiss call is needed). TileService is
+            // a Service, not an Activity, so finish() is not
+            // available -- the service unbinds and the system
+            // reclaims the tile when the binding goes away.
+            startActivity(
                 Intent(intent).addCategory(Intent.CATEGORY_LAUNCHER),
             )
         } else {
-            startActivityAndCollapse(intent)
+            startActivity(intent)
         }
     }
 }

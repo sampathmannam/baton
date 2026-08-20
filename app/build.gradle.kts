@@ -67,10 +67,11 @@ android {
         // to content). (8) PersonList / search-results
         // LazyColumns now use horizontal contentPadding so
         // rows have full-width click hit-targets.
-        // v1.6.6: versionCode 22 (one above v1.6.5/21), versionName
-        // "1.6.6".
-        versionCode = 22
-        versionName = "1.6.6"
+        // v1.6.7: versionCode 23 (one above v1.6.6/22), versionName
+        // "1.6.7". Polish release — 5 Compose deprecations fixed,
+        // no functional/UI changes.
+        versionCode = 23
+        versionName = "1.6.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

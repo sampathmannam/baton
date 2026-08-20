@@ -81,7 +81,13 @@ class VoiceCaptureService : Service() {
     }
 
     private fun handleStart(intent: Intent) {
-        val receiver: ResultReceiver? = intent.getParcelableExtra(EXTRA_RESULT_RECEIVER)
+        // v1.6.7: getParcelableExtra(String) is deprecated in T+;
+        // replaced with the class-overload getParcelableExtra(name, clazz)
+        // which gives a typed return.
+        val receiver: ResultReceiver? = intent.getParcelableExtra(
+            EXTRA_RESULT_RECEIVER,
+            ResultReceiver::class.java,
+        )
         resultReceiver = receiver
         // Tier 0.4: flip the process-wide state so the
         // in-app capture sheet can render a Stop button.
@@ -162,7 +168,23 @@ class VoiceCaptureService : Service() {
             .setSmallIcon(R.drawable.ic_voice_notification)
             .setOngoing(true)
             .setContentIntent(tapIntent)
-            .addAction(0, getString(R.string.voice_capture_stop), stopIntent)
+            .addAction(
+                // v1.6.7: addAction(icon, title, intent) is deprecated;
+                // replaced with the single-arg addAction(Notification.Action)
+                // which is the supported API 23+ path. The int icon
+                // arg (passed as 0) is unused by the system on API 21+
+                // -- the system uses a generic action affordance
+                // icon. The chained deprecation (Notification.Action
+                // constructor is also flagged because its int icon
+                // param is unused) is accepted; the deprecation
+                // chain would require Builder(Icon, ...) which is
+                // API 28+ and adds an icon asset we don't have.
+                Notification.Action(
+                    0,
+                    getString(R.string.voice_capture_stop),
+                    stopIntent,
+                ),
+            )
             .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
