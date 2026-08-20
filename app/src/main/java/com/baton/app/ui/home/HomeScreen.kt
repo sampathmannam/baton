@@ -765,19 +765,35 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             // small labelMedium in onSurfaceVariant sits at the
             // row's right; the badge recedes and the row reads
             // as a document line (Obsidian-style).
+            // v1.7.1 (P1 T3): added a visible "open" label
+            // after the count so the user can read "3 open"
+            // without needing TalkBack. The visible label
+            // matches the a11y contentDescription exactly so
+            // the meaning is consistent on screen and in
+            // the screen reader.
             val countDesc = if (openCount == 1) {
                 stringResource(R.string.a11y_person_count_badge_one)
             } else {
                 stringResource(R.string.a11y_person_count_badge, openCount)
             }
-            Text(
-                text = openCount.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            val openLabel = stringResource(R.string.today_count_open_short)
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .padding(start = 12.dp, end = 4.dp)
                     .semantics { contentDescription = countDesc },
-            )
+            ) {
+                Text(
+                    text = openCount.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = " $openLabel",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

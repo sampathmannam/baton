@@ -316,7 +316,7 @@
     },
     {
       "id": "cd73a969-75e6-4812-be73-4f524a65cc85",
-      "name": "B. Srinivas",
+      "name": "B. Srinivasa",
       "designation": "Constable",
       "station": "District Traffic Wing, Warangal",
       "phone": "+91-871-2345019",
@@ -332,9 +332,9 @@
     },
     {
       "id": "df742d4c-622c-40fb-8f3b-0886f4c21981",
-      "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "name": "A. Test SP",
       "designation": "Superintendent of Police (SP)",
-      "station": "Station-with-a-very-long-name-that-might-wrap-on-mobile-screens",
+      "station": "District Headquarters, Warangal",
       "phone": "+91-871-2345020",
       "userId": "user-local-test",
       "createdAt": "2026-03-25T10:00:00+0530",
@@ -541,7 +541,7 @@
     {
       "id": "f02b2914-ab68-4dc5-b6c6-b58348e003a9",
       "name": "V. Mallesh",
-      "designation": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "designation": "Test — long designation (100+ chars): Assistant Commissioner of Police (ACP) — Test designation used for testing long-text wrapping and truncation behaviour in the People list row UI. End of long designation.",
       "station": "Women's Police Station, Warangal",
       "phone": "+91-871-2345033",
       "userId": "user-local-test",
@@ -684,9 +684,9 @@
     },
     {
       "id": "8312f4d5-c6ee-45b5-9c48-f48b4fbedc36",
-      "name": "  Whitespace  Edge  ",
+      "name": "Z. Whitespace Test 1",
       "designation": "Tehsildar",
-      "station": "Warangal Town Police Station",
+      "station": "Warangal Tehsil Office",
       "phone": "+91-871-2345042",
       "userId": "user-local-test",
       "createdAt": "2026-03-27T10:00:00+0530",
@@ -765,7 +765,7 @@
     {
       "id": "6a793497-5e6b-4b35-9d8a-353c8f44abf1",
       "name": "M. Ravi Kumar",
-      "designation": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "designation": "Inspector (Test — long designation used for layout edge cases)",
       "station": "District Headquarters, Warangal",
       "phone": "+91-871-2345047",
       "userId": "user-local-test",
@@ -797,8 +797,8 @@
     {
       "id": "8785a614-e5a2-46b5-a098-72dc3901179d",
       "name": "A. Venkateshwarlu",
-      "designation": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-      "station": "Station-with-a-very-long-name-that-might-wrap-on-mobile-screens",
+      "designation": "Sub-Inspector (Test — long designation used for layout edge cases)",
+      "station": "District Headquarters, Warangal",
       "phone": "+91-871-2345049",
       "userId": "user-local-test",
       "createdAt": "2026-01-18T10:00:00+0530",
@@ -812,7 +812,7 @@
     },
     {
       "id": "5419c04c-c216-49e7-bca7-2a3c17491c66",
-      "name": "  Whitespace Edge  ",
+      "name": "Z. Whitespace Test 2",
       "designation": "Sub-Inspector (Women)",
       "station": "Warangal Town Police Station",
       "phone": "+91-871-2345050",

@@ -67,6 +67,39 @@ android {
         // to content). (8) PersonList / search-results
         // LazyColumns now use horizontal contentPadding so
         // rows have full-width click hit-targets.
+        // v1.7.1: versionCode 27, versionName "1.7.1".
+        // v1.7.0 fresh-eyes critique came back at 4.5/10
+        // (down from v1.6.8's 6.5 because the v1.6.8 nav
+        // fix was incomplete). v1.7.1 is a single-ship
+        // monolith that closes every P0 and P1 from that
+        // critique:
+        //   P0 nav (H1+H2, H3, H4): the system 3-button
+        //     gesture-nav hit area overlaps the bottom
+        //     NavigationBar — Today/Settings taps on the
+        //     Home screen were captured by the system
+        //     recents button and the user was dropped into
+        //     a background app (BSA for Dummies on
+        //     ZD2232FCR5). v1.6.4's 48dp extra bottom
+        //     padding was JUST barely enough; the
+        //     extended touch area reaches another 30-50dp
+        //     above the visible buttons. Bumped to 96dp.
+        //   P1 data (T1, T4, T5, P1): synthetic data
+        //     duplicates ("B. Srinivas" x2, "Whitespace
+        //     Edge" x2) and placeholder strings
+        //     (AAAA..., XXX..., "Station-with-a-very-
+        //     long-name-...") dominated the top of the
+        //     People list. Renamed the duplicates to be
+        //     unique and demoted the placeholders so the
+        //     top of the list shows realistic names.
+        //   P1 UI (T3, Q1, St1): the count badge in
+        //     PersonRow now shows " 3 open" (visible
+        //     label, not just a digit). The NoteBar
+        //     capture buttons (Photo, Voice) now have
+        //     visible "Photo" / "Voice" labels under
+        //     the icons. The Settings sheet now has a
+        //     visible Close X button in the top-right
+        //     (was: scrim-tap / swipe-down only).
+        // Bugfix release; no public-surface changes.
         // v1.7.0: versionCode 26, versionName "1.7.0". Closes
         // the three gaps flagged by the v1.6.8 fresh-eyes
         // critique (6.5/10):
@@ -92,8 +125,8 @@ android {
         // because C changes the search-result tap behaviour
         // — it's a user-visible contract change worth its own
         // minor bump.
-        versionCode = 26
-        versionName = "1.7.0"
+        versionCode = 27
+        versionName = "1.7.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
