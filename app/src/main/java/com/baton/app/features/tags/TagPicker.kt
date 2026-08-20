@@ -32,10 +32,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.baton.app.R
 import com.baton.app.data.tags.Tag
 import com.baton.app.data.tags.TagKind
+import com.baton.app.ui.theme.BatonThemeTokens
 
 /**
  * M3-T7: tag picker for the capture sheet. Shows the user's existing
@@ -64,7 +67,7 @@ fun TagPicker(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            text = "Tags",
+            text = stringResource(R.string.tag_picker_title),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
@@ -86,7 +89,7 @@ fun TagPicker(
                             value = freeText,
                             onValueChange = { freeText = it },
                             singleLine = true,
-                            placeholder = { Text("#tag") },
+                            placeholder = { Text(stringResource(R.string.tag_picker_free_placeholder)) },
                             modifier = Modifier.heightIn(min = 40.dp),
                         )
                         Spacer(Modifier.size(4.dp))
@@ -97,12 +100,12 @@ fun TagPicker(
                                 composingFree = false
                             },
                             enabled = freeText.isNotBlank(),
-                        ) { Text("Add") }
+                        ) { Text(stringResource(R.string.tag_picker_add)) }
                     }
                 } else {
                     AssistChip(
                         onClick = { composingFree = true },
-                        label = { Text("+ #tag") },
+                        label = { Text(stringResource(R.string.tag_picker_add_chip)) },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Add,
@@ -129,7 +132,10 @@ fun TagChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val kindColor = remember(tag.kind) { colorForKind(tag.kind) }
+    // v1.6.8: theme-aware kind colour. The function reads
+    // from the current MaterialTheme so the chip dot flips
+    // when the user switches themes.
+    val kindColor = colorForKind(tag.kind)
     FilterChip(
         modifier = modifier,
         selected = selected,
@@ -155,21 +161,26 @@ fun TagChip(
 }
 
 /**
- * M3-T7: kind → quiet color. We deliberately avoid red — every kind
- * is a calm tone. PERSON / DESIGNATION / STATION get the structural
- * cool blue; CASE / FIR / PRIORITY get the warm tertiary; FREE is
- * outlined neutral.
+ * M3-T7: kind → quiet color (v1.6.8: theme-aware). PERSON /
+ * DESIGNATION / STATION get the structural cool blue; CASE /
+ * FIR / PRIORITY get the warm tertiary; FREE is the outlined
+ * neutral. The colour is resolved from the current
+ * `MaterialTheme` via [BatonThemeTokens] so the chip dot
+ * flips when the user switches themes.
  */
+@Composable
 internal fun colorForKind(kind: TagKind): Color = when (kind) {
-    TagKind.PERSON, TagKind.DESIGNATION, TagKind.STATION ->
-        Color(0xFF6B7AA1)  // cool blue
-    TagKind.CASE, TagKind.FIR, TagKind.PRIORITY ->
-        Color(0xFFB58A4D)  // warm tertiary
-    TagKind.FREE ->
-        Color(0xFF6F6F6F)  // neutral grey
+    TagKind.PERSON, TagKind.DESIGNATION, TagKind.STATION -> BatonThemeTokens.kindBlue()
+    TagKind.CASE, TagKind.FIR, TagKind.PRIORITY -> BatonThemeTokens.kindWarm()
+    TagKind.FREE -> BatonThemeTokens.kindNeutral()
 }
 
-/** Parse a `#RRGGBB` (or `RRGGBB`) hex into a Compose [Color]. */
+/**
+ * Parse a `#RRGGBB` (or `RRGGBB`) hex into a Compose [Color].
+ * v1.6.8: the fallback (invalid hex) is the theme-neutral
+ * grey. Callers that need the theme-aware variant should
+ * pass the result through [colorForKind] instead.
+ */
 internal fun parseHex(hex: String): Color {
     val s = hex.removePrefix("#")
     val v = s.toLong(16)

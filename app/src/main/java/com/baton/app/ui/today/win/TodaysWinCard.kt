@@ -58,9 +58,13 @@ fun TodaysWinCard(
                         append(stringResource(R.string.count_connector_comma))
                         append(pluralStringResource(R.plurals.count_people, state.peopleCount, state.peopleCount))
                         append(stringResource(R.string.count_connector_comma))
-                        append(pluralStringResource(R.plurals.count_carried_over, state.carriedOverCount, state.carriedOverCount))
+                        // v1.6.8: count_carried_over and count_sensitive
+                        // are now <string> (the v1.6.6 <plurals> had
+                        // identical one/other items so the wrapper was
+                        // wrong). Use stringResource, no quantity arg.
+                        append(stringResource(R.string.count_carried_over, state.carriedOverCount))
                         append(stringResource(R.string.count_connector_comma))
-                        append(pluralStringResource(R.plurals.count_sensitive, state.sensitiveCount, state.sensitiveCount))
+                        append(stringResource(R.string.count_sensitive, state.sensitiveCount))
                         append('.')
                     }
                 },

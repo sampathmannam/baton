@@ -874,12 +874,16 @@ private fun StuckOutboxCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "$count stuck outbox ${if (count == 1) "entry" else "entries"}",
+                    text = if (count == 1) {
+                        stringResource(R.string.settings_sync_stuck_one, count)
+                    } else {
+                        stringResource(R.string.settings_sync_stuck_other, count)
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "Failed to sync after multiple retries. Retry to put them back in the queue.",
+                    text = stringResource(R.string.settings_sync_error_retries),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -892,7 +896,7 @@ private fun StuckOutboxCard(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
             ) {
-                Text("Retry")
+                Text(stringResource(R.string.settings_sync_retry))
             }
         }
     }
@@ -911,14 +915,14 @@ private fun TagsSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Tags",
+                text = stringResource(R.string.settings_section_tags),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
             AssistChip(
                 onClick = { composing = !composing },
-                label = { Text("+ #tag") },
+                label = { Text(stringResource(R.string.settings_tags_add_chip)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Add,
@@ -934,7 +938,7 @@ private fun TagsSection(
                     value = text,
                     onValueChange = { text = it },
                     singleLine = true,
-                    placeholder = { Text("new-tag") },
+                    placeholder = { Text(stringResource(R.string.settings_tags_placeholder)) },
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 40.dp),
@@ -947,12 +951,12 @@ private fun TagsSection(
                         composing = false
                     },
                     enabled = text.isNotBlank(),
-                ) { Text("Add") }
+                ) { Text(stringResource(R.string.settings_tags_add_button)) }
             }
         }
         if (tags.isEmpty()) {
             Text(
-                text = "No tags yet. They'll show up here as you create instructions.",
+                text = stringResource(R.string.settings_tags_empty),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

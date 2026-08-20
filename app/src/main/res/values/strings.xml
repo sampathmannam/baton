@@ -303,14 +303,14 @@
         <item quantity="one">%1$d tag</item>
         <item quantity="other">%1$d tags</item>
     </plurals>
-    <plurals name="count_carried_over">
-        <item quantity="one">%1$d carried over</item>
-        <item quantity="other">%1$d carried over</item>
-    </plurals>
-    <plurals name="count_sensitive">
-        <item quantity="one">%1$d sensitive</item>
-        <item quantity="other">%1$d sensitive</item>
-    </plurals>
+    <!-- v1.6.8: these were <plurals> with identical one/other
+         items (the words don't actually pluralize — "1 carried
+         over" and "5 carried over" are both correct). Converting
+         to <string> removes the misleading <plurals> wrapper.
+         Call sites in TodaysWinCard now use stringResource
+         instead of pluralStringResource. -->
+    <string name="count_carried_over">%1$d carried over</string>
+    <string name="count_sensitive">%1$d sensitive</string>
     <string name="count_connector_comma">, </string>
     <string name="count_connector_period">. </string>
     <string name="morning_brief_permission_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
@@ -437,4 +437,100 @@
     <string name="a11y_add_to_calendar">Add to calendar</string>
     <string name="a11y_add_note">Add note</string>
     <string name="tier0_model_progress_label">Downloading… %1$d%%</string>
+
+    <!-- v1.6.8: localised all hardcoded user-facing strings. -->
+    <!-- Today screen -->
+    <string name="today_section_waiting">Waiting on others</string>
+    <string name="today_section_carried_over">Carried over</string>
+    <string name="today_empty_title">Nothing on your plate.</string>
+    <string name="today_empty_subtitle">When instructions come in, they\'ll show up here.</string>
+    <string name="today_due_at">Due: %1$s</string>
+    <string name="today_captured_at">Captured: %1$s</string>
+    <string name="today_evening_review">Evening review</string>
+    <string name="today_review_dismiss_hint">Tap outside to dismiss. Tomorrow\'s brief picks up from here.</string>
+    <string name="today_review_action">Review</string>
+    <string name="today_review_still_open">Still open:</string>
+    <string name="today_review_nothing_carried">Nothing carried over. Nice.</string>
+    <string name="today_review_bullet_prefix">• %1$s</string>
+    <!-- Reusable actions -->
+    <string name="action_mark_done">Mark done</string>
+    <string name="action_draft_nudge">Draft nudge</string>
+    <string name="action_drop">Drop</string>
+    <string name="action_reopen">Re-open</string>
+    <string name="action_save">Save</string>
+    <string name="action_remove_flag">Remove flag</string>
+    <!-- Person detail sensitive toggle (person-level + instruction-level) -->
+    <string name="person_add_instruction_for">Add instruction for %1$s</string>
+    <string name="person_sensitive_explainer_full">Stays on this phone, never backed up.</string>
+    <string name="person_sensitive_explainer_short">Stays on this phone.</string>
+    <string name="person_remove_sensitive_flag">Remove sensitive flag</string>
+    <string name="person_mark_as_sensitive">Mark as sensitive</string>
+    <string name="instruction_make_syncable">Make syncable</string>
+    <string name="instruction_mark_sensitive">Mark sensitive</string>
+    <string name="instruction_will_stay_local">This instruction will stay on this phone only.</string>
+    <string name="instruction_will_start_syncing">This instruction will start syncing to the cloud %1$s</string>
+    <string name="instruction_remove_flag">Remove flag</string>
+    <string name="instruction_will_start_syncing_tail">if cloud sync is on for this device.</string>
+    <string name="person_sensitive_stay_local">%1$s and their instructions will stay on this phone only.</string>
+    <string name="person_sensitive_will_sync">%1$s will be available for cloud sync if cloud sync is on for this device.</string>
+    <!-- Person detail -->
+    <string name="person_new_instruction_title">New instruction for %1$s</string>
+    <string name="person_new_instruction_body">Capture what you want %1$s to do. The note will be attributed to them and show up on their timeline.</string>
+    <string name="person_note_label">Note</string>
+    <string name="person_done_at">Done %1$s</string>
+    <string name="person_dropped_reason">Dropped: %1$s</string>
+    <string name="person_drop_title">Drop instruction</string>
+    <string name="person_drop_reason_label">Reason (optional)</string>
+    <!-- Nudge sheet -->
+    <string name="nudge_edit_before_sending">Edit before sending. The draft is local; the message itself goes through WhatsApp or SMS, not Baton.</string>
+    <string name="nudge_message_label">Message</string>
+    <string name="nudge_clipboard_label">Baton nudge</string>
+    <string name="nudge_tone_polite">Polite</string>
+    <string name="nudge_tone_urgent">Urgent</string>
+    <string name="nudge_tone_casual">Casual</string>
+    <string name="nudge_action_copy">Copy</string>
+    <string name="nudge_action_share">Share</string>
+    <string name="nudge_share_chooser_title">Send nudge</string>
+    <string name="nudge_generating">Generating draft…</string>
+    <!-- Person links / relationships -->
+    <string name="links_add_person_first">Add another person first.</string>
+    <!-- Important dates row -->
+    <string name="important_date_label">Date: %1$s</string>
+    <string name="important_date_in_a_week">In a week</string>
+    <string name="important_date_will_save_as">Will save as: %1$s</string>
+    <string name="important_date_pick">Pick</string>
+    <string name="important_date_today">Today</string>
+    <string name="important_date_tomorrow">Tomorrow</string>
+    <!-- Settings sheet -->
+    <string name="settings_sync_error_retries">Failed to sync after multiple retries. Retry to put them back in the queue.</string>
+    <string name="settings_section_tags">Tags</string>
+    <string name="settings_tags_placeholder">new-tag</string>
+    <string name="settings_tags_empty">No tags yet. They\'ll show up here as you create instructions.</string>
+    <string name="settings_tags_add_chip">+ #tag</string>
+    <string name="settings_tags_add_button">Add</string>
+    <string name="settings_sync_retry">Retry</string>
+    <string name="settings_sync_stuck_one">%1$d stuck outbox entry</string>
+    <string name="settings_sync_stuck_other">%1$d stuck outbox entries</string>
+    <!-- Auth screen (vault mode pivot made this dead but kept localised) -->
+    <string name="auth_welcome_back">Welcome back</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_resend_code">Resend code</string>
+    <string name="auth_use_password">Use password instead</string>
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_continue_with_email">Continue with email</string>
+    <string name="auth_sending">Sending…</string>
+    <string name="auth_otp_explainer">We\'ll email you a one-time code. No password needed.</string>
+    <string name="auth_code_sent">We sent a code to</string>
+    <string name="auth_verify">Verify</string>
+    <string name="auth_verifying">Verifying…</string>
+    <string name="auth_hide_password">Hide password sign-in</string>
+    <string name="auth_create">Create</string>
+    <string name="auth_code_label">6-digit code</string>
+    <!-- Tag picker -->
+    <string name="tag_picker_title">Tags</string>
+    <string name="tag_picker_free_placeholder">#tag</string>
+    <string name="tag_picker_add">Add</string>
+    <string name="tag_picker_add_chip">+ #tag</string>
 </resources>
