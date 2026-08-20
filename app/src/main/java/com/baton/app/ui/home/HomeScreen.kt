@@ -686,7 +686,12 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
                         modifier = Modifier
                             .size(8.dp)
                             .semantics { contentDescription = staleDesc },
-                        color = androidx.compose.ui.graphics.Color(0xFFD9A05B),
+                        // v1.6.8: theme-aware stale dot. The old
+                        // `0xFFD9A05B` was too dim against the
+                        // dark `surfaceVariant` (0xFF2F2A23) so
+                        // the dot disappeared. The light/dark
+                        // pair keeps it visible in both modes.
+                        color = com.baton.app.ui.theme.BatonThemeTokens.staleIndicator(),
                         contentColor = androidx.compose.ui.graphics.Color.Transparent,
                         shape = androidx.compose.foundation.shape.CircleShape,
                     ) {}

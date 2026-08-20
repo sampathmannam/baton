@@ -103,7 +103,7 @@ fun TodayScreen(
                         // Obsidian-like (the action is secondary
                         // to the content).
                         TextButton(onClick = { showReview = true }) {
-                            Text("Review")
+                            Text(stringResource(R.string.today_review_action))
                         }
                     },
                     windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
@@ -181,13 +181,13 @@ fun TodayScreen(
                     }
                 }
                 if (brief.waitingOnOthers.isNotEmpty()) {
-                    item { SectionHeader("Waiting on others") }
+                    item { SectionHeader(stringResource(R.string.today_section_waiting)) }
                     items(items = brief.waitingOnOthers, key = { it.id }) { ins ->
                         InstructionCard(ins, onClick = { selected = ins })
                     }
                 }
                 if (brief.carriedOver.isNotEmpty()) {
-                    item { SectionHeader("Carried over") }
+                    item { SectionHeader(stringResource(R.string.today_section_carried_over)) }
                     items(items = brief.carriedOver, key = { it.id }) { ins ->
                         InstructionCard(ins, onClick = { selected = ins })
                     }
@@ -242,12 +242,12 @@ private fun EmptyBriefContent() {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Nothing on your plate.",
+                text = stringResource(R.string.today_empty_title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "When instructions come in, they'll show up here.",
+                text = stringResource(R.string.today_empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -370,13 +370,13 @@ private fun InstructionDetailSheet(
             )
             if (instruction.dueAt != null) {
                 Text(
-                    text = "Due: ${formatTime(instruction.dueAt)}",
+                    text = stringResource(R.string.today_due_at, formatTime(instruction.dueAt)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
-                text = "Captured: ${formatTime(instruction.capturedAt)}",
+                text = stringResource(R.string.today_captured_at, formatTime(instruction.capturedAt)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -389,7 +389,7 @@ private fun InstructionDetailSheet(
                     onClick = onReopen,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Reopen")
+                    Text(stringResource(R.string.action_reopen))
                 }
             } else {
                 Row(
@@ -400,7 +400,7 @@ private fun InstructionDetailSheet(
                         onClick = onMarkDone,
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("Mark done")
+                        Text(stringResource(R.string.action_mark_done))
                     }
                     OutlinedButton(
                         onClick = onDrop,
@@ -409,7 +409,7 @@ private fun InstructionDetailSheet(
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
                     ) {
-                        Text("Drop")
+                        Text(stringResource(R.string.action_drop))
                     }
                 }
             }
@@ -457,7 +457,7 @@ private fun EveningReviewSheet(review: EveningReview, onDismiss: () -> Unit) {
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Evening review", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.today_evening_review), style = MaterialTheme.typography.headlineSmall)
             Text(
                 text = review.date,
                 style = MaterialTheme.typography.bodySmall,
@@ -466,21 +466,21 @@ private fun EveningReviewSheet(review: EveningReview, onDismiss: () -> Unit) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             if (review.stillOpen.isEmpty()) {
                 Text(
-                    "Nothing carried over. Nice.",
+                    text = stringResource(R.string.today_review_nothing_carried),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
-                Text("Still open:", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.today_review_still_open), style = MaterialTheme.typography.titleSmall)
                 review.stillOpen.forEach { ins ->
                     Text(
-                        text = "• ${ins.title}",
+                        text = stringResource(R.string.today_review_bullet_prefix, ins.title),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Tap outside to dismiss. Tomorrow's brief picks up from here.",
+                text = stringResource(R.string.today_review_dismiss_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

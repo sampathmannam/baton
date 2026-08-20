@@ -221,11 +221,11 @@ private fun AddInstructionForPersonSheet(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "New instruction for $personName",
+                text = stringResource(R.string.person_new_instruction_title, personName),
                 style = MaterialTheme.typography.headlineSmall,
             )
             Text(
-                text = "Capture what you want $personName to do. The note will be attributed to them and show up on their timeline.",
+                text = stringResource(R.string.person_new_instruction_body, personName),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -235,7 +235,7 @@ private fun AddInstructionForPersonSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(120.dp),
-                label = { Text("Note") },
+                label = { Text(stringResource(R.string.person_note_label)) },
                 // VAULT-004: disable autocorrect + sentence caps
                 // for proper-noun content (names, designations).
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
@@ -252,14 +252,14 @@ private fun AddInstructionForPersonSheet(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
                 Button(
                     onClick = { onSave(text) },
                     enabled = text.trim().isNotBlank(),
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.action_save))
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -387,7 +387,7 @@ private fun PersonHeader(
                 .fillMaxWidth()
                 .padding(top = 8.dp),
         ) {
-            Text("Add instruction for ${person.name}")
+            Text(stringResource(R.string.person_add_instruction_for, person.name))
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -395,18 +395,21 @@ private fun PersonHeader(
                 // v1.5.1: vault mode — there's no Supabase sync either
                 // way. Sensitive = never leaves the device, even if
                 // cloud sync is re-enabled later.
-                "Stays on this phone, never backed up."
+                stringResource(R.string.person_sensitive_explainer_full)
             } else {
                 // v1.5.1: vault mode copy. Replaces the pre-vault
                 // "Syncs to Supabase..." text that lied to the user
                 // (VAULT-001).
-                "Stays on this phone."
+                stringResource(R.string.person_sensitive_explainer_short)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         TextButton(onClick = onOpenSensitive) {
-            Text(if (person.isSensitive) "Remove sensitive flag" else "Mark as sensitive")
+            Text(
+                if (person.isSensitive) stringResource(R.string.person_remove_sensitive_flag)
+                else stringResource(R.string.person_mark_as_sensitive)
+            )
         }
         Spacer(Modifier.height(8.dp))
         // v1.2 root-cause fix (F-03 in the UI audit): the previous
@@ -478,14 +481,14 @@ private fun InstructionRow(
             )
             if (instruction.completedAt != null) {
                 Text(
-                    text = "Done " + formatCapturedAt(instruction.completedAt),
+                    text = stringResource(R.string.person_done_at, formatCapturedAt(instruction.completedAt)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (instruction.droppedReason != null) {
                 Text(
-                    text = "Dropped: ${instruction.droppedReason}",
+                    text = stringResource(R.string.person_dropped_reason, instruction.droppedReason),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -519,16 +522,19 @@ private fun InstructionActions(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         if (isClosed) {
-            TextButton(onClick = onReopen) { Text("Re-open") }
+            TextButton(onClick = onReopen) { Text(stringResource(R.string.action_reopen)) }
         } else {
             if (instruction.direction == com.baton.app.data.instructions.Direction.OUTGOING) {
-                TextButton(onClick = onNudge) { Text("Draft nudge") }
+                TextButton(onClick = onNudge) { Text(stringResource(R.string.action_draft_nudge)) }
             }
-            TextButton(onClick = onMarkDone) { Text("Mark done") }
-            TextButton(onClick = onRequestDrop) { Text("Drop") }
+            TextButton(onClick = onMarkDone) { Text(stringResource(R.string.action_mark_done)) }
+            TextButton(onClick = onRequestDrop) { Text(stringResource(R.string.action_drop)) }
         }
         TextButton(onClick = onRequestSensitive) {
-            Text(if (instruction.isSensitive) "Make syncable" else "Mark sensitive")
+            Text(
+                if (instruction.isSensitive) stringResource(R.string.instruction_make_syncable)
+                else stringResource(R.string.instruction_mark_sensitive)
+            )
         }
     }
 }
@@ -548,7 +554,7 @@ private fun DropDialog(
     var reason by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Drop instruction") },
+        title = { Text(stringResource(R.string.person_drop_title)) },
         text = {
             Column {
                 Text("\"$instructionTitle\"")
@@ -556,17 +562,17 @@ private fun DropDialog(
                 OutlinedTextField(
                     value = reason,
                     onValueChange = { reason = it.take(200) },
-                    label = { Text("Reason (optional)") },
+                    label = { Text(stringResource(R.string.person_drop_reason_label)) },
                     singleLine = false,
                     maxLines = 3,
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(reason.ifBlank { null }) }) { Text("Drop") }
+            TextButton(onClick = { onConfirm(reason.ifBlank { null }) }) { Text(stringResource(R.string.action_drop)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }
@@ -586,29 +592,39 @@ private fun InstructionSensitiveDialog(
     val newValue = !instruction.isSensitive
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (newValue) "Mark sensitive" else "Make syncable") },
+        title = {
+            Text(
+                if (newValue) stringResource(R.string.instruction_mark_sensitive)
+                else stringResource(R.string.instruction_make_syncable)
+            )
+        },
         text = {
             Text(
                 if (newValue) {
                     // v1.5.1: vault-mode copy. Sensitive = never leaves
                     // the device, even if cloud sync is re-enabled later.
-                    "This instruction will stay on this phone only."
+                    stringResource(R.string.instruction_will_stay_local)
                 } else {
                     // v1.5.1: vault-mode copy. The unsensitive path
                     // doesn't actually re-enable Supabase sync in
                     // vault mode — instructions still stay local.
-                    "This instruction will start syncing to the cloud " +
-                        "if cloud sync is on for this device."
+                    stringResource(
+                        R.string.instruction_will_start_syncing,
+                        stringResource(R.string.instruction_will_start_syncing_tail),
+                    )
                 }
             )
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(newValue) }) {
-                Text(if (newValue) "Mark sensitive" else "Make syncable")
+                Text(
+                    if (newValue) stringResource(R.string.instruction_mark_sensitive)
+                    else stringResource(R.string.instruction_make_syncable)
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }
@@ -628,28 +644,34 @@ private fun PersonSensitiveDialog(
     val newValue = !person.isSensitive
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (newValue) "Mark sensitive" else "Remove sensitive flag") },
+        title = {
+            Text(
+                if (newValue) stringResource(R.string.instruction_mark_sensitive)
+                else stringResource(R.string.person_remove_sensitive_flag)
+            )
+        },
         text = {
             Text(
                 if (newValue) {
                     // v1.5.1: vault-mode copy. Sensitive = never leaves
                     // the device, even if cloud sync is re-enabled later.
-                    "${person.name} and their instructions will stay on " +
-                        "this phone only."
+                    stringResource(R.string.person_sensitive_stay_local, person.name)
                 } else {
                     // v1.5.1: vault-mode copy.
-                    "${person.name} will be available for cloud sync " +
-                        "if cloud sync is on for this device."
+                    stringResource(R.string.person_sensitive_will_sync, person.name)
                 },
             )
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(newValue) }) {
-                Text(if (newValue) "Mark sensitive" else "Remove flag")
+                Text(
+                    if (newValue) stringResource(R.string.instruction_mark_sensitive)
+                    else stringResource(R.string.instruction_remove_flag)
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }

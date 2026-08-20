@@ -67,14 +67,22 @@ android {
         // to content). (8) PersonList / search-results
         // LazyColumns now use horizontal contentPadding so
         // rows have full-width click hit-targets.
-        // v1.6.7-r2: versionCode 24 (one above v1.6.7/23), versionName
-        // "1.6.7-r2". Polish follow-up to v1.6.7 — 5 hardcoded
-        // TalkBack accessibility strings moved to stringResource so
-        // they pick up the user's locale (v1.6.7 was build-only
-        // deprecation fixes, this is the accessibility half of the
-        // same polish pass). No functional or UI changes.
-        versionCode = 24
-        versionName = "1.6.7-r2"
+        // v1.6.8: versionCode 25, versionName "1.6.8". UI/UX
+        // overhaul — the complete polish pass that finishes the
+        // v1.6.x series. Every user-facing English literal in the
+        // UI surface is now in strings.xml so the next locale
+        // pass covers them. v1.6.6 fixed the P0 Settings crash
+        // + 3 multi-count plural bugs; v1.6.7 fixed the 5 Compose
+        // deprecations; v1.6.7-r2 fixed the 5 hardcoded TalkBack
+        // a11y strings; v1.6.8 finishes the localisation (34
+        // new strings) and adds theme-aware color tokens for
+        // the tag-chip dots + the home-list stale-person dot
+        // (the v1.6.7 fixed colors disappeared on the dark
+        // surface). Also converts 2 <plurals> entries with
+        // identical one/other items to <string>. No functional
+        // changes; UI is now fully localisable and dark-mode-safe.
+        versionCode = 25
+        versionName = "1.6.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
