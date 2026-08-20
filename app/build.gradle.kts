@@ -67,11 +67,14 @@ android {
         // to content). (8) PersonList / search-results
         // LazyColumns now use horizontal contentPadding so
         // rows have full-width click hit-targets.
-        // v1.6.7: versionCode 23 (one above v1.6.6/22), versionName
-        // "1.6.7". Polish release — 5 Compose deprecations fixed,
-        // no functional/UI changes.
-        versionCode = 23
-        versionName = "1.6.7"
+        // v1.6.7-r2: versionCode 24 (one above v1.6.7/23), versionName
+        // "1.6.7-r2". Polish follow-up to v1.6.7 — 5 hardcoded
+        // TalkBack accessibility strings moved to stringResource so
+        // they pick up the user's locale (v1.6.7 was build-only
+        // deprecation fixes, this is the accessibility half of the
+        // same polish pass). No functional or UI changes.
+        versionCode = 24
+        versionName = "1.6.7-r2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
