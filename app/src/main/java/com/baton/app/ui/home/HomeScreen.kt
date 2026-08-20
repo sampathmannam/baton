@@ -333,6 +333,7 @@ private fun EmptyState(
     padding: PaddingValues,
     onAddPersonClick: () -> Unit,
 ) {
+    val addPersonDesc = stringResource(R.string.home_add_person)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -376,7 +377,7 @@ private fun EmptyState(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
                 modifier = Modifier
-                    .semantics { contentDescription = "Add person" },
+                    .semantics { contentDescription = addPersonDesc },
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,

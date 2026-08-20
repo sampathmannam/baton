@@ -431,5 +431,10 @@
     <string name="tier0_voice_in_app_stop">Stop voice</string>
     <string name="tier0_voice_in_app_stop_desc">Stop voice capture and transcribe</string>
     <string name="a11y_voice_in_app_stop">Stop voice capture and transcribe</string>
+    <!-- v1.6.8: hardcoded a11y labels for previously-English-only TalkBack
+         content. Centralised so the next locale pass covers them. -->
+    <string name="a11y_capture_note_text">Capture note text</string>
+    <string name="a11y_add_to_calendar">Add to calendar</string>
+    <string name="a11y_add_note">Add note</string>
     <string name="tier0_model_progress_label">Downloading… %1$d%%</string>
 </resources>

@@ -257,13 +257,14 @@ private fun CaptureTextField(
     isSaving: Boolean,
     onTextChanged: (String) -> Unit,
 ) {
+    val captureNoteTextDesc = stringResource(R.string.a11y_capture_note_text)
     OutlinedTextField(
         value = text,
         onValueChange = onTextChanged,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 96.dp, max = 200.dp)
-            .semantics { contentDescription = "Capture note text" },
+            .semantics { contentDescription = captureNoteTextDesc },
         label = { Text(stringResource(R.string.capture_sheet_text_label)) },
         placeholder = { Text(stringResource(R.string.capture_sheet_text_placeholder)) },
         shape = RoundedCornerShape(12.dp),
@@ -276,10 +277,11 @@ private fun AddToCalendarRow(
     addToCalendar: Boolean,
     onAddToCalendarChange: (Boolean) -> Unit,
 ) {
+    val addToCalendarDesc = stringResource(R.string.a11y_add_to_calendar)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics { contentDescription = "Add to calendar" },
+            .semantics { contentDescription = addToCalendarDesc },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -373,6 +375,7 @@ private fun PrimaryAction(
  */
 @Composable
 private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
+    val addPersonDesc = stringResource(R.string.home_add_person)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -395,7 +398,7 @@ private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Add person" },
+                    .semantics { contentDescription = addPersonDesc },
             ) {
                 Text(stringResource(R.string.home_add_person))
             }

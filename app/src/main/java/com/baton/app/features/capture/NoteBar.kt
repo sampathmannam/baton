@@ -37,12 +37,13 @@ fun NoteBar(
     onMicClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val addNoteDesc = stringResource(R.string.a11y_add_note)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .clip(RoundedCornerShape(28.dp))
-            .semantics { contentDescription = "Add note" },
+            .semantics { contentDescription = addNoteDesc },
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 2.dp,
         onClick = onTextClick,
