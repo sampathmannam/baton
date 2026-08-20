@@ -12,10 +12,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
@@ -517,12 +521,58 @@ private fun androidx.compose.foundation.layout.RowScope.NavEntry(
     currentRoute: String,
     onClick: () -> Unit,
 ) {
-    NavigationBarItem(
-        selected = currentRoute == route,
-        onClick = onClick,
-        icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label) },
-    )
+    // v1.7.3 (P1-D, H3 follow-up from v1.7.0): replace the M3
+    // NavigationBarItem with a custom Row that always exposes
+    // `clickable=true` in the UI hierarchy. The v1.7.0 critique
+    // H3 noted that the active tab reports `clickable=false` in
+    // uiautomator dump because M3 NavigationBarItem sets the
+    // `selected=true` child as non-clickable. The actual click
+    // handler on the parent Surface still fires, so the user's
+    // tap works — but the dump signal is wrong and a screen
+    // reader announces the active tab as inert. The custom Row
+    // fixes both: every tab reports `clickable=true` (including
+    // the active one), and `onClick` fires on every tap (no
+    // M3 internal guard). The visual selected indicator is the
+    // same primary-color tint + 3dp pill that M3's
+    // NavigationBarItem renders under the active label.
+    val isActive = currentRoute == route
+    val onSurfaceVariant = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+    val primary = androidx.compose.material3.MaterialTheme.colorScheme.primary
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier
+            .weight(1f)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        androidx.compose.foundation.layout.Column(
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isActive) primary else onSurfaceVariant,
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
+            androidx.compose.material3.Text(
+                text = label,
+                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                color = if (isActive) primary else onSurfaceVariant,
+            )
+            if (isActive) {
+                androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .background(
+                            color = primary,
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                        )
+                        .size(width = 24.dp, height = 3.dp),
+                )
+            }
+        }
+    }
 }
 
 /** M3.5: thin wrapper for the person detail nav entry. */

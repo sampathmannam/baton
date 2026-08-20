@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -38,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -106,6 +110,15 @@ fun SettingsSheet(
     var fixtureLoading by remember { mutableStateOf(false) }
     var fixtureLoadReport by remember { mutableStateOf<com.baton.app.data.dev.FixtureLoader.LoadReport?>(null) }
     var fixtureLoadError by remember { mutableStateOf<String?>(null) }
+
+    // v1.7.3 (P1-C): selected plain-export format. CSV by default
+    // (preserves the v1.7.2 behaviour). The radio group in the
+    // Data section lets the user see which format will be used
+    // before tapping Export. State is local to the sheet — the
+    // selection does not persist across sheet reopens (the user
+    // re-chooses each time, which is the right default for a
+    // destructive action: "did I really mean JSON this time?").
+    var selectedPlainFormat by remember { mutableStateOf("csv") }
 
     val csvLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv"),
@@ -345,33 +358,57 @@ fun SettingsSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Button(
-                    onClick = {
-                        plainExportError = null
-                        plainExportOk = false
-                        csvLauncher.launch("baton-${ts()}.csv")
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
+                // v1.7.3 (P1-C): radio + label tappable as a unit.
+                // The Row's onClick toggles the selected format AND
+                // launches the export directly so the previous
+                // "one-tap to export" UX is preserved. The
+                // RadioButton is just a visible indicator of the
+                // current selection; tap-the-row to switch + export.
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            plainExportError = null
+                            plainExportOk = false
+                            selectedPlainFormat = "csv"
+                            csvLauncher.launch("baton-${ts()}.csv")
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(stringResource(R.string.plain_export_csv))
+                    RadioButton(
+                        selected = selectedPlainFormat == "csv",
+                        onClick = null,  // Row handles the click
+                    )
+                    Text(
+                        text = stringResource(R.string.plain_export_csv),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
-                Button(
-                    onClick = {
-                        plainExportError = null
-                        plainExportOk = false
-                        jsonLauncher.launch("baton-${ts()}.json")
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            plainExportError = null
+                            plainExportOk = false
+                            selectedPlainFormat = "json"
+                            jsonLauncher.launch("baton-${ts()}.json")
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(stringResource(R.string.plain_export_json))
+                    RadioButton(
+                        selected = selectedPlainFormat == "json",
+                        onClick = null,
+                    )
+                    Text(
+                        text = stringResource(R.string.plain_export_json),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
             if (plainExportOk) {

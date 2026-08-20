@@ -68,6 +68,12 @@ class FixtureLoader @Inject constructor(
      * local mirror contents. Returns a short report so the
      * caller (debug menu) can show "Loaded 12 people, 36
      * instructions, 7 captures, 12 tags" in a snackbar.
+     *
+     * v1.7.3 (P0-A): also writes the asset's `version` field
+     * into SharedPreferences so the next-launch reseed-if-stale
+     * check can compare. The "Clear & reload" button in Settings
+     * still calls this directly to force a fresh load even when
+     * the stored version matches.
      */
     suspend fun loadFromAssets(
         assetPath: String = "synthetic-data.json",
@@ -111,6 +117,10 @@ class FixtureLoader @Inject constructor(
             if (it.isNotEmpty()) instructionTagDao.attachAll(it)
         }
         captureDao.upsertAll(fixture.captures.map { it.toEntity() })
+        // v1.7.3: record the asset version we just loaded. Next
+        // launch will compare against this and skip the reseed
+        // if the user has the current fixture.
+        fixturePrefs.edit().putInt(KEY_FIXTURE_VERSION, fixture.version).apply()
         LoadReport(
             persons = fixture.persons.size,
             instructions = fixture.instructions.size,
@@ -121,8 +131,56 @@ class FixtureLoader @Inject constructor(
         )
     }
 
+    /**
+     * v1.7.3 (P0-A): on next app launch, if the asset's
+     * `version` is strictly greater than the stored one, run a
+     * full re-seed. This closes the gap where v1.7.2 fixed the
+     * synthetic-data.json file but existing users' Room DBs
+     * still had the v1.7.1 dates (year 3995).
+     *
+     * For a fresh install the stored version starts at 0 and
+     * the asset version is 2, so the re-seed runs once on the
+     * cold start. The clear+insert path is idempotent against
+     * an empty DB so this is a no-op for the data (only
+     * SharedPreferences is updated).
+     *
+     * For an existing v1.7.1/v1.7.2 user the stored version is
+     * 0 (never set), the asset is 2, so the re-seed runs and
+     * replaces the stale dates with the new ones. The user
+     * sees the correct Worry box on their next Today scroll.
+     *
+     * Returns null when no reseed was needed. Logs at INFO when
+     * a reseed fires so the rebuild path is visible in logcat.
+     */
+    suspend fun reseedIfStale(
+        assetPath: String = "synthetic-data.json",
+    ): LoadReport? = withContext(Dispatchers.IO) {
+        val raw = context.assets.open(assetPath).bufferedReader().use { it.readText() }
+        val fixture = json.decodeFromString(Fixture.serializer(), raw)
+        val storedVersion = fixturePrefs.getInt(KEY_FIXTURE_VERSION, 0)
+        if (storedVersion < fixture.version) {
+            android.util.Log.i(
+                "FixtureLoader",
+                "stored fixture v$storedVersion < asset v${fixture.version}; auto-reseeding",
+            )
+            loadFromAssets(assetPath)
+        } else {
+            null
+        }
+    }
+
     @Serializable
     private data class Fixture(
+        // v1.7.3 (P0-A): bump this whenever the asset's data
+        // changes in a way that existing users need to pick up.
+        // The value is read at load time; if `storedFixtureVersion`
+        // (SharedPreferences) is strictly less than this, the
+        // AppInitializer re-seeds the DB on next launch so the
+        // user sees the new fixture without tapping "Clear &
+        // reload" manually. The default of 1 keeps backward
+        // compatibility with assets that don't carry a version
+        // field at all (e.g. the v1.6.4 baseline).
+        val version: Int = 1,
         val persons: List<PersonDto> = emptyList(),
         val instructions: List<InstructionDto> = emptyList(),
         val captures: List<CaptureDto> = emptyList(),
@@ -289,6 +347,14 @@ class FixtureLoader @Inject constructor(
     )
 
     companion object {
+        // v1.7.3 (P0-A): SharedPreferences key for the last
+        // loaded fixture version. Stored in a private prefs file
+        // so the entry can be inspected via `adb shell run-as`
+        // during drive-verify. The default of 0 (never set)
+        // means "reseed on next launch" for fresh installs.
+        private const val PREFS_NAME = "fixture_version"
+        private const val KEY_FIXTURE_VERSION = "version"
+
         // ignoreUnknownKeys so the loader survives future
         // additions to the fixture shape; explicit
         // coerceInputValues=false so a missing required field
@@ -298,5 +364,9 @@ class FixtureLoader @Inject constructor(
             ignoreUnknownKeys = true
             isLenient = true
         }
+    }
+
+    private val fixturePrefs by lazy {
+        context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
     }
 }
