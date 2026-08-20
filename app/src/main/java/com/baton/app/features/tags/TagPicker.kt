@@ -187,6 +187,6 @@ internal fun parseHex(hex: String): Color {
     return when (s.length) {
         6 -> Color(0xFF000000L or v)
         8 -> Color(v)
-        else -> Color(0xFF6F6F6F)
+        else -> com.baton.app.ui.theme.BatonColors.KindNeutralLight
     }
 }

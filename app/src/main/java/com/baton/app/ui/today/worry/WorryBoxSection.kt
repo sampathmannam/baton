@@ -116,8 +116,18 @@ private fun WorryRow(
                 val today = LocalDate.now()
                 val daysAway = today.toEpochDay() - day  // positive = past
                 val label = when {
+                    // v1.7.2 (P0-A): cap the displayed days so a
+                    // far-future review date (e.g. a fixture
+                    // reviewAtEpochDay set to 739848 = year 3995)
+                    // doesn't render as "Review in 719163 days".
+                    // For anything more than a year out we show
+                    // the year only — the user can see at a glance
+                    // "this is far in the future" without the
+                    // number scaring them.
+                    daysAway > 0 && daysAway > 365 -> "Review was a long time ago (${reviewDate.year})"
                     daysAway > 0 -> "Review was $daysAway days ago (${reviewDate})"
                     daysAway == 0L -> "Review today (${reviewDate})"
+                    -daysAway > 365 -> "Review in ${reviewDate.year} (${reviewDate})"
                     else -> "Review in ${-daysAway} days (${reviewDate})"
                 }
                 Text(

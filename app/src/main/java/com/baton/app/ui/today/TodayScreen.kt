@@ -135,7 +135,15 @@ fun TodayScreen(
                 instructionResults = results,
                 personNameById = personNameById,
                 padding = padding,
-                onPersonClick = { /* search is read-only on Today */ },
+                // v1.7.2 (P1-D): a tap on a person result used to
+                // be a no-op (the comment said "search is read-only
+                // on Today"). The HomeScreenSearchResults Composable
+                // is the same component used on Home, where person
+                // taps route to PersonDetail. Routing the Today-side
+                // tap to the same `onOpenPerson(id)` makes the two
+                // search surfaces behave identically — a quiet
+                // affordance parity, not a feature.
+                onPersonClick = { id -> onOpenPerson(id) },
                 // v1.7.0: instruction tap opens the existing
                 // InstructionDetailSheet (same component the
                 // brief cards open). Reuses TodayViewModel

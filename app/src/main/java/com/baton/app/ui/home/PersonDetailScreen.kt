@@ -97,13 +97,17 @@ fun PersonDetailScreen(
 
     Scaffold(
         topBar = {
+            // v1.7.2 (P1-C): the TopAppBar used to render the
+            // person's name, but the body's `PersonHeader` (line
+            // 348+) ALSO renders the name as the first row. The
+            // result was a duplicated header — the user saw the
+            // name twice, once large in the top bar and once as
+            // a `headlineSmall` body header above the designation.
+            // Now the TopAppBar is just a chevron back icon; the
+            // body's PersonHeader is the single source of truth
+            // for the person's name + designation.
             TopAppBar(
-                title = {
-                    Text(
-                        text = (state as? PersonDetailUiState.Loaded)?.person?.name
-                            ?: stringResource(R.string.person_detail_title),
-                    )
-                },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
