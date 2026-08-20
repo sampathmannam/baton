@@ -170,14 +170,20 @@ android {
         // because C changes the search-result tap behaviour
         // — it's a user-visible contract change worth its own
         // minor bump.
+        // v1.7.4: versionCode 30, versionName "1.7.4". Closes
+        // the UI critique of v1.7.3's People search result:
+        // P1-A unbounded subtitle Text that broke hyphenated
+        // words mid-character ("mobi|le-screens") and
+        // truncated without ellipsis ("...Waran"); P1-C
+        // last row clipped behind the Quick note bar.
         // v1.7.3: versionCode 29, versionName "1.7.3". Closes
         // the v1.7.3 fresh-eyes critique: P0-A stale seeded
         // data on upgrade, P1-B test-data placeholders, P1-C
         // Export CSV/JSON radio, P1-D M3 NavigationBarItem
         // clickable=false on active tab, P2-A quiet-contacts row
         // clip, P2-C (unknown person) header clip.
-        versionCode = 29
-        versionName = "1.7.3"
+        versionCode = 30
+        versionName = "1.7.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

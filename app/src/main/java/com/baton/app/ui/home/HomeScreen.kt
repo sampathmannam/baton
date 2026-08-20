@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -456,11 +457,24 @@ private fun PersonList(
         // The horizontal padding here means each row's
         // clickable hit-target extends to the screen edges
         // (better UX than rows that stop short of the edge).
+        // v1.7.4 (P1-C): bottom 88dp → 112dp. The Quick
+        // note bar (NoteBar) is the Scaffold's bottomBar and
+        // measures ~96dp (Surface vertical padding 12dp +
+        // Row height 72dp + 12dp), which is 8dp taller than
+        // the FAB-only clearance. The Scaffold's content
+        // `padding` should already account for the bottomBar
+        // height, but in practice the NoteBar's rounded-
+        // corner clip + the FAB overhang left the last row
+        // half-hidden behind the bar on a 1080x2400
+        // viewport (see `ui_v174_search_clip` repro). 112dp
+        // = 96dp NoteBar + 16dp visual buffer. Verified
+        // that the Search results code path also bumps to
+        // 112dp below.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
             top = 8.dp,
-            bottom = 88.dp,
+            bottom = 112.dp,
         ),
     ) {
         items(items = persons, key = { it.id }) { person ->
@@ -522,11 +536,17 @@ fun HomeScreenSearchResults(
         // to clear the FAB (56dp + 16dp margin) + 16dp visual
         // buffer. Same reason as PersonList — the FAB
         // overlaps the last row otherwise.
+        // v1.7.4 (P1-C): bottom 88dp → 112dp. The Quick note
+        // bar (NoteBar, ~96dp tall) is the Scaffold's
+        // bottomBar and is 8dp taller than the FAB-only
+        // clearance. 112dp = 96dp NoteBar + 16dp visual
+        // buffer. See the PersonList comment for the
+        // full repro details.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
             top = 8.dp,
-            bottom = 88.dp,
+            bottom = 112.dp,
         ),
     ) {
         if (personResults.isNotEmpty()) {
@@ -555,10 +575,24 @@ fun HomeScreenSearchResults(
                     val sub = listOfNotNull(person.designation, person.station)
                         .joinToString(" \u00b7 ")
                     if (sub.isNotBlank()) {
+                        // v1.7.4 (P1-A): maxLines=2 + Ellipsis. Same
+                        // reason as PersonRow's subtitle — the
+                        // unbounded Text would wrap to N lines and
+                        // break words mid-character at hyphens
+                        // ("mobi|le-screens") for long designations or
+                        // the stress-test station name. 2 lines gives
+                        // the search result enough context (a real
+                        // station like "District Traffic Wing,
+                        // Warangal" fits in 1 line) without letting a
+                        // single bad row eat the viewport. The
+                        // trailing "..." tells the user there is
+                        // more on tap.
                         Text(
                             text = sub,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -773,10 +807,22 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             }
             val sub = listOfNotNull(person.designation, person.station).joinToString(" • ")
             if (sub.isNotEmpty()) {
+                // v1.7.4 (P1-A): maxLines=1 + Ellipsis. The previous
+                // unbounded Text wrapped to N lines (and broke words
+                // mid-character at hyphens, e.g. "mobi|le-screens")
+                // when a long designation or a stress-test station
+                // name like "Station-with-a-very-long-name-..."
+                // overflowed. The row is a tap-target to the detail
+                // screen — 1 line + ellipsis is the right shape for
+                // a list item, and the "..." tells the user there
+                // is more on tap (which the existing row-level
+                // a11y label "Open person" already announces).
                 Text(
                     sub,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
