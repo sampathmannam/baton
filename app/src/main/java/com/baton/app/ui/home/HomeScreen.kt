@@ -592,7 +592,19 @@ fun HomeScreenSearchResults(
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                        // v1.7.3 (P2-C): `heightIn(min = 32.dp)` so
+                        // the (unknown person) / unassigned header
+                        // never gets clipped to a few px when it lands
+                        // at the very bottom of the visible
+                        // LazyColumn. The same `heightIn(min=88.dp)`
+                        // pattern on PersonRow (v1.7.2) and
+                        // DecayRow (v1.7.3 P2-A) used `Card`; this
+                        // header is a plain Text, so the 32dp minimum
+                        // is the smallest value that still keeps the
+                        // labelSmall glyphs legible.
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp, vertical = 4.dp)
+                            .heightIn(min = 32.dp),
                     )
                 }
                 items(items = list, key = { it.id }) { ins ->

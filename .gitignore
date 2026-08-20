@@ -94,6 +94,8 @@ google-services.json
 /v170_*.xml
 /ui_v171*.xml
 /ui_v172*.xml
+/ui_v173*.xml
+/ui_v173*.txt
 /critique_*.png
 /critique_*.xml
 /.gradle-build.log
@@ -110,6 +112,10 @@ google-services.json
 /count-*.py
 /dump-*.py
 /fix-*.py
+# v1.7.3: drive-verify helper scripts (added for the
+# fresh-eyes critique walkthrough on emulator-5554).
+/parse-*.py
+/commit_msg.txt
 
 # Subagent implementation artifacts (briefs, reports, reviews, diffs)
 # These document the build process but are not part of the deliverable.

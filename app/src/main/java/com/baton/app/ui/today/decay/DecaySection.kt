@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -151,6 +152,16 @@ private fun DecayRow(row: DecayRow, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            // v1.7.3 (P2-A): same `heightIn(min = 88.dp)` shape as
+            // the v1.7.2 HomeScreen PersonRow fix. The default
+            // card contentPadding + the natural height of the
+            // 3-line row (name + designation + days-quiet) is
+            // close to 88dp; without the min, the bottom of the
+            // last visible row gets clipped by ~16dp when the
+            // user scrolls to the very end of the list. The
+            // dump shows the clipped text at h=21 instead of
+            // h=37 (the natural height of `bodySmall`).
+            .heightIn(min = 88.dp)
             .clickable(onClickLabel = openLabel, onClick = onClick),
     ) {
         Row(
