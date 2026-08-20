@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -399,14 +400,17 @@ fun SettingsSheet(
             AboutRow(
                 label = stringResource(R.string.settings_storage),
                 value = buildString {
-                    append(
-                        stringResource(
-                            R.string.settings_storage_value,
-                            storage.peopleCount,
-                            storage.instructionCount,
-                            storage.tagCount,
-                        ),
-                    )
+                    // v1.6.6 P1: per-segment pluralization.
+                    // The previous single stringResource call
+                    // hard-coded "people" / "instructions" /
+                    // "tags" so it could not read "1 person" /
+                    // "1 instruction" / "1 tag". Build from
+                    // individual pluralStringResource calls.
+                    append(pluralStringResource(R.plurals.count_people, storage.peopleCount, storage.peopleCount))
+                    append(stringResource(R.string.count_connector_comma))
+                    append(pluralStringResource(R.plurals.count_instructions, storage.instructionCount, storage.instructionCount))
+                    append(stringResource(R.string.count_connector_comma))
+                    append(pluralStringResource(R.plurals.count_tags, storage.tagCount, storage.tagCount))
                     append('\n')
                     append(
                         stringResource(
@@ -506,14 +510,25 @@ fun SettingsSheet(
                 }
                 fixtureLoadReport?.let { report ->
                     Spacer(Modifier.height(8.dp))
+                    // v1.6.6 P1: per-segment pluralization.
+                    // The previous single stringResource call
+                    // used 4 %d args and could not read "1
+                    // person" / "1 instruction" / "1 capture" /
+                    // "1 tag". Build the "Loaded N people, N
+                    // instructions, ..." sentence from
+                    // individual pluralStringResource calls.
                     Text(
-                        text = stringResource(
-                            R.string.settings_dev_loaded,
-                            report.persons,
-                            report.instructions,
-                            report.captures,
-                            report.tags,
-                        ),
+                        text = buildString {
+                            append(stringResource(R.string.settings_dev_loaded_prefix))
+                            append(pluralStringResource(R.plurals.count_people, report.persons, report.persons))
+                            append(stringResource(R.string.count_connector_comma))
+                            append(pluralStringResource(R.plurals.count_instructions, report.instructions, report.instructions))
+                            append(stringResource(R.string.count_connector_comma))
+                            append(pluralStringResource(R.plurals.count_captures, report.captures, report.captures))
+                            append(stringResource(R.string.count_connector_comma))
+                            append(pluralStringResource(R.plurals.count_tags, report.tags, report.tags))
+                            append('.')
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -946,21 +961,30 @@ private fun TagsSection(
                 val list = tags.filter { it.kind == kind }
                 if (list.isEmpty()) null else kind to list
             }
-            LazyColumn(
+            // v1.6.6 P0 crash fix: the outer Settings sheet uses
+            // `Column.verticalScroll(rememberScrollState())`. Nesting a
+            // `LazyColumn` inside a vertically-scrollable parent throws
+            // `IllegalStateException: Vertically scrollable component was
+            // measured with an infinity maximum height constraints` at
+            // launch. The tag list is small (a handful of tags per kind,
+            // 3 kinds) and the outer scroll already provides viewport
+            // behaviour, so a plain Column.forEach is the correct pattern
+            // here. If the tag list grows to dozens-per-kind we can revisit
+            // by moving the LazyColumn out of the sheet (e.g. a dedicated
+            // "Manage tags" screen).
+            Column(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 groups.forEach { (kind, list) ->
-                    item {
-                        Text(
-                            text = kind.name.lowercase()
-                                .replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    items(items = list, key = { it.id }) { tag ->
+                    Text(
+                        text = kind.name.lowercase()
+                            .replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    list.forEach { tag ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth(),

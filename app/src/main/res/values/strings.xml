@@ -73,6 +73,12 @@
     <string name="settings_dev_load_fixture">Load test data</string>
     <string name="settings_dev_clear_reload">Clear &amp; reload</string>
     <string name="settings_dev_loading">Loading\u2026</string>
+    <!-- v1.6.6 P1: the 4-count dev-load report is now built from
+         per-segment plurals. settings_dev_loaded_prefix holds the
+         static "Loaded " lead; the count list is appended
+         programmatically. The old settings_dev_loaded is retained
+         in case future code wants the single-string form. -->
+    <string name="settings_dev_loaded_prefix">Loaded </string>
     <string name="settings_dev_loaded">Loaded %1$d people, %2$d instructions, %3$d captures, %4$d tags.</string>
 
     <!-- v1.5.3 (VAULT-010): TalkBack label for the Today-tab
@@ -273,6 +279,40 @@
         <item quantity="one">%1$d carried over</item>
         <item quantity="other">%1$d carried over</item>
     </plurals>
+
+    <!-- v1.6.6 P1 plural fix: the multi-count summaries on the
+         Today card and Settings sheet previously used single
+         stringResource(...) calls with %d args (e.g. "%1$d people,
+         %2$d instructions, %3$d tags") that cannot pluralize
+         per-segment. Each count now uses its own
+         pluralStringResource, joined by the comma connector.
+         `count_people` handles the irregular 1=person / N=people. -->
+    <plurals name="count_captures">
+        <item quantity="one">%1$d capture</item>
+        <item quantity="other">%1$d captures</item>
+    </plurals>
+    <plurals name="count_people">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+    <plurals name="count_instructions">
+        <item quantity="one">%1$d instruction</item>
+        <item quantity="other">%1$d instructions</item>
+    </plurals>
+    <plurals name="count_tags">
+        <item quantity="one">%1$d tag</item>
+        <item quantity="other">%1$d tags</item>
+    </plurals>
+    <plurals name="count_carried_over">
+        <item quantity="one">%1$d carried over</item>
+        <item quantity="other">%1$d carried over</item>
+    </plurals>
+    <plurals name="count_sensitive">
+        <item quantity="one">%1$d sensitive</item>
+        <item quantity="other">%1$d sensitive</item>
+    </plurals>
+    <string name="count_connector_comma">, </string>
+    <string name="count_connector_period">. </string>
     <string name="morning_brief_permission_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
     <string name="meeting_brief_title">Brief me before a meeting</string>
     <string name="meeting_brief_no_events">No matching events in the next 15 minutes.</string>

@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,13 +46,23 @@ fun TodaysWinCard(
                 text = if (state.isEmpty) {
                     stringResource(R.string.todays_win_summary_zero)
                 } else {
-                    stringResource(
-                        R.string.todays_win_summary,
-                        state.captureCount,
-                        state.peopleCount,
-                        state.carriedOverCount,
-                        state.sensitiveCount,
-                    )
+                    // v1.6.6 P1: per-segment pluralization. The
+                    // previous single stringResource call used 4
+                    // %d args in a template that could not change
+                    // "1 capture" vs "5 captures", "1 person" vs
+                    // "5 people", etc. Build the sentence from
+                    // individual pluralStringResource calls joined
+                    // by ", " and ending with ".".
+                    buildString {
+                        append(pluralStringResource(R.plurals.count_captures, state.captureCount, state.captureCount))
+                        append(stringResource(R.string.count_connector_comma))
+                        append(pluralStringResource(R.plurals.count_people, state.peopleCount, state.peopleCount))
+                        append(stringResource(R.string.count_connector_comma))
+                        append(pluralStringResource(R.plurals.count_carried_over, state.carriedOverCount, state.carriedOverCount))
+                        append(stringResource(R.string.count_connector_comma))
+                        append(pluralStringResource(R.plurals.count_sensitive, state.sensitiveCount, state.sensitiveCount))
+                        append('.')
+                    }
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
