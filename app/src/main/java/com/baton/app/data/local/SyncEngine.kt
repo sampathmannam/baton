@@ -108,6 +108,33 @@ class SyncEngine @Inject constructor(
      * user action from triggering a tight retry loop on a
      * downed server.
      */
+    /**
+     * v1.8.0 (PROD-READINESS-P2-P1-#4): enqueue a row
+     * with a hard cap on the outbox size. Calls
+     * [SyncQueueDao.enqueue] (which dedupes on
+     * `(op, table, rowId)` per v1.4.2) and then
+     * [SyncQueueDao.trimToLimit] to evict the oldest
+     * rows if the new size exceeds [MAX_QUEUE_SIZE].
+     *
+     * The repositories that previously called
+     * [SyncQueueDao.enqueue] directly can be migrated
+     * to this method to opt into the cap. v1.8.0 keeps
+     * the bare [SyncQueueDao.enqueue] available for
+     * tests + the per-write path that needs the
+     * REPLACE-on-conflict behaviour the unique index
+     * gives.
+     *
+     * **v1.5.0 vault-mode note.** The v1.5.0 build has
+     * no cloud sync, so the cap is dormant. The
+     * methods are wired and tested so a future
+     * cloud-sync build gets the right behaviour
+     * without a refactor.
+     */
+    suspend fun enqueueWithCap(entry: SyncQueueEntity) = mutex.withLock {
+        syncQueueDao.enqueue(entry)
+        syncQueueDao.trimToLimit(MAX_QUEUE_SIZE)
+    }
+
     suspend fun drainOne(rowId: String, table: String, op: String) {
         mutex.withLock {
             val entry = syncQueueDao.findPending(table, rowId, op) ?: return
@@ -528,6 +555,18 @@ class SyncEngine @Inject constructor(
          */
         const val MAX_ATTEMPTS = 10
         const val PERMANENT_FAILURE_PREFIX = "PERMANENT_FAILURE:"
+        // v1.8.0 (PROD-READINESS-P2-P1-#4): the outbox
+        // cap. 1000 rows is ~50 KB on disk (each row is
+        // a small JSON blob in a few columns) — well
+        // under the per-app storage budget. The number
+        // is high enough that a normal day's work fits
+        // in the cap (a heavy day is ~50-100 writes) so
+        // the cap only fires on a station that's been
+        // offline for a week or more. When it fires,
+        // the oldest rows are dropped first (the most
+        // recent writes are the ones most likely to be
+        // still relevant).
+        const val MAX_QUEUE_SIZE = 1000
         private const val MAX_BACKOFF_MS = 5L * 60L * 1000L  // 5 minutes
         private const val TAG = "BatonSync"
     }

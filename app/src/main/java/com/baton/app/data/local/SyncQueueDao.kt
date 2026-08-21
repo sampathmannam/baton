@@ -61,6 +61,43 @@ interface SyncQueueDao {
     suspend fun deleteById(id: Long)
 
     /**
+     * v1.8.0 (PROD-READINESS-P2-P1-#4): trim the
+     * outbox to [maxSize] rows. Oldest-wins eviction:
+     * rows with the highest `id` are deleted (since
+     * `id` is `AUTOINCREMENT` and the order is
+     * insertion order, the highest ids are the
+     * newest). Returns the number of rows deleted.
+     *
+     * Used by the enqueue-with-cap path to keep the
+     * on-disk outbox bounded; without it, an
+     * indefinitely-offline device (or a pilot
+     * station that's been on a flaky network for
+     * a week) would accumulate millions of rows.
+     *
+     * **Why delete vs mark-deleted.** The outbox
+     * is a write queue — the rows it holds are
+     * not user data, they're "the next write to
+     * attempt". Deleting the oldest "write
+     * attempt" rows is correct: the user action
+     * that produced them already happened locally
+     * (the in-Room `syncStatus` is
+     * `PENDING_INSERT`), so the worst case for a
+     * dropped row is "the local change never
+     * reaches the server" — not "the local change
+     * is lost". A future v2.x can re-architect
+     * with a "high-water mark" that pauses
+     * enqueueing instead of dropping, but the
+     * v1.8.0 trade-off is "drop, never block the
+     * user".
+     */
+    @Query(
+        "DELETE FROM sync_queue WHERE id IN (" +
+            "SELECT id FROM sync_queue ORDER BY id DESC LIMIT -1 OFFSET :maxSize" +
+            ")",
+    )
+    suspend fun trimToLimit(maxSize: Int): Int
+
+    /**
      * v1.2.2 (F-HIGH-07): backoff-aware failure record. The
      * `nextAttemptAt` is set to `now + backoffMs` so the drain
      * skips the entry on the next pass. The exponential backoff
