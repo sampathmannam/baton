@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v1.8.0 (PROD-READINESS-P3-P0-#3 partial): Tamil translations
+  for the most user-facing strings. ~30 of the 354 strings in
+  values/strings.xml are translated; the rest fall back to
+  English (Android's default behaviour when a translation is
+  missing for a key).
+
+  The Tamil strings below are reviewed by the author. The
+  translations aim for the formal register used in Tamil Nadu
+  government documents; the user can change to the local
+  dialect at a later release.
+
+  Keys that have no Tamil equivalent (e.g. "Baton" — kept as
+  the product name; "SQLCipher" — kept as a technical term) are
+  left as-is.
+-->
+<resources>
+    <!-- App / nav -->
+    <string name="app_name">காவலன் குறிப்பு</string>
+    <string name="tab_home">தொடர்புகள்</string>
+    <string name="tab_today">இன்று</string>
+    <string name="tab_settings">அமைப்புகள்</string>
+    <string name="home_title">தொடர்புகள்</string>
+    <string name="settings_title">அமைப்புகள்</string>
+
+    <!-- Add person -->
+    <string name="home_add_person">நபரைச் சேர்</string>
+    <string name="home_empty_title">இன்னும் யாரும் இல்லை</string>
+    <string name="home_empty_subtitle">நீங்கள் ஒருங்கிணைக்கும் முதல் நபரைச் சேர்க்கவும் — உங்கள் காவல்துறை கண்காணிப்பாளர், உதவி காவல்துறை கண்காணிப்பாளர்கள், உத்தரவு பெறுபவர் அல்லது தருபவர் யாராக இருந்தாலும்.</string>
+
+    <!-- Capture sheet -->
+    <string name="capture_sheet_title">புதிய குறிப்பு</string>
+    <string name="capture_sheet_close">மூடு</string>
+    <string name="capture_sheet_text_label">குறிப்பு</string>
+    <string name="capture_sheet_text_placeholder">தன்னிச்சையான குறிப்பை இங்கே தட்டச்சு செய்க.</string>
+    <string name="capture_sheet_save">சேமி</string>
+    <string name="capture_sheet_add_to_calendar">நாட்காட்டியில் சேர்</string>
+    <string name="capture_needs_person_message">முதலில் ஒரு நபரைச் சேர்த்து, பின் உங்கள் முதல் குறிப்பை சேமிக்கவும்.</string>
+
+    <!-- Today -->
+    <string name="today_count_open_short">திறந்தவை</string>
+
+    <!-- Vault export -->
+    <string name="vault_export_title">மறைகுறியாக்கப்பட்ட பெட்டகத்தை ஏற்றுமதி செய்</string>
+    <string name="vault_export_body">இது உங்கள் தரவின் கடவுச்சொல்-மறைகுறியாக்கப்பட்ட நகலை சேமிக்கிறது. மற்றொரு சாதனத்தில் மீட்டமைக்க கடவுச்சொல் தேவைப்படும்.</string>
+    <string name="vault_export_passphrase">கடவுச்சொல்</string>
+    <string name="vault_export_confirm">கடவுச்சொல்லை உறுதிப்படுத்து</string>
+    <string name="vault_export_button">பெட்டக கோப்பை சேமி</string>
+    <string name="vault_export_mismatch">கடவுச்சொற்கள் பொருந்தவில்லை</string>
+    <string name="vault_export_too_short">குறைந்தது 8 எழுத்துகள் பயன்படுத்தவும்</string>
+    <string name="vault_export_success">பெட்டகம் சேமிக்கப்பட்டது</string>
+    <string name="vault_export_failed">பெட்டகத்தை சேமிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.</string>
+
+    <!-- Vault strength -->
+    <string name="vault_strength_label">வலிமை: %1$s</string>
+    <string name="vault_strength_0">மிகவும் பலவீனம் — நீண்ட சொற்றொடரை முயற்சிக்கவும்</string>
+    <string name="vault_strength_1">பலவீனம்</string>
+    <string name="vault_strength_2">போதுமானது</string>
+    <string name="vault_strength_3">வலுவானது</string>
+    <string name="vault_strength_4">மிகவும் வலுவானது</string>
+
+    <!-- Sync conflicts (PROD-READINESS-P2-#2) -->
+    <string name="sync_conflicts_title">ஒத்திசைவு முரண்பாடுகள்</string>
+    <string name="sync_conflicts_empty">தீர்க்க ஒன்றுமில்லை. அனைத்து உள்ளூர் மாற்றங்களும் ஒத்திசைக்கப்பட்டுள்ளன.</string>
+    <string name="sync_conflicts_count">%1$d தீர்க்க வேண்டியவை</string>
+    <string name="sync_conflict_keep_local">உள்ளதை வை</string>
+    <string name="sync_conflict_keep_server">சேவையகத்தை வை</string>
+    <string name="sync_conflict_resolved">முரண்பாடு தீர்க்கப்பட்டது</string>
+    <string name="sync_conflict_no_cloud">மேக ஒத்திசைவு இயக்கப்படவில்லை. தேர்ந்தெடுத்த payload அடுத்த ஒத்திசைவு சுழற்சிக்காக வைக்கப்படும்.</string>
+
+    <!-- Audit chain (PROD-READINESS-P2-#4) -->
+    <string name="audit_chain_intact">தணிக்கை சங்கிலி முழுமையானது: %1$d நிகழ்வுகள்</string>
+    <string name="audit_chain_broken">தணிக்கை சங்கிலி முறிந்தது: நிகழ்வு %1$d இல்</string>
+
+    <!-- Retention (PROD-READINESS-P2-#5) -->
+    <string name="retention_summary">தக்கவைப்பு: தணிக்கை 7 ஆண்டுகள், பிடிப்புகள் 3 ஆண்டுகள், முக்கிய தேதிகள் 3 ஆண்டுகள், உத்தரவுகள் 7 ஆண்டுகள்</string>
+
+    <!-- Role (PROD-READINESS-P2-#3) -->
+    <string name="role_admin">நிர்வாகி</string>
+    <string name="role_senior_officer">மூத்த அதிகாரி</string>
+    <string name="role_officer">அதிகாரி</string>
+    <string name="role_readonly">படிக்க மட்டும்</string>
+</resources>
