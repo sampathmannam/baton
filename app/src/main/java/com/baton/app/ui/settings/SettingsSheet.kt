@@ -83,6 +83,7 @@ fun SettingsSheet(
     onVaultImport: () -> Unit = {},
     onOpenRecoveryPhrase: () -> Unit = {},
     onOpenThreatModel: () -> Unit = {},
+    onOpenSyncConflicts: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -90,6 +91,7 @@ fun SettingsSheet(
     val signingOut by viewModel.signingOut.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
+    val syncConflictCount by viewModel.syncConflictCount.collectAsStateWithLifecycle()
     val appVersion = viewModel.appVersion
     // v1.6.1: the "Models" section is gone. The on-device
     // LLM and the whisper.cpp voice model are both removed.
@@ -462,6 +464,39 @@ fun SettingsSheet(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            // v1.8.0 (PROD-READINESS-P2-#2): the
+            // "Sync conflicts" row. The row is
+            // visible only when the count is
+            // greater than zero — the v1.5.0
+            // vault-mode build has no cloud sync
+            // so the table is always empty. A
+            // future cloud-sync build surfaces
+            // this row the moment the SyncEngine
+            // logs a conflict.
+            if (syncConflictCount > 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenSyncConflicts() }
+                        .padding(vertical = 8.dp, horizontal = 4.dp)
+                        .semantics {
+                            contentDescription =
+                                "Sync conflicts, $syncConflictCount to resolve"
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Sync conflicts",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "$syncConflictCount to resolve",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
 

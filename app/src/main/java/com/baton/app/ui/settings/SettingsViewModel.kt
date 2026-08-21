@@ -221,6 +221,13 @@ class SettingsViewModel @Inject constructor(
 
     // v1.6.2: the developer-only synthetic data loader.
     private val fixtureLoader: com.baton.app.data.dev.FixtureLoader,  // v1.6.2
+
+    // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
+    // DAO. The v1.5.0 vault-mode build has no cloud
+    // sync, so the table is always empty. The VM
+    // exposes the count for the Settings sheet; the
+    // row is hidden when the count is 0.
+    private val syncConflictDao: com.baton.app.data.local.SyncConflictDao,
     @ApplicationContext private val appContext: Context,
 
 
@@ -1068,6 +1075,39 @@ class SettingsViewModel @Inject constructor(
     fun backupNow() {
         com.baton.app.data.work.WorkManagerInitializer.enqueueBackupNow(appContext)
     }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#2): the number of
+     * unresolved sync conflicts. The v1.5.0 vault-mode
+     * build has no cloud sync, so the table is always
+     * empty. The flow re-emits on every conflict insert
+     * (the SyncEngine logs conflicts on LWW / version
+     * mismatch during a cloud build). The Settings sheet
+     * uses this to decide whether to show the "Sync
+     * conflicts" row.
+     */
+    val syncConflictCount: StateFlow<Int> = syncConflictDao.observe()
+        .map { it.size }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = 0,
+        )
+
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#2): the live list of
+     * unresolved conflicts, ordered newest-first by
+     * `detectedAt` DESC. The SyncConflictListScreen
+     * observes this; tapping a row opens the diff
+     * screen.
+     */
+    val syncConflicts: StateFlow<List<com.baton.app.data.local.entities.SyncConflictEntity>> =
+        syncConflictDao.observe()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyList(),
+            )
 
     /**
      * v1.6.2: developer-only entry point. The
