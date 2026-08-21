@@ -114,6 +114,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_11_12,
                 AppDatabase.MIGRATION_12_13,
                 AppDatabase.MIGRATION_13_14,
+                AppDatabase.MIGRATION_14_15,
             )
             .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
@@ -202,4 +203,8 @@ object DatabaseModule {
     // v1.8.0 (PROD-READINESS-P2-#4): the audit-chain DAO.
     @Provides
     fun provideAuditChainEventDao(db: AppDatabase): AuditChainEventDao = db.auditChainEventDao()
+
+    // v1.8.0 (PROD-READINESS-P2-#3): the user DAO.
+    @Provides
+    fun provideUserDao(db: AppDatabase): com.baton.app.data.user.UserDao = db.userDao()
 }

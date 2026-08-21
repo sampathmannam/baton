@@ -6,6 +6,9 @@ import androidx.work.Configuration
 import com.baton.app.data.local.AppInitializer
 import com.baton.app.data.work.WorkManagerInitializer
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -23,9 +26,24 @@ class BatonApplication : Application(), Configuration.Provider {
      */
     @Inject lateinit var appInitializer: AppInitializer
 
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#3): the user bootstrap.
+     * Injected by Hilt so the device-owner row is in
+     * place before any UI code reads the [UserDao].
+     */
+    @Inject lateinit var userBootstrap: com.baton.app.data.user.UserBootstrap
+
     override fun onCreate() {
         super.onCreate()
         appInitializer.runOnAppStart()
+        // v1.8.0 (PROD-READINESS-P2-#3): ensure the
+        // device-owner row exists. Idempotent; the row
+        // is in place before any UI code reads the
+        // UserDao (the bootstrap completes in <1 ms on
+        // a real DB).
+        GlobalScope.launch(Dispatchers.IO) {
+            runCatching { userBootstrap.ensureDeviceOwner() }
+        }
         // v1.5.0 vault mode: no cloud sync. The
         // [com.baton.app.data.work.WorkManagerInitializer] periodic
         // drain + capture-sync schedules are intentionally NOT

@@ -182,8 +182,15 @@ android {
         // Export CSV/JSON radio, P1-D M3 NavigationBarItem
         // clickable=false on active tab, P2-A quiet-contacts row
         // clip, P2-C (unknown person) header clip.
-        versionCode = 30
-        versionName = "1.7.4"
+        // v1.8.0: versionCode 31, versionName "1.8.0". Closes
+        // the production-readiness Phase 1 P0s + P1s +
+        // Phase 2 P0 #1..#7: backup+restore, dedup,
+        // retention, audit chain, branding, eFIR bridge,
+        // role model. Phase 1 audit found 3 P0 + 3 P1 were
+        // pre-existing closures; only 5 P0 + 3 P1 needed
+        // fresh work.
+        versionCode = 31
+        versionName = "1.8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
