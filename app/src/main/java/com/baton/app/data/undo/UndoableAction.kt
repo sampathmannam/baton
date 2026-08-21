@@ -44,4 +44,22 @@ sealed interface UndoableAction {
     ) : UndoableAction {
         override val label: String get() = "Capture"
     }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P1-#6): the "Mark as recent" undo.
+     * Carries the previous `lastInteractionAt` (ms-since-epoch)
+     * and `updatedAt` (ISO string) so [com.baton.app.data.undo.UndoController.undoLast]
+     * can restore the prior decay-state. `null` values mean the
+     * person had never been touched; undoing must clear
+     * `lastInteractionAt` back to null (not to a sentinel), so
+     * the Quiet-a-while list re-includes them.
+     */
+    data class MarkPersonRecent(
+        override val id: String,
+        val name: String,
+        val previousLastInteractionAt: Long?,
+        val previousUpdatedAt: String,
+    ) : UndoableAction {
+        override val label: String get() = "Mark recent"
+    }
 }

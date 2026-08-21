@@ -108,6 +108,7 @@ fun DecaySection(
                 DecayRow(
                     row = row,
                     onClick = { onOpenPerson(row.id) },
+                    onMarkRecent = { viewModel.markRecent(row) },
                 )
             }
         }
@@ -147,8 +148,13 @@ private fun filterResFor(days: Int): Int = when (days) {
 }
 
 @Composable
-private fun DecayRow(row: DecayRow, onClick: () -> Unit) {
+private fun DecayRow(
+    row: DecayRow,
+    onClick: () -> Unit,
+    onMarkRecent: () -> Unit,
+) {
     val openLabel = stringResource(R.string.a11y_decay_row_open)
+    val markRecentLabel = stringResource(R.string.a11y_decay_row_mark_recent)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -198,6 +204,24 @@ private fun DecayRow(row: DecayRow, onClick: () -> Unit) {
                 )
             }
             Spacer(Modifier.width(8.dp))
+            // v1.8.0 (PROD-READINESS-P1-#6): the per-row
+            // "Mark recent" button. Bumps the person's
+            // lastInteractionAt to now so they leave the
+            // Quiet-a-while list. The Undo snackbar is
+            // driven by the UndoController push in
+            // DecayViewModel.markRecent. The button uses
+            // a TextButton (M3) so it sits in the same
+            // row as the status pill without inflating
+            // the row's height past 88dp.
+            androidx.compose.material3.TextButton(
+                onClick = onMarkRecent,
+            ) {
+                Text(
+                    text = stringResource(R.string.decay_mark_recent),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+            Spacer(Modifier.width(4.dp))
             ReachOutPill(row.status)
         }
     }
