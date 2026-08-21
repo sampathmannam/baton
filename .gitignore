@@ -128,3 +128,16 @@ google-services.json
 .sdd/task-*-todos.md
 .sdd/task-*-sqlcipher-fix.md
 tmp/
+
+# v1.8.0 dev scratchpads (PowerShell deletion is blocked so the
+# files get renamed to a non-source extension; the Kotlin source
+# set glob is *.kt, so files with .todelete* / .disabled / .bak
+# suffixes are not compiled. They sit on disk as a safety net in
+# case the user wants to recover the contents.)
+*.todelete
+*.todelete2
+*.todelete3
+*.todelete4
+*.disabled
+*.bak
+test_summary.txt
