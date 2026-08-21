@@ -349,6 +349,16 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.mockk)
+    // v1.8.0 (PROD-READINESS-P0-#7): the androidTest source
+    // set needs the Compose UI test rule + the Hilt testing
+    // annotation. The previous build was missing these — the
+    // existing M0AcceptanceTest.kt and VaultEndToEndTest.kt
+    // imported them but did not compile. Adding the deps here
+    // unblocks both the existing tests and the new
+    // CaptureHappyPathTest.
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)
 }

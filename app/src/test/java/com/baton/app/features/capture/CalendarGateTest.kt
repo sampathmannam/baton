@@ -22,35 +22,40 @@ import java.time.Instant
  *
  * The acceptance test (FT-1.4) covers the "launches the intent"
  * half by querying CalendarContract.Events on the emulator.
+ *
+ * v1.8.0 (PROD-READINESS-P0-#4): the result shape changed from
+ * `CalendarEventData?` (null = silent drop) to a sealed
+ * [CalendarEventResult] with [CalendarEventResult.Event] and
+ * [CalendarEventResult.Skipped] cases. The tests below exercise
+ * both.
  */
 class CalendarGateTest {
 
     /**
      * v1.6.1: with the LLM gone there is no `due_at` to extract.
-     * A null/blank/unparseable [dueAt] now produces a
-     * [CalendarEventData] whose `beginMillis` is "now" so the
-     * user's explicit "Add to calendar" tap still fires a
-     * calendar event (the user can move the time in the
-     * system's calendar pick UI). The pre-v1.6.1 contract of
-     * "return null when there's no due date" was correct for an
-     * LLM-driven capture flow but not for the free-form note
-     * flow that v1.6.1 ships.
+     * A null/blank/unparseable [dueAt] now produces an [CalendarEventResult.Event]
+     * whose `beginMillis` is "now" so the user's explicit "Add to
+     * calendar" tap still fires a calendar event (the user can
+     * move the time in the system's calendar pick UI). The
+     * pre-v1.6.1 contract of "return null when there's no due
+     * date" was correct for an LLM-driven capture flow but not
+     * for the free-form note flow that v1.6.1 ships.
      */
     @Test
     fun `buildEventData falls back to now when dueAt is null or blank`() {
         val before = System.currentTimeMillis()
-        val event1 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = null)!!
-        val event2 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "")!!
-        val event3 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "   ")!!
+        val r1 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = null) as CalendarEventResult.Event
+        val r2 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "") as CalendarEventResult.Event
+        val r3 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "   ") as CalendarEventResult.Event
         val after = System.currentTimeMillis()
         // begin falls in [before, after] — the test can be flaky
         // at the millisecond boundary, so allow a small slack.
-        assertTrue("begin=$event1.beginMillis not in [$before, $after]",
-            event1.beginMillis in before..after)
-        assertEquals(event1.beginMillis, event2.beginMillis)
-        assertEquals(event1.beginMillis, event3.beginMillis)
+        assertTrue("begin=${r1.data.beginMillis} not in [$before, $after]",
+            r1.data.beginMillis in before..after)
+        assertEquals(r1.data.beginMillis, r2.data.beginMillis)
+        assertEquals(r1.data.beginMillis, r3.data.beginMillis)
         // end is begin + default 15 minutes
-        assertEquals(event1.beginMillis + 15L * 60_000L, event1.endMillis)
+        assertEquals(r1.data.beginMillis + 15L * 60_000L, r1.data.endMillis)
     }
 
     /**
@@ -62,30 +67,57 @@ class CalendarGateTest {
     @Test
     fun `buildEventData falls back to now when dueAt is unparseable`() {
         val before = System.currentTimeMillis()
-        val event1 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "not a date")!!
-        val event2 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "2026-13-99")!!
+        val r1 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "not a date") as CalendarEventResult.Event
+        val r2 = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "2026-13-99") as CalendarEventResult.Event
         val after = System.currentTimeMillis()
-        assertTrue(event1.beginMillis in before..after)
-        assertTrue(event2.beginMillis in before..after)
+        assertTrue(r1.data.beginMillis in before..after)
+        assertTrue(r2.data.beginMillis in before..after)
     }
 
+    /**
+     * v1.8.0 (PROD-READINESS-P0-#4): an explicit past date
+     * resolves to a [CalendarEventResult.Skipped] with
+     * [SkipReason.IN_PAST] so the VM can surface a one-shot
+     * info message to the user. The previous shape silently
+     * returned null and the user never knew the calendar event
+     * didn't fire.
+     */
     @Test
-    fun `buildEventData returns null when dueAt is in the past`() {
-        // An obviously-past timestamp.
-        assertNull(CalendarGate.buildEventData(title = "x", description = "y", dueAt = "1999-01-01T00:00:00Z"))
+    fun `buildEventData returns Skipped IN_PAST when dueAt is in the past`() {
+        val result = CalendarGate.buildEventData(title = "x", description = "y", dueAt = "1999-01-01T00:00:00Z")
+        assertEquals(
+            "past-date buildEventData must return Skipped(IN_PAST), not Event",
+            CalendarEventResult.Skipped(SkipReason.IN_PAST),
+            result,
+        )
+    }
+
+    /**
+     * v1.8.0: a future date at the exact epoch boundary should
+     * still be an Event. Use a far-future timestamp.
+     */
+    @Test
+    fun `buildEventData returns Event for far-future dueAt`() {
+        val result = CalendarGate.buildEventData(
+            title = "send FIR 47 — SHO Ramu",
+            description = "Tell SHO Ramu to send FIR 47 by Friday",
+            dueAt = "2099-08-15T17:00:00+05:30",
+        )
+        assertTrue("future-date buildEventData must return Event, got $result",
+            result is CalendarEventResult.Event)
     }
 
     @Test
     fun `buildEventData produces correct begin + end times`() {
         val dueAt = "2099-08-15T17:00:00+05:30"
-        val event = CalendarGate.buildEventData(
+        val result = CalendarGate.buildEventData(
             title = "send FIR 47 — SHO Ramu",
             description = "Tell SHO Ramu to send FIR 47 by Friday",
             dueAt = dueAt,
-        )
-        assertNotNull(event)
+        ) as CalendarEventResult.Event
+        val event = result.data
         val expectedBegin = Instant.parse(dueAt).toEpochMilli()
-        assertEquals("send FIR 47 — SHO Ramu", event!!.title)
+        assertEquals("send FIR 47 — SHO Ramu", event.title)
         assertEquals("Tell SHO Ramu to send FIR 47 by Friday", event.description)
         assertEquals(expectedBegin, event.beginMillis)
         assertEquals(expectedBegin + 15L * 60_000L, event.endMillis)
@@ -94,14 +126,14 @@ class CalendarGateTest {
     @Test
     fun `buildEventData honours a custom duration`() {
         val dueAt = "2099-08-15T17:00:00+05:30"
-        val event = CalendarGate.buildEventData(
+        val result = CalendarGate.buildEventData(
             title = "x",
             description = "y",
             dueAt = dueAt,
             durationMinutes = 45L,
-        )!!
+        ) as CalendarEventResult.Event
         val begin = Instant.parse(dueAt).toEpochMilli()
-        assertEquals(begin + 45L * 60_000L, event.endMillis)
+        assertEquals(begin + 45L * 60_000L, result.data.endMillis)
     }
 
     @Test

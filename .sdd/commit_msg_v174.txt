@@ -1,0 +1,32 @@
+fix(v1.7.4): subtitle wrap+ellipsis + NoteBar clearance
+
+Three latent People list/search bugs visible on stress-test data,
+all closed in v1.7.4:
+
+P1-A: PersonRow and HomeScreenSearchResults subtitle Text now have
+  maxLines (1 and 2 respectively) + overflow=Ellipsis. Fixes (1)
+  mid-word character-level breaks at hyphens ("mobi|le-screens"
+  → "...mobile-screens...") and (2) truncation without ellipsis
+  ("Waran" → "Waran..."). The unbounded Text was breaking at any
+  character position when a long designation + station didn't fit
+  the row width.
+
+P1-C: contentPadding bottom 88dp → 112dp in both PersonList and
+  HomeScreenSearchResults. NoteBar measures 96dp (12+72+12), FAB
+  clearance was 88dp. Last row "B. Srinivas" was half-hidden
+  behind the NoteBar on a 1080x2400 viewport.
+
+Files:
+- app/src/main/java/com/baton/app/ui/home/HomeScreen.kt (+1 import,
+  maxLines+Ellipsis on 2 Text, contentPadding bump in 2 LazyColumns)
+- app/build.gradle.kts (versionCode 29→30, versionName 1.7.3→1.7.4)
+- docs/v1.7.4_release_notes.md (new)
+
+Drive-verified on emulator-5554 (1080x2400, 420dpi):
+- Search "Venkateshwarlu" → subtitle h=79px (exactly 2 lines, was
+  unbounded) with full "Warangal" visible on line 2
+- Home list → all 4 visible rows 1-line, last row clears NoteBar
+  by ~16px
+
+v1.7.3 polish series remains closed at 7.5/10. v1.7.4 is a
+targeted bug-fix on top, not a polish bump.

@@ -1057,6 +1057,19 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
+     * v1.8.0 (PROD-READINESS-P0-#1): trigger a one-shot
+     * backup via WorkManager. The Settings sheet's "Back up
+     * now" row calls this; the [BackupWorker] runs in the
+     * background and writes the JSON snapshot to the app's
+     * private filesDir under `backups/`.
+     *
+     * Returns immediately; the actual backup is async.
+     */
+    fun backupNow() {
+        com.baton.app.data.work.WorkManagerInitializer.enqueueBackupNow(appContext)
+    }
+
+    /**
      * v1.6.2: developer-only entry point. The
      * Settings sheet surfaces a "Load test data"
      * button (debug builds only) that delegates

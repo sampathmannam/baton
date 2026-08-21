@@ -43,4 +43,12 @@ interface ImportantDateDao {
 
     @Query("DELETE FROM important_date WHERE personId = :personId")
     suspend fun deleteForPerson(personId: String)
+
+    // v1.8.0 (PROD-READINESS-P0-#1): full snapshot for the
+    // BackupManager. Same shape as PersonDao.snapshot / TagDao
+    // / etc -- one-shot read of every row for serialisation to
+    // JSON. The `ORDER BY` is stable (by id) so two consecutive
+    // snapshots produce the same byte stream.
+    @Query("SELECT * FROM important_date ORDER BY id ASC")
+    suspend fun snapshot(): List<ImportantDateEntity>
 }
