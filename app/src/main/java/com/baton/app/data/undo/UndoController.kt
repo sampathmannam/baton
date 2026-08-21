@@ -52,6 +52,21 @@ class UndoController @Inject constructor(
             is UndoableAction.DeleteCapture -> {
                 captureDao.upsert(action.row)
             }
+            is UndoableAction.MarkPersonRecent -> {
+                // v1.8.0 (PROD-READINESS-P1-#6): restore the
+                // person's prior lastInteractionAt. The
+                // previousLastInteractionAt is nullable
+                // because the user may have marked a
+                // never-touched person as recent; undoing
+                // must restore the null state (not a
+                // sentinel), so they go back to the
+                // "never touched" group on Today.
+                personDao.restoreLastInteraction(
+                    personId = action.id,
+                    lastInteractionAtMs = action.previousLastInteractionAt,
+                    updatedAt = action.previousUpdatedAt,
+                )
+            }
         }
         _last.value = null
     }

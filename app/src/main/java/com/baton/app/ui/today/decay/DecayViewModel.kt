@@ -8,6 +8,8 @@ import com.baton.app.data.local.entities.PersonEntity
 import com.baton.app.data.person.Person
 import com.baton.app.data.person.TierCadence
 import com.baton.app.data.person.toDomain
+import com.baton.app.data.undo.UndoController
+import com.baton.app.data.undo.UndoableAction
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +39,7 @@ import javax.inject.Inject
 class DecayViewModel @Inject constructor(
     private val personDao: PersonDao,
     private val touchOnActivity: TouchPersonOnActivity,
+    private val undoController: UndoController,
 ) : ViewModel() {
 
     private val _filterDays = MutableStateFlow(DEFAULT_FILTER_DAYS)
@@ -98,6 +101,37 @@ class DecayViewModel @Inject constructor(
                 val updatedAt = Instant.ofEpochMilli(newTs).toString()
                 personDao.touch(row.id, newTs, updatedAt)
             }
+        }
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P1-#6): per-row "Mark as recent"
+     * action. Bumps the person's `lastInteractionAt` to now so
+     * they leave the Quiet-a-while list, captures the prior
+     * state for [UndoController], and pushes a
+     * [UndoableAction.MarkPersonRecent] so the snackbar can
+     * offer "Undo". The undo restores the prior
+     * `lastInteractionAt` (which may be null if the user
+     * marked a never-touched person as recent).
+     *
+     * No-op if the row is no longer in the visible list
+     * (e.g. the user typed in another filter while the snackbar
+     * was visible). The DAO call is idempotent so a duplicate
+     * tap is a safe no-op.
+     */
+    fun markRecent(row: DecayRow) {
+        val now = System.currentTimeMillis()
+        val nowIso = Instant.ofEpochMilli(now).toString()
+        viewModelScope.launch {
+            personDao.touch(row.id, now, nowIso)
+            undoController.push(
+                UndoableAction.MarkPersonRecent(
+                    id = row.id,
+                    name = row.name,
+                    previousLastInteractionAt = row.lastInteractionAt,
+                    previousUpdatedAt = row.person.updatedAt ?: nowIso,
+                )
+            )
         }
     }
 

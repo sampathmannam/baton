@@ -257,6 +257,11 @@
     </plurals>
     <string name="decay_empty">Everyone\'s been touched recently. Nice.</string>
     <string name="a11y_decay_row_open">Open person</string>
+    <!-- v1.8.0 (PROD-READINESS-P1-#6): the per-row "Mark
+         recent" button. Bumps the person\'s lastInteractionAt
+         to now so they leave the Quiet-a-while list. -->
+    <string name="decay_mark_recent">Mark recent</string>
+    <string name="a11y_decay_row_mark_recent">Mark as recently contacted</string>
     <string name="status_quiet_a_while">Quiet a while</string>
     <string name="status_getting_due">Getting due</string>
     <string name="status_on_track">On track</string>
@@ -411,6 +416,11 @@
     <string name="recovery_phrase_step_2">2. Tap the words in order</string>
     <string name="recovery_phrase_verify_hint">Tap each word below, in the order you wrote them down.</string>
     <string name="recovery_phrase_copy">Copy to clipboard</string>
+    <!-- v1.8.0 (PROD-READINESS-P1-#2): the "Save as PDF"
+         export row on the recovery-phrase screen. Generates
+         an A4 sheet with the 24 words in 4 columns and
+         hands it to the system share sheet. -->
+    <string name="recovery_phrase_save_pdf">Save as PDF</string>
     <string name="recovery_phrase_written_down">I have written it down</string>
     <string name="recovery_phrase_picked_count">%1$d of %2$d words picked</string>
     <string name="recovery_phrase_retry">Try again</string>

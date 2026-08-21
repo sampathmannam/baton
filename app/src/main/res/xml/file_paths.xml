@@ -7,4 +7,12 @@
     <cache-path
         name="captures"
         path="captures/" />
+    <!-- v1.8.0 (PROD-READINESS-P1-#2): where the
+         recovery-phrase PDF is written. The PDF
+         generator writes to cacheDir/recovery/ so the
+         FileProvider scope is tight to that one
+         sub-directory (not the whole cacheDir). -->
+    <cache-path
+        name="recovery"
+        path="recovery/" />
 </paths>

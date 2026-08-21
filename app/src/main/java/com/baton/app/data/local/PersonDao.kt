@@ -128,6 +128,19 @@ interface PersonDao {
     suspend fun touch(personId: String, nowMs: Long, updatedAt: String)
 
     /**
+     * v1.8.0 (PROD-READINESS-P1-#6): the inverse of [touch] for
+     * the "Mark as recent" undo path. Restores both
+     * `lastInteractionAt` (nullable) and `updatedAt` in a
+     * single UPDATE. The non-null branch is the common case
+     * (the user touched the person, then undid the touch);
+     * the null branch is the "I marked a never-touched person
+     * as recent by mistake; undo should put them back in the
+     * new / never-touched group" edge case.
+     */
+    @Query("UPDATE persons SET lastInteractionAt = :lastInteractionAtMs, updatedAt = :updatedAt WHERE id = :personId")
+    suspend fun restoreLastInteraction(personId: String, lastInteractionAtMs: Long?, updatedAt: String)
+
+    /**
      * §2.2: change the relationship tier. Used by the
      * "Cadence chip" picker in PersonDetailScreen.
      */
