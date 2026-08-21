@@ -37,6 +37,15 @@ class BatonApplication : Application(), Configuration.Provider {
         // has no offline-to-online path because there is no online.
         // The code paths are left in place so a future Settings
         // toggle can re-enable cloud sync without a refactor.
+        //
+        // v1.8.0 (PROD-READINESS-P0-#1): the daily local
+        // backup IS scheduled. The backup is local (writes to
+        // filesDir, no network), so the v1.5.0 vault-mode
+        // "no cloud = no WorkManager" rule doesn't apply.
+        // WorkManagerInitializer.scheduleBackup is idempotent
+        // (KEEP policy) so calling it on every cold start is
+        // a no-op after the first.
+        com.baton.app.data.work.WorkManagerInitializer.scheduleBackup(this)
     }
 
     /**

@@ -424,6 +424,45 @@ fun SettingsSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            // v1.8.0 (PROD-READINESS-P0-#1): the "Back up now"
+            // row. Tapping it enqueues a one-shot [BackupWorker]
+            // that writes a JSON snapshot to the app's private
+            // filesDir. The work is async; the user gets a
+            // confirmation message and can keep using the app.
+            // The daily periodic schedule (separate row in the
+            // v1.8.0 release notes; here it just shows the
+            // current status) is also wired in
+            // [com.baton.app.BatonApplication.onCreate] via
+            // [WorkManagerInitializer.scheduleBackup].
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        viewModel.backupNow()
+                        plainExportOk = true
+                        plainExportError = null
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Back up now",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "(writes to app storage)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (plainExportOk) {
+                Text(
+                    text = "Backup queued. The file will appear in the app's private storage.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(8.dp))
 
             HorizontalDivider(

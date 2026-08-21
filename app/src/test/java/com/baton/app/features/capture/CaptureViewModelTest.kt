@@ -575,6 +575,120 @@ class CaptureViewModelTest {
         )
     }
 
+    // ---- v1.8.0 (PROD-READINESS-P0-#2): crash-recovery
+    //      dedup. A process death between [create] and
+    //      [clearDraft] leaves the SavedStateHandle holding
+    //      the same text + mode + tags. On relaunch the
+    //      user must not be able to tap Save again and
+    //      produce a duplicate instruction. The VM detects
+    //      this via a fingerprint of (text | mode | sorted
+    //      tag IDs) + a dedup window (30s) and surfaces a
+    //      one-shot info message while clearing the draft.
+
+    @Test
+    fun `crash-recovery dedup -- a second save of the same draft within the dedup window emits an info message and does not create a duplicate`() = runTest(testDispatcher) {
+        val f = fakes()
+        f.second.create(name = "SHO Ramu", designation = null, station = null, clientId = "p1")
+        val handle = androidx.lifecycle.SavedStateHandle()
+        val vm = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        advanceUntilIdle()
+
+        // First save -- the instruction is created and the
+        // fingerprint is recorded.
+        vm.openSheet()
+        vm.onTextChanged("Send FIR 47 to SP by Friday")
+        advanceUntilIdle()
+        vm.onSaveRaw()
+        advanceUntilIdle()
+        assertEquals("first save must create one instruction", 1, f.third.created.size)
+
+        // v1.8.0 (PROD-READINESS-P0-#2): the init-block
+        // collector that mirrors state to SavedStateHandle
+        // wiped the draft on the first save (clearDraft), so
+        // to simulate the "process death + relaunch with
+        // same draft in handle" scenario we manually
+        // re-populate the SavedStateHandle with the same
+        // draft and re-instantiate the VM (the real-world
+        // path would re-create the VM via Hilt). The
+        // fingerprint key was written BEFORE clearDraft so
+        // it survives.
+        handle["capture.text"] = "Send FIR 47 to SP by Friday"
+        handle["capture.mode"] = CaptureMode.TEXT.name
+        handle["capture.selectedTagIds"] = arrayListOf<String>()
+        // The fingerprint is the hashCode of "Send FIR 47 to
+        // SP by Friday|TEXT|". It was set during the first
+        // save and is still in the handle. We re-read it via
+        // the test's public reflection: assert the VM's
+        // dedup branch fires by checking the second save
+        // does NOT create a new instruction.
+        val before = f.third.created.size
+
+        // Re-instantiate the VM against the same handle --
+        // this is what a Hilt re-injection after process
+        // death looks like in production.
+        val vm2 = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        advanceUntilIdle()
+        vm2.openSheet()
+        vm2.onTextChanged("Send FIR 47 to SP by Friday")
+        advanceUntilIdle()
+        vm2.onSaveRaw()
+        advanceUntilIdle()
+
+        // No new instruction was created -- the dedup
+        // short-circuited before the repo call.
+        assertEquals(
+            "second save of the same draft within the dedup window must NOT create a new instruction",
+            before,
+            f.third.created.size,
+        )
+        // The info channel emitted the dedup message.
+        val msg = vm2.infoChannel.tryReceive().getOrNull()
+        assertNotNull("info channel must emit the dedup message", msg)
+        assertTrue(
+            "info message must mention that the note was already saved",
+            msg!!.contains("Already saved", ignoreCase = true),
+        )
+        // The draft was cleared.
+        assertEquals("", vm2.state.value.text)
+    }
+
+    @Test
+    fun `crash-recovery dedup -- a different draft within the dedup window saves normally`() = runTest(testDispatcher) {
+        val f = fakes()
+        f.second.create(name = "SHO Ramu", designation = null, station = null, clientId = "p1")
+        val handle = androidx.lifecycle.SavedStateHandle()
+        val vm = makeVm(f.first, f.second, f.third, savedStateHandle = handle)
+        advanceUntilIdle()
+
+        // First save.
+        vm.openSheet()
+        vm.onTextChanged("First note")
+        advanceUntilIdle()
+        vm.onSaveRaw()
+        advanceUntilIdle()
+        assertEquals(1, f.third.created.size)
+
+        // Second save with a different text -- the
+        // fingerprint differs so the dedup does NOT
+        // short-circuit. We don't re-instantiate the VM
+        // here (the handle is the same instance, the
+        // fingerprint from the first save is still in
+        // it). The user types a new note and saves.
+        vm.openSheet()
+        vm.onTextChanged("Second note -- completely different")
+        advanceUntilIdle()
+        vm.onSaveRaw()
+        advanceUntilIdle()
+        assertEquals(
+            "a save with a different draft must create a new instruction",
+            2,
+            f.third.created.size,
+        )
+        // No dedup info message was emitted.
+        val msg = vm.infoChannel.tryReceive().getOrNull()
+        assertNull("a normal save must not emit a dedup info message", msg)
+    }
+
     // ---- v1.6.1: voice capture path (now via system
     //      SpeechRecognizer, but the VM contract is the same:
     //      transcript -> pre-fill text, error -> inline).

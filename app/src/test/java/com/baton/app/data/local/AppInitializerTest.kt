@@ -2,9 +2,13 @@ package com.baton.app.data.local
 
 import androidx.test.core.app.ApplicationProvider
 import com.baton.app.data.auth.SecurePreferences
+import com.baton.app.data.dev.FixtureLoader
+import com.baton.app.di.ApplicationScope
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -49,7 +53,17 @@ class AppInitializerTest {
         securePreferences = mockk(relaxed = true)
         every { securePreferences.hasDatabasePassphrase() } returns true
         every { securePreferences.databasePassphrase() } returns ByteArray(32) { it.toByte() }
-        initializer = AppInitializer(context, securePreferences)
+        // v1.7.3 (P0-A): AppInitializer now takes the FixtureLoader
+        // (for the version-gated reseed) and an ApplicationScope
+        // CoroutineScope (so the reseed runs off the main thread).
+        // The pre-v1.7.3 test passed only (context, securePreferences)
+        // and was broken by the reseedIfStale() addition. We mock
+        // the FixtureLoader (no work done in the path these tests
+        // exercise) and use a SupervisorJob'd CoroutineScope that we
+        // can clean up.
+        val fixtureLoader = mockk<FixtureLoader>(relaxed = true)
+        val appScope = CoroutineScope(SupervisorJob())
+        initializer = AppInitializer(context, securePreferences, fixtureLoader, appScope)
         dbFile = context.getDatabasePath(AppDatabase.NAME)
     }
 
