@@ -567,4 +567,31 @@
     <string name="tag_picker_free_placeholder">#tag</string>
     <string name="tag_picker_add">Add</string>
     <string name="tag_picker_add_chip">+ #tag</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#2): sync conflict screen copy -->
+    <string name="sync_conflicts_title">Sync conflicts</string>
+    <string name="sync_conflicts_empty">Nothing to resolve. All local writes are in sync.</string>
+    <string name="sync_conflicts_count">%1$d to resolve</string>
+    <string name="sync_conflict_keep_local">Keep local</string>
+    <string name="sync_conflict_keep_server">Keep server</string>
+    <string name="sync_conflict_resolved">Conflict resolved</string>
+    <string name="sync_conflict_no_cloud">Cloud sync is not enabled in this build. The chosen payload will be retained for the next sync cycle.</string>
+    <string name="sync_conflict_keep_local_cd">Keep local change</string>
+    <string name="sync_conflict_keep_server_cd">Keep server version</string>
+    <string name="sync_conflict_back_cd">Back</string>
+    <string name="sync_conflict_gone">Conflict no longer exists.</string>
+    <string name="sync_conflict_resolve_title">Conflict resolution</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#4): audit chain -->
+    <string name="audit_chain_intact">Audit chain intact: %1$d events</string>
+    <string name="audit_chain_broken">Audit chain broken at event %1$d</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#5): retention summary -->
+    <string name="retention_summary">Retention: 7y audit, 3y captures, 3y dates, 7y instructions</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#3): role display labels -->
+    <string name="role_admin">Admin</string>
+    <string name="role_senior_officer">Senior officer</string>
+    <string name="role_officer">Officer</string>
+    <string name="role_readonly">Read-only</string>
 </resources>

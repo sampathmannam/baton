@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v1.8.0 (PROD-READINESS-P3-P0-#3 partial): Hindi translations
+  for the most user-facing strings. ~30 of the 354 strings in
+  values/strings.xml are translated; the rest fall back to
+  English (Android's default behaviour when a translation is
+  missing for a key).
+
+  The Hindi strings below use the formal register used in
+  Hindi-speaking state police / IPS correspondence. Where a
+  literal translation would lose meaning (e.g. "deniable
+  vault" — kept as "गुप्त वॉल्ट"), the technical term is
+  kept as-is in the user's local language.
+-->
+<resources>
+    <!-- App / nav -->
+    <string name="app_name">कावलन नोट</string>
+    <string name="tab_home">संपर्क</string>
+    <string name="tab_today">आज</string>
+    <string name="tab_settings">सेटिंग्स</string>
+    <string name="home_title">संपर्क</string>
+    <string name="settings_title">सेटिंग्स</string>
+
+    <!-- Add person -->
+    <string name="home_add_person">व्यक्ति जोड़ें</string>
+    <string name="home_empty_title">अभी कोई नहीं</string>
+    <string name="home_empty_subtitle">अपने पहले समन्वय व्यक्ति को जोड़ें — आपका SP, SHO, या कोई भी जिससे आप निर्देश देते या लेते हैं।</string>
+
+    <!-- Capture sheet -->
+    <string name="capture_sheet_title">नया नोट</string>
+    <string name="capture_sheet_close">बंद करें</string>
+    <string name="capture_sheet_text_label">नोट</string>
+    <string name="capture_sheet_text_placeholder">यहां मुफ्त-प्रपत्र नोट टाइप करें।</string>
+    <string name="capture_sheet_save">सहेजें</string>
+    <string name="capture_sheet_add_to_calendar">कैलेंडर में जोड़ें</string>
+    <string name="capture_needs_person_message">पहले एक व्यक्ति जोड़ें, फिर अपना पहला नोट सहेजें।</string>
+
+    <!-- Today -->
+    <string name="today_count_open_short">खुले</string>
+
+    <!-- Vault export -->
+    <string name="vault_export_title">एन्क्रिप्टेड वॉल्ट निर्यात करें</string>
+    <string name="vault_export_body">यह आपके डेटा की पासफ़्रेज़-एन्क्रिप्टेड कॉपी सहेजता है। दूसरे डिवाइस पर पुनर्स्थापित करने के लिए पासफ़्रेज़ आवश्यक है।</string>
+    <string name="vault_export_passphrase">पासफ़्रेज़</string>
+    <string name="vault_export_confirm">पासफ़्रेज़ की पुष्टि करें</string>
+    <string name="vault_export_button">वॉल्ट फ़ाइल सहेजें</string>
+    <string name="vault_export_mismatch">पासफ़्रेज़ मेल नहीं खाते</string>
+    <string name="vault_export_too_short">कम से कम 8 अक्षर उपयोग करें</string>
+    <string name="vault_export_success">वॉल्ट सहेजा गया</string>
+    <string name="vault_export_failed">वॉल्ट सहेज नहीं सका। पुनः प्रयास करें।</string>
+
+    <!-- Vault strength -->
+    <string name="vault_strength_label">मजबूती: %1$s</string>
+    <string name="vault_strength_0">बहुत कमज़ोर — लंबा वाक्य आज़माएं</string>
+    <string name="vault_strength_1">कमज़ोर</string>
+    <string name="vault_strength_2">ठीक</string>
+    <string name="vault_strength_3">मजबूत</string>
+    <string name="vault_strength_4">बहुत मजबूत</string>
+
+    <!-- Sync conflicts (PROD-READINESS-P2-#2) -->
+    <string name="sync_conflicts_title">सिंक टकराव</string>
+    <string name="sync_conflicts_empty">हल करने के लिए कुछ नहीं। सभी स्थानीय परिवर्तन सिंक किए गए हैं।</string>
+    <string name="sync_conflicts_count">%1$d हल करने बाकी</string>
+    <string name="sync_conflict_keep_local">स्थानीय रखें</string>
+    <string name="sync_conflict_keep_server">सर्वर रखें</string>
+    <string name="sync_conflict_resolved">टकराव हल किया गया</string>
+    <string name="sync_conflict_no_cloud">क्लाउड सिंक सक्षम नहीं है। चुना हुआ payload अगले सिंक चक्र के लिए रखा जाएगा।</string>
+
+    <!-- Audit chain (PROD-READINESS-P2-#4) -->
+    <string name="audit_chain_intact">ऑडिट श्रृंखला सही है: %1$d घटनाएं</string>
+    <string name="audit_chain_broken">ऑडिट श्रृंखला टूटी हुई है: घटना %1$d पर</string>
+
+    <!-- Retention (PROD-READINESS-P2-#5) -->
+    <string name="retention_summary">अवधारण: ऑडिट 7 वर्ष, कैप्चर 3 वर्ष, महत्वपूर्ण तिथियां 3 वर्ष, निर्देश 7 वर्ष</string>
+
+    <!-- Role (PROD-READINESS-P2-#3) -->
+    <string name="role_admin">व्यवस्थापक</string>
+    <string name="role_senior_officer">वरिष्ठ अधिकारी</string>
+    <string name="role_officer">अधिकारी</string>
+    <string name="role_readonly">केवल पढ़ने योग्य</string>
+</resources>
