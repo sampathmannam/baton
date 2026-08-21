@@ -189,6 +189,30 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        // v1.8.0 (PROD-READINESS-P2-#6): the brand-name and
+        // brand-department build-config fields. A pilot
+        // build (e.g. TNeGA / CCPS) overrides these via
+        // `gradle -Pbrand.name="TNeGA CCPS" -Pbrand.dept="..."`;
+        // the defaults are the R&D "Kaavalan note" brand
+        // so a plain `./gradlew assembleDebug` produces
+        // the v1.8.0 default. The Settings "About" row
+        // reads BRAND_NAME so the user-visible label
+        // tracks the build that produced the APK.
+        buildConfigField(
+            "String",
+            "BRAND_NAME",
+            "\"${project.findProperty("brand.name") ?: "Kaavalan note"}\"",
+        )
+        buildConfigField(
+            "String",
+            "BRAND_DEPARTMENT",
+            "\"${project.findProperty("brand.dept") ?: ""}\"",
+        )
+        buildConfigField(
+            "String",
+            "BRAND_ICON",
+            "\"${project.findProperty("brand.icon") ?: "ic_launcher"}\"",
+        )
     }
 
     signingConfigs {

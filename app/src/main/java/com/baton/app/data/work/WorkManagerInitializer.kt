@@ -12,6 +12,7 @@ import androidx.work.Constraints
 import com.baton.app.BatonApplication
 import com.baton.app.data.brief.MorningBriefWorker
 import com.baton.app.data.export.BackupWorker
+import com.baton.app.data.retention.RetentionWorker
 import com.baton.app.data.sync.CaptureSyncWorker
 import java.util.concurrent.TimeUnit
 
@@ -69,6 +70,14 @@ object WorkManagerInitializer {
     private const val BACKUP_ONE_SHOT_NAME = "baton-backup-now"
     private const val BACKUP_PERIODIC_NAME = "baton-backup-periodic"
     private const val BACKUP_PERIODIC_INTERVAL_HOURS = 24L
+
+    // v1.8.0 (PROD-READINESS-P2-#5): names for the
+    // retention sweep. The one-shot is fired after
+    // a settings change (future); the periodic is
+    // the daily safety-net.
+    private const val RETENTION_ONE_SHOT_NAME = "baton-retention-now"
+    private const val RETENTION_PERIODIC_NAME = "baton-retention-periodic"
+    private const val RETENTION_PERIODIC_INTERVAL_HOURS = 24L
 
     /**
      * Idempotent. Safe to call from any coroutine on any
@@ -309,6 +318,48 @@ object WorkManagerInitializer {
             .build()
         get(context).enqueueUniquePeriodicWork(
             BACKUP_PERIODIC_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#5): enqueue the
+     * one-shot retention sweep. Called by a future
+     * Settings → Compliance → "Run retention now"
+     * button. `ExistingWorkPolicy.KEEP` means a
+     * second tap while the first job is running is
+     * a no-op.
+     */
+    fun enqueueRetentionNow(context: Context) {
+        val request = OneTimeWorkRequestBuilder<RetentionWorker>().build()
+        get(context).enqueueUniqueWork(
+            RETENTION_ONE_SHOT_NAME,
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#5): the daily
+     * retention sweep. Runs once every 24 h;
+     * `ExistingPeriodicWorkPolicy.KEEP` so
+     * re-enqueueing on every app start is a no-op
+     * after the first.
+     */
+    fun scheduleRetention(context: Context) {
+        val request = PeriodicWorkRequestBuilder<RetentionWorker>(
+            RETENTION_PERIODIC_INTERVAL_HOURS, TimeUnit.HOURS,
+        )
+            .setConstraints(
+                Constraints.Builder()
+                    // Local DB write; battery-friendly.
+                    .setRequiresBatteryNotLow(true)
+                    .build(),
+            )
+            .build()
+        get(context).enqueueUniquePeriodicWork(
+            RETENTION_PERIODIC_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )

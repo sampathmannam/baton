@@ -99,6 +99,15 @@
     <!-- v1.5.3 (VAULT-008): the About section. -->
     <string name="settings_section_about">About</string>
     <string name="settings_app_version">App version</string>
+    <!-- v1.8.0 (PROD-READINESS-P2-#6): the per-build
+         branding rows in the Settings → About section.
+         The R&D default build shows "Kaavalan note" +
+         no department; a pilot build shows the build's
+         BRAND_NAME + BRAND_DEPARTMENT from gradle
+         properties. -->
+    <string name="settings_brand_name">App name</string>
+    <string name="settings_brand_department">Department</string>
+    <string name="settings_brand_department_none">—</string>
     <string name="settings_app_version_value">%1$s (build %2$d)</string>
     <string name="settings_storage">On this phone</string>
     <string name="settings_storage_value">%1$d people, %2$d instructions, %3$d tags</string>

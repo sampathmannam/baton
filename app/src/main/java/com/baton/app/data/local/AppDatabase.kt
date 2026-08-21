@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import com.baton.app.data.local.entities.AppStateEntity
+import com.baton.app.data.local.entities.AuditChainEventEntity
 import com.baton.app.data.local.entities.CaptureEntity
 import com.baton.app.data.local.entities.ImportantDateEntity
 import com.baton.app.data.local.entities.InstructionEntity
@@ -94,6 +95,7 @@ import com.baton.app.data.local.entities.TagEntity
         PersonEntity::class,
         InstructionEntity::class,
         CaptureEntity::class,
+        AuditChainEventEntity::class,
         SyncQueueEntity::class,
         SyncConflictEntity::class,
         TagEntity::class,
@@ -104,7 +106,11 @@ import com.baton.app.data.local.entities.TagEntity
         ImportantDateEntity::class,
         PersonLinkEntity::class,
     ],
-    version = 13,
+    // v1.8.0 (PROD-READINESS-P2-#4): v13 -> v14 adds the
+    // audit_chain_events table. The chain is a
+    // forward-only append; no destructive migration
+    // needed for upgrades.
+    version = 14,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -120,6 +126,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun instructionFtsDao(): InstructionFtsDao
     abstract fun importantDateDao(): ImportantDateDao
     abstract fun personLinkDao(): PersonLinkDao
+    abstract fun auditChainEventDao(): AuditChainEventDao
 
     companion object {
         const val NAME = "baton.db"
@@ -370,6 +377,43 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_instructions_vaultMode` " +
                         "ON `instructions`(`vaultMode`)",
+                )
+            }
+        }
+
+        /**
+         * v1.8.0 (PROD-READINESS-P2-#4): the v13 -> v14
+         * migration adds the `audit_chain_events` table.
+         * The chain is forward-only append; no data
+         * migration needed for upgrades (the chain
+         * starts empty and grows on each subsequent
+         * state change). v12 -> v13 had already added
+         * the `vaultMode` column.
+         */
+        val MIGRATION_13_14: Migration = object : Migration(13, 14) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `audit_chain_events` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                        `tableName` TEXT NOT NULL,
+                        `rowId` TEXT NOT NULL,
+                        `kind` TEXT NOT NULL,
+                        `payload` TEXT NOT NULL,
+                        `signingKey` TEXT NOT NULL,
+                        `createdAtMs` INTEGER NOT NULL,
+                        `prevHash` TEXT NOT NULL,
+                        `thisHash` TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_audit_chain_events_tableName_rowId` " +
+                        "ON `audit_chain_events`(`tableName`, `rowId`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_audit_chain_events_createdAtMs` " +
+                        "ON `audit_chain_events`(`createdAtMs`)",
                 )
             }
         }
