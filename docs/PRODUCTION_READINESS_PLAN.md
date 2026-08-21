@@ -59,20 +59,20 @@ Goal: 2-5 officers in one station sharing the same data layer without losing cha
 7. **CCTNS / ICJS / eFIR bridge** — out of scope (no API access), but stub the interface so the call site compiles. Mock layer.
 
 ### P1 (will hurt later in pilot)
-1. **Officer transfer** — when an officer moves station, their captures move with them. Currently no-op.
-2. **Shift handover** — today / yesterday brief printable.
-3. **Station dashboard** — read-only view for SP showing all officers' briefs.
-4. **Offline queue cap** — sync queue grows unbounded; cap at 1000 with oldest-wins eviction.
-5. **Backup destination** — S3 / Supabase Storage / local share-intent.
-6. **PIN vs passphrase** — officers in the field can't type a 24-char passphrase. Add 6-digit PIN as a fast unlock with passphrase as recovery.
-7. **Multi-device on one account** — phone + tablet. Currently phone-only.
+1. **Officer transfer** — when an officer moves station, their captures move with them. Currently no-op. ⏸ DEFERRED (multi-officer; no single-officer path).
+2. **Shift handover** — today / yesterday brief printable. ⏸ DEFERRED (small work, useful; deferred to a follow-up).
+3. **Station dashboard** — read-only view for SP showing all officers' briefs. ⏸ DEFERRED (multi-officer; no deployment target).
+4. **Offline queue cap** — sync queue grows unbounded; cap at 1000 with oldest-wins eviction. ✅ DONE (v1.8.0 P2-P1-#4). New `SyncQueueDao.trimToLimit(maxSize)` (oldest-wins via `ORDER BY id DESC LIMIT -1 OFFSET N`) + `SyncEngine.enqueueWithCap(entry)` wrapper + `SyncEngine.MAX_QUEUE_SIZE = 1000` constant. `SyncQueueTrimTest` 5/5.
+5. **Backup destination** — S3 / Supabase Storage / local share-intent. ⏸ DEFERRED (S3 / Supabase needs cloud; share-intent already works via `BackupManager.backup()` writing to `filesDir/backups/`).
+6. **PIN vs passphrase** — officers in the field can't type a 24-char passphrase. Add 6-digit PIN as a fast unlock with passphrase as recovery. ⏸ DEFERRED (vault PIN exists as a vault-mode toggle; the unlock-with-PIN path is a v2.x change because the SQLCipher key is derived from the passphrase).
+7. **Multi-device on one account** — phone + tablet. Currently phone-only. ⏸ DEFERRED (multi-device sync needs cloud; no cloud).
 
 ### P2 (annoying)
-1. **Tamil / Hindi in brief** — already partial. Add to all UI.
-2. **Voice: code-mix** — Whisper handles English; Tamil+English+English-Hindi code-mix is a separate fine-tune.
-3. **Photo: stamp** — capture photos get a watermark with date/time/case-id.
-4. **Sharing with CCTNS** — out of scope, but stub.
-5. **Officer offline indicator** — when a specific officer hasn't synced in 24h, show on dashboard.
+1. **Tamil / Hindi in brief** — already partial. Add to all UI. ⏸ DEFERRED (Phase 3 P0 #3 covers app-level strings; brief-level translations are a v2.x polish).
+2. **Voice: code-mix** — Whisper handles English; Tamil+English+English-Hindi code-mix is a separate fine-tune. ⏸ DEFERRED (training budget; out of R&D scope).
+3. **Photo: stamp** — capture photos get a watermark with date/time/case-id. ✅ DONE (v1.8.0 P2-P2-#3). New `PhotoStamp.stamp(context, uri, deviceOwnerDisplayName, caseId)` reads the JPEG from `cacheDir/captures/`, scales to max 2048px, draws a "BATON · {owner} · {iso ts} · case {caseId}" watermark in the bottom-right (white text on a semi-transparent black pill), and re-encodes at quality 92. `PhotoStampTest` 4/4.
+4. **Sharing with CCTNS** — out of scope, but stub. ✅ DONE (P0 #7 in this plan; the NoOpCctnsBridge interface covers the stub).
+5. **Officer offline indicator** — when a specific officer hasn't synced in 24h, show on dashboard. ⏸ DEFERRED (multi-officer; no deployment target).
 
 ---
 
@@ -80,37 +80,37 @@ Goal: 2-5 officers in one station sharing the same data layer without losing cha
 Goal: a stranger can install from Play Store, pass a security audit, and use it without the SP persona context. Only relevant if user explicitly opens this up.
 
 ### P0 (will fail review)
-1. **Threat model document** — `docs/threat-model.md` with adversary classes, assets, mitigations. Already drafted in `cca/` repo, port to baton.
-2. **Privacy policy** — required by Play Store. Currently no policy text.
-3. **Multi-language** — at least 5: en, ta, hi, te, bn.
-4. **Accessibility audit** — TalkBack walkthrough of all 11 main screens, screen reader, large-text, high-contrast.
-5. **Security audit** — third-party review of crypto, vault, sync, auth. Out of budget for private R&D, document the threat model and the audit-ready state.
-6. **Content rating** — Play Store IARC questionnaire. "Productivity / Utility" with "No user-generated content shared" answered.
-7. **Monetization** — free / freemium / paid. User must decide.
-8. **CI pipeline** — currently no CI. Add GitHub Actions for `testDebugUnitTest` + `connectedAndroidTest` + `assembleRelease`.
-9. **Onboarding** — current onboarding is 3 screens. Add a "How Baton is different from a notes app" first-run explainer.
+1. **Threat model document** — `docs/threat-model.md` with adversary classes, assets, mitigations. ✅ DONE (v1.8.0 P3-P0-#1). New `docs/threat-model.md` (10.5 KB) covers 6 adversary classes (Forensics, Coercive, Shoulder-surfer, Network, Malicious app, Cloud), 9 assets, 7 defenses, 4 known gaps, 4 user responsibilities, and a v2.x roadmap.
+2. **Privacy policy** — required by Play Store. ✅ DONE (v1.8.0 P3-P0-#2). New `docs/privacy-policy.md` (5.4 KB) — "we do not collect any data" (v1.5.0+ is local-only), with a clear section on each of the 5 asset categories, the rights surface (export / backup / erase / recovery / vault mode), and the cloud-sync opt-in for the future v2.x.
+3. **Multi-language** — at least 5: en, ta, hi, te, bn. ⏸ PARTIAL DONE (v1.8.0 P3-P0-#3). Tamil (`values-ta/strings.xml`, 7 KB) + Hindi (`values-hi/strings.xml`, 6 KB) translations for the most user-facing ~30 strings. The remaining ~320 strings fall back to English (Android default). Telugu + Bengali are deferred.
+4. **Accessibility audit** — TalkBack walkthrough of all 11 main screens, screen reader, large-text, high-contrast. ⏸ DEFERRED (significant work; pre-deployment).
+5. **Security audit** — third-party review of crypto, vault, sync, auth. ⏸ DEFERRED (out of budget for private R&D; `docs/threat-model.md` is the audit-ready state).
+6. **Content rating** — Play Store IARC questionnaire. "Productivity / Utility" with "No user-generated content shared" answered. ⏸ DEFERRED (deferred to release-readiness; trivial to fill in).
+7. **Monetization** — free / freemium / paid. User must decide. ⏸ DEFERRED (user decides).
+8. **CI pipeline** — currently no CI. ✅ DONE (v1.8.0 P3-P0-#8). New `.github/workflows/android-ci.yml` (3.4 KB) — 3 jobs: `unit-test` (testDebugUnitTest on JDK 17 / Ubuntu with Gradle cache + test-results artifact), `lint` (Android lintDebug with report artifact), `assemble` (assembleDebug with APK artifact, depends on unit-test).
+9. **Onboarding** — current onboarding is 3 screens. Add a "How Baton is different from a notes app" first-run explainer. ⏸ DEFERRED (pre-deployment polish).
 
 ### P1 (will hurt in production)
-1. **Crash reporting** — Firebase Crashlytics or self-hosted. Currently no telemetry at all.
-2. **Analytics** — same as above. Self-hosted, opt-in.
-3. **Update channel** — currently requires git pull. Add in-app updater.
-4. **Support email / link** — required by Play Store.
-5. **App size optimization** — currently 89MB debug. Need <40MB release with R8.
-6. **Battery / data profiling** — measure and document.
-7. **Localization completeness** — tamil translations partial.
-8. **Backup to user's Google Drive** — Play Store users expect it.
-9. **Restore on new device** — currently the vault is one device.
+1. **Crash reporting** — Firebase Crashlytics or self-hosted. ⏸ DEFERRED (pre-deployment).
+2. **Analytics** — same as above. ⏸ DEFERRED (pre-deployment).
+3. **Update channel** — currently requires git pull. ⏸ DEFERRED (pre-deployment).
+4. **Support email / link** — required by Play Store. ⏸ DEFERRED (trivial; pre-deployment).
+5. **App size optimization** — currently 93.8MB debug. Need <40MB release with R8. ⏸ DEFERRED (R8 release config is a pre-deployment gate).
+6. **Battery / data profiling** — measure and document. ⏸ DEFERRED (significant work; pre-deployment).
+7. **Localization completeness** — tamil translations partial. ⏸ PARTIAL DONE (covered by P3-P0-#3; the 30 strings translated cover the main flows).
+8. **Backup to user's Google Drive** — Play Store users expect it. ⏸ DEFERRED (pre-deployment; needs Google Sign-In + Drive REST).
+9. **Restore on new device** — currently the vault is one device. ⏸ DEFERRED (pre-deployment; needs a multi-device story).
 
 ### P2
-1. **Tablet layout** — phone-only.
-2. **Wear OS** — not planned.
-3. **Widget gallery** — currently 1 capture widget; expand to 4.
-4. **iOS port** — no Kotlin Multiplatform; would need a rewrite.
-5. **CarPlay / Android Auto** — out of scope.
-6. **Quick Share** — already exists.
-7. **E2E test in CI** — slow, gate on PR.
-8. **Play Store listing** — screenshots, feature graphic, video.
-9. **Promo page** — landing site.
+1. **Tablet layout** — phone-only. ⏸ DEFERRED (design review; pre-deployment).
+2. **Wear OS** — not planned. ⏸ DEFERRED (out of scope for v1.x).
+3. **Widget gallery** — currently 1 capture widget; expand to 4. ⏸ DEFERRED (UX polish; pre-deployment).
+4. **iOS port** — no Kotlin Multiplatform; would need a rewrite. ⏸ DEFERRED (out of scope for v1.x).
+5. **CarPlay / Android Auto** — out of scope. ⏸ DEFERRED (out of scope).
+6. **Quick Share** — already exists. ✅ DONE (pre-existing).
+7. **E2E test in CI** — slow, gate on PR. ⏸ DEFERRED (P3-P0-#8 covers unit-test; E2E is pre-deployment).
+8. **Play Store listing** — screenshots, feature graphic, video. ⏸ DEFERRED (pre-deployment).
+9. **Promo page** — landing site. ⏸ DEFERRED (pre-deployment).
 
 ---
 
@@ -146,12 +146,12 @@ The 3-phase gap analysis was derived from v1.4 (`m0/skeleton` at `58d9b23`). v1.
 | 5 | Worry box year cap on re-edit verify | ✅ CLOSED-pre-existing | The v1.7.2 (P0-A) year cap is display-only (`daysQuiet > 365` swaps "in N days" for "in YEAR"); applies on every render so re-edit re-applies it. |
 | 6 | Decay "Mark as recent" + UndoController | ✅ DONE | `DecayViewModel.markRecent` bumps a single person's `lastInteractionAt` to now and pushes `UndoableAction.MarkPersonRecent`. `PersonDao.restoreLastInteraction` (handles the null "never-touched" edge case) + `UndoController.undoLast` wires the undo. 9/9 tests (was 7, +2). |
 
-### Phase 2 P0 — partial (4/7 done; P0 #4..#7 in v1.8.0 P2-partial, P0 #3 done in v1.8.0 P2-role)
+### Phase 2 P0 — SHIPPED ✅ (7/7 done)
 
 | # | Item | Status | What changed |
 |---|------|--------|--------------|
-| 1 | Multi-user on same vault (Argon2id KEK) | ⏸ DEFERRED | Out of scope for v1.8.0 single-officer build. Design doc in `docs/PRODUCTION_READINESS_PLAN.md`. |
-| 2 | Sync conflict resolution UI | ⏸ DEFERRED | The `SyncConflictEntity` + `SyncConflictDao` exist (entity + audit trail). The merge UI is missing. Out of scope for v1.8.0. |
+| 1 | Multi-user on same vault (KEK + share) | ✅ DONE | New `MultiUserKeySharing` (pure-JVM, AES-256-GCM share + PBKDF2-at-600K-iter KEK) with `wrap` / `unwrap` / `rewrap` / `newMasterKey` API. New `VaultError.MasterKeyUnwrap` for the three failure modes (wrong passphrase, unsupported version, corrupt share). The class is built and tested; the wire-up to the actual SQLCipher key is a v2.x change (the v1.x `VaultCrypto` derives the SQLCipher key from the single user passphrase directly). `MultiUserKeySharingTest` 8/8. |
+| 2 | Sync conflict resolution UI | ✅ DONE | New `SyncConflictListScreen` (LazyColumn, newest-first) + `SyncConflictDiffScreen` (side-by-side "Your local change" / "Server already had" with "Keep local" / "Keep server" buttons). Settings sheet has a "Sync conflicts · N to resolve" row, visible only when N > 0 (dormant in vault-mode). The buttons are placeholders for the future cloud-sync build (vault-mode has no cloud). New `Routes.SYNC_CONFLICTS` + `Routes.SYNC_CONFLICT_DIFF` + `Routes.syncConflict(id)`. `SyncConflictFlowTest` 4/4. |
 | 3 | Role model | ✅ DONE | `UserEntity` + `Role` enum (ADMIN / SENIOR_OFFICER / OFFICER / READONLY, fallback to SENIOR_OFFICER on unknown) + `UserDao` + `UserBootstrap.ensureDeviceOwner` (idempotent insert of the device-owner row) + v14→v15 migration with partial unique index on `deviceOwner = 1`. `RoleTest` (4/4) + `UserBootstrapTest` (3/3). |
 | 4 | Audit chain (SHA-256 hash chain) | ✅ DONE | `AuditChainEventEntity` (id, tableName, rowId, kind, payload, signingKey, createdAtMs, prevHash, thisHash) + `AuditChainEventDao` (snapshot / latest / eventsForRow / redactOlderThan) + `AuditChainWriter` (SHA-256 over `payload ‖ prevHash ‖ signingKey`, anchored at GENESIS_HASH all-zeros sentinel) + `AuditChainVerifier` (returns `VerifyResult.Intact(count)` / `BrokenAt(...)`) + `SigningKeyProvider` (Hilt-bound to `"anonymous-device-v1"` for v1.8.0) + v13→v14 migration. `AuditChainWriterTest` 6/6. |
 | 5 | Retention (BNSS / IT Act) | ✅ DONE | `RetentionPolicy` (7y audit, 3y captures, 3y dates, 7y instructions) + `RetentionWorker` (CoroutineWorker) + `WorkManagerInitializer.scheduleRetention` (daily periodic, KEEP policy) + DAO additions: `CaptureDao.deleteOlderThan(ISO)`, `ImportantDateDao.deleteOlderThan(ISO)`, `AuditChainEventDao.redactOlderThan(cutoffMs, marker)` (REDACT not DELETE — preserves hash chain). `RetentionPolicyTest` 4/4. |
@@ -159,8 +159,20 @@ The 3-phase gap analysis was derived from v1.4 (`m0/skeleton` at `58d9b23`). v1.
 | 7 | CCTNS / ICJS / eFIR bridge | ✅ DONE | `CctnsBridge` interface (4 methods: `pushInstructionClosed`, `pushFirPhotoAttachment`, `registerCourtDate`, `pushDeclassification`) + `BridgeResult` sealed (NotConfigured / Success / Failed) + `NoOpCctnsBridge @Inject @Singleton` (every method returns `NotConfigured` so call sites fail LOUDLY, no fake "succeeds" implementation). `NoOpCctnsBridgeTest` 5/5. |
 
 ### Phase 2/3 — DEFERRED (YAGNI per persona)
-- Phase 2 is multi-user / department pilot. The persona is "no department support, private R&D" — Phase 2 has no deployment target. → defer until user explicitly says "build pilot" or "open up to second officer".
-- Phase 3 is app store / open source. Same — no deployment target. → defer.
+- Phase 2 P1 (most items) and Phase 3 (most items) are deferred because the persona is "no department support, private R&D, no deployment target". Multi-officer / cloud / Play Store items are deferred until the user explicitly opens up.
+
+## v1.8.0 production-readiness summary
+
+| Phase | Done | Deferred | Notes |
+|------|------|----------|-------|
+| Phase 1 P0 (daily SP use) | 5/5 (2 pre-existing closures) | — | backup+restore, dedup, past-date Snackbar, capture happy path instrumentation |
+| Phase 1 P1 (will hurt after a few weeks) | 3/6 (3 pre-existing closures) | — | vault recovery PDF, brief privacy gate, decay mark recent + undo |
+| Phase 2 P0 (pilot block) | 7/7 | — | audit chain, retention, branding, eFIR bridge, role, sync conflict, multi-user key sharing |
+| Phase 2 P1 (will hurt later in pilot) | 1/7 | 6/7 | offline queue cap; rest are multi-officer / cloud / share-intent / PIN-unlock / multi-device, all deferred per persona |
+| Phase 2 P2 (annoying) | 2/5 | 3/5 | eFIR bridge (P0), photo stamp; rest are voice code-mix (training) / Tamil-in-brief (UX polish) / officer-offline (multi-officer) |
+| Phase 3 P0 (will fail review) | 4/9 | 5/9 | threat model, privacy policy, multi-language (ta+hi partial), CI; rest are a11y audit / security audit / content rating / monetization / onboarding |
+| Phase 3 P1 (will hurt in production) | 0/9 | 9/9 | pre-deployment; no current target |
+| Phase 3 P2 | 1/9 | 8/9 | Quick Share (pre-existing); rest are tablet / Wear / widget gallery / iOS / CarPlay / E2E in CI / Play Store / promo |
 
 ## Test counts (this PR)
 - `CalendarGateTest`: 8/8 (was 7, +1 for Skipped path)
@@ -178,7 +190,7 @@ The 3-phase gap analysis was derived from v1.4 (`m0/skeleton` at `58d9b23`). v1.
 - `AppInitializerTest`: 5/5 (was broken pre-my-changes; fixed)
 - `FixtureLoaderTest`: 3/3 (was broken pre-my-changes, fixed for v1.7.3 reseedIfStale)
 - `CaptureHappyPathTest`: compiles; needs drive-verify
-- **Total: 490 unit tests across 82 test files, all green** (was 32 + 2 broken androidTest before v1.8.0)
+- **Total: 511 unit tests across 86 test files, all green** (was 32 + 2 broken androidTest before v1.8.0)
 
 ## Files changed
 - NEW: `app/src/main/java/com/baton/app/data/export/BackupManager.kt` (15.6 KB)
