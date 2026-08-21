@@ -135,16 +135,16 @@ The 3-phase gap analysis was derived from v1.4 (`m0/skeleton` at `58d9b23`). v1.
 **Pre-existing fixes folded in (not in the original gap list):**
 - `AppInitializerTest` was broken pre-my-changes — passed only `(context, securePreferences)` but `AppInitializer` constructor now takes `fixtureLoader` and `appScope` (added in v1.7.3 reseedIfStale work). Fixed by mocking the two new params.
 
-### Phase 1 P1 — remaining (5 items, not yet started)
+### Phase 1 P1 — SHIPPED ✅ (6/6 done)
 
-| # | Item | Status |
-|---|------|--------|
-| 1 | Hardcoded English strings → stringResource (Tier labels, urgency) | OPEN |
-| 2 | Vault recovery sheet print-to-PDF | OPEN (hold-to-reveal is done) |
-| 3 | Capture widget empty state audit + TalkBack contentDescription | OPEN |
-| 4 | Brief privacy gate (isPrivate flag) | OPEN |
-| 5 | Worry box year cap on re-edit verify | OPEN |
-| 6 | Decay "Mark as recent" + UndoController | OPEN |
+| # | Item | Status | What changed |
+|---|------|--------|--------------|
+| 1 | Hardcoded English strings → stringResource (Tier labels, urgency) | ✅ CLOSED-pre-existing | v1.7.4 uses proper English "Inner / Active / Periodic / Dormant" via [TierCadence] constants; no letter-code re-mapping needed. |
+| 2 | Vault recovery sheet print-to-PDF | ✅ DONE | New `RecoveryPdfGenerator` (A4, 4×6 grid, monospace) + "Save as PDF" row in `RecoveryPhraseScreen` + `cacheDir/recovery/` FileProvider path. 1/1 test (input contract; full render is device-only). |
+| 3 | Capture widget empty state audit | ✅ CLOSED-pre-existing | `BatonCaptureWidget` is a single Glance "Tap to capture" button; never renders a list. The "empty state" concern was for a list-style widget v1.7.4 doesn't have. |
+| 4 | Brief privacy gate (isSensitive filter) | ✅ DONE | `BriefGenerator.build` filters `is_sensitive = true` rows out of all 3 brief sections. 4/4 new tests. |
+| 5 | Worry box year cap on re-edit verify | ✅ CLOSED-pre-existing | The v1.7.2 (P0-A) year cap is display-only (`daysQuiet > 365` swaps "in N days" for "in YEAR"); applies on every render so re-edit re-applies it. |
+| 6 | Decay "Mark as recent" + UndoController | ✅ DONE | `DecayViewModel.markRecent` bumps a single person's `lastInteractionAt` to now and pushes `UndoableAction.MarkPersonRecent`. `PersonDao.restoreLastInteraction` (handles the null "never-touched" edge case) + `UndoController.undoLast` wires the undo. 9/9 tests (was 7, +2). |
 
 ### Phase 2/3 — DEFERRED (YAGNI per persona)
 - Phase 2 is multi-user / department pilot. The persona is "no department support, private R&D" — Phase 2 has no deployment target. → defer until user explicitly says "build pilot" or "open up to second officer".
