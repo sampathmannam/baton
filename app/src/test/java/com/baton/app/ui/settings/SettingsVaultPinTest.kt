@@ -93,6 +93,10 @@ class SettingsVaultPinTest {
             plainExporter = mockk<com.baton.app.data.export.PlainExporter>(relaxed = true),
             appContext = mockk<android.content.Context>(relaxed = true),
             fixtureLoader = mockk<com.baton.app.data.dev.FixtureLoader>(relaxed = true),
+            // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
+            // DAO. Relaxed mock; the vault-pin tests don't touch
+            // the conflict flow.
+            syncConflictDao = mockk<com.baton.app.data.local.SyncConflictDao>(relaxed = true),
         )
         return Triple(vm, vaultModeHolder, securePreferences)
     }

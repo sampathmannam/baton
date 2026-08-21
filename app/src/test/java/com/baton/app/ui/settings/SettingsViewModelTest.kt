@@ -103,6 +103,12 @@ class SettingsViewModelTest {
             // sufficient. The dedicated loadFixture() behaviour
             // is covered by [com.baton.app.data.dev.FixtureLoaderTest].
             fixtureLoader = mockk<FixtureLoader>(relaxed = true),
+            // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
+            // DAO. A relaxed mock is sufficient — none of the
+            // existing tests touch the conflict flow. The
+            // dedicated behaviour is covered by
+            // [com.baton.app.ui.settings.SyncConflictFlowTest].
+            syncConflictDao = mockk<com.baton.app.data.local.SyncConflictDao>(relaxed = true),
             appContext = appContext,
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)

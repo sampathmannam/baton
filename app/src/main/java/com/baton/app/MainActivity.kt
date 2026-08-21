@@ -372,6 +372,33 @@ private fun MainScaffold(
                         onClose = { navController.popBackStack() },
                     )
                 }
+                // v1.8.0 (PROD-READINESS-P2-#2): the
+                // sync-conflict list screen. Reachable
+                // from Settings → Sync conflicts. The
+                // row is hidden in the Settings sheet
+                // when the count is 0, so the screen
+                // is dormant in the vault-mode build.
+                composable(Routes.SYNC_CONFLICTS) {
+                    com.baton.app.ui.settings.SyncConflictListScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenConflict = { id ->
+                            navController.navigate(Routes.syncConflict(id))
+                        },
+                    )
+                }
+                composable(
+                    Routes.SYNC_CONFLICT_DIFF,
+                    arguments = listOf(
+                        androidx.navigation.navArgument("id") { type = androidx.navigation.NavType.LongType },
+                    ),
+                ) { entry ->
+                    val id = entry.arguments?.getLong("id") ?: return@composable
+                    com.baton.app.ui.settings.SyncConflictDiffScreen(
+                        conflictId = id,
+                        onBack = { navController.popBackStack() },
+                        onResolved = { navController.popBackStack() },
+                    )
+                }
             }
             OfflineIndicator(
                 isOnline = isOnline,
@@ -395,6 +422,10 @@ private fun MainScaffold(
             onOpenThreatModel = {
                 showSettings = false
                 navController.navigate(Routes.THREAT_MODEL)
+            },
+            onOpenSyncConflicts = {
+                showSettings = false
+                navController.navigate(Routes.SYNC_CONFLICTS)
             },
         )
     }
@@ -604,6 +635,13 @@ object Routes {
     // itself to the right window.
     const val RECOVERY_PHRASE = "privacy/recovery-phrase"
     const val THREAT_MODEL = "privacy/threat-model"
+    // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
+    // routes. The list screen is reachable from
+    // Settings; the diff screen is pushed when a
+    // conflict row is tapped.
+    const val SYNC_CONFLICTS = "sync/conflicts"
+    const val SYNC_CONFLICT_DIFF = "sync/conflict/{id}"
+    fun syncConflict(id: Long) = "sync/conflict/$id"
     fun person(id: String) = "person/$id"
 }
 
