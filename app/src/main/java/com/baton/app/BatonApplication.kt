@@ -46,6 +46,10 @@ class BatonApplication : Application(), Configuration.Provider {
         // (KEEP policy) so calling it on every cold start is
         // a no-op after the first.
         com.baton.app.data.work.WorkManagerInitializer.scheduleBackup(this)
+        // v1.8.0 (PROD-READINESS-P2-#5): the daily
+        // retention sweep is also scheduled. Same
+        // KEEP-on-re-enqueue idempotency as the backup.
+        com.baton.app.data.work.WorkManagerInitializer.scheduleRetention(this)
     }
 
     /**

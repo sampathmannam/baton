@@ -8,6 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppDao
 import com.baton.app.data.local.AppDatabase
+import com.baton.app.data.local.AuditChainEventDao
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.ImportantDateDao
 import com.baton.app.data.local.InstructionDao
@@ -112,6 +113,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_10_11,
                 AppDatabase.MIGRATION_11_12,
                 AppDatabase.MIGRATION_12_13,
+                AppDatabase.MIGRATION_13_14,
             )
             .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
@@ -196,4 +198,8 @@ object DatabaseModule {
 
     @Provides
     fun providePersonLinkDao(db: AppDatabase): PersonLinkDao = db.personLinkDao()
+
+    // v1.8.0 (PROD-READINESS-P2-#4): the audit-chain DAO.
+    @Provides
+    fun provideAuditChainEventDao(db: AppDatabase): AuditChainEventDao = db.auditChainEventDao()
 }

@@ -488,6 +488,23 @@ fun SettingsSheet(
                     appVersion.code,
                 ),
             )
+            // v1.8.0 (PROD-READINESS-P2-#6): the
+            // per-build branding rows. BRAND_NAME +
+            // BRAND_DEPARTMENT come from gradle
+            // properties at build time. The R&D
+            // default build (no -Pbrand.* flags)
+            // shows "Kaavalan note" and "—".
+            val branding = com.baton.app.BrandingConfig.get()
+            AboutRow(
+                label = stringResource(R.string.settings_brand_name),
+                value = branding.appName,
+            )
+            if (branding.hasDepartment) {
+                AboutRow(
+                    label = stringResource(R.string.settings_brand_department),
+                    value = branding.department,
+                )
+            }
             // Tier 0.6: the "On this phone" row now
             // shows both the row counts and the on-disk
             // size in MB. The values are rendered as a
