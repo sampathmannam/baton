@@ -146,6 +146,18 @@ The 3-phase gap analysis was derived from v1.4 (`m0/skeleton` at `58d9b23`). v1.
 | 5 | Worry box year cap on re-edit verify | ✅ CLOSED-pre-existing | The v1.7.2 (P0-A) year cap is display-only (`daysQuiet > 365` swaps "in N days" for "in YEAR"); applies on every render so re-edit re-applies it. |
 | 6 | Decay "Mark as recent" + UndoController | ✅ DONE | `DecayViewModel.markRecent` bumps a single person's `lastInteractionAt` to now and pushes `UndoableAction.MarkPersonRecent`. `PersonDao.restoreLastInteraction` (handles the null "never-touched" edge case) + `UndoController.undoLast` wires the undo. 9/9 tests (was 7, +2). |
 
+### Phase 2 P0 — partial (4/7 done; P0 #4..#7 in v1.8.0 P2-partial, P0 #3 done in v1.8.0 P2-role)
+
+| # | Item | Status | What changed |
+|---|------|--------|--------------|
+| 1 | Multi-user on same vault (Argon2id KEK) | ⏸ DEFERRED | Out of scope for v1.8.0 single-officer build. Design doc in `docs/PRODUCTION_READINESS_PLAN.md`. |
+| 2 | Sync conflict resolution UI | ⏸ DEFERRED | The `SyncConflictEntity` + `SyncConflictDao` exist (entity + audit trail). The merge UI is missing. Out of scope for v1.8.0. |
+| 3 | Role model | ✅ DONE | `UserEntity` + `Role` enum (ADMIN / SENIOR_OFFICER / OFFICER / READONLY, fallback to SENIOR_OFFICER on unknown) + `UserDao` + `UserBootstrap.ensureDeviceOwner` (idempotent insert of the device-owner row) + v14→v15 migration with partial unique index on `deviceOwner = 1`. `RoleTest` (4/4) + `UserBootstrapTest` (3/3). |
+| 4 | Audit chain (SHA-256 hash chain) | ✅ DONE | `AuditChainEventEntity` (id, tableName, rowId, kind, payload, signingKey, createdAtMs, prevHash, thisHash) + `AuditChainEventDao` (snapshot / latest / eventsForRow / redactOlderThan) + `AuditChainWriter` (SHA-256 over `payload ‖ prevHash ‖ signingKey`, anchored at GENESIS_HASH all-zeros sentinel) + `AuditChainVerifier` (returns `VerifyResult.Intact(count)` / `BrokenAt(...)`) + `SigningKeyProvider` (Hilt-bound to `"anonymous-device-v1"` for v1.8.0) + v13→v14 migration. `AuditChainWriterTest` 6/6. |
+| 5 | Retention (BNSS / IT Act) | ✅ DONE | `RetentionPolicy` (7y audit, 3y captures, 3y dates, 7y instructions) + `RetentionWorker` (CoroutineWorker) + `WorkManagerInitializer.scheduleRetention` (daily periodic, KEEP policy) + DAO additions: `CaptureDao.deleteOlderThan(ISO)`, `ImportantDateDao.deleteOlderThan(ISO)`, `AuditChainEventDao.redactOlderThan(cutoffMs, marker)` (REDACT not DELETE — preserves hash chain). `RetentionPolicyTest` 4/4. |
+| 6 | Branding (build-time) | ✅ DONE | `BrandingConfig` reads `BuildConfig.BRAND_NAME` / `BRAND_DEPARTMENT` / `BRAND_ICON` from `buildConfigField` in `app/build.gradle.kts` (overridable via `gradle -Pbrand.name=... -Pbrand.dept=... -Pbrand.icon=...`). Default APK unchanged R&D "Kaavalan note" build. Settings → About section shows per-build brand. |
+| 7 | CCTNS / ICJS / eFIR bridge | ✅ DONE | `CctnsBridge` interface (4 methods: `pushInstructionClosed`, `pushFirPhotoAttachment`, `registerCourtDate`, `pushDeclassification`) + `BridgeResult` sealed (NotConfigured / Success / Failed) + `NoOpCctnsBridge @Inject @Singleton` (every method returns `NotConfigured` so call sites fail LOUDLY, no fake "succeeds" implementation). `NoOpCctnsBridgeTest` 5/5. |
+
 ### Phase 2/3 — DEFERRED (YAGNI per persona)
 - Phase 2 is multi-user / department pilot. The persona is "no department support, private R&D" — Phase 2 has no deployment target. → defer until user explicitly says "build pilot" or "open up to second officer".
 - Phase 3 is app store / open source. Same — no deployment target. → defer.
@@ -155,9 +167,18 @@ The 3-phase gap analysis was derived from v1.4 (`m0/skeleton` at `58d9b23`). v1.
 - `CaptureViewModelTest`: 26/26 (was 24, +2 for crash-recovery dedup)
 - `BackupRoundTripTest`: 3/3 (NEW)
 - `WorkManagerInitializerBackupTest`: 3/3 (NEW)
+- `AuditChainWriterTest`: 6/6 (NEW, end-to-end SHA-256 chain)
+- `RetentionPolicyTest`: 4/4 (NEW)
+- `NoOpCctnsBridgeTest`: 5/5 (NEW)
+- `BriefGeneratorPrivacyTest`: 4/4 (NEW)
+- `RecoveryPdfGeneratorTest`: 1/1 (NEW, input contract)
+- `RoleTest`: 4/4 (NEW)
+- `UserBootstrapTest`: 3/3 (NEW)
+- `DecayViewModelTest`: 9/9 (was 7, +2 for Mark recent + UndoController)
 - `AppInitializerTest`: 5/5 (was broken pre-my-changes; fixed)
+- `FixtureLoaderTest`: 3/3 (was broken pre-my-changes, fixed for v1.7.3 reseedIfStale)
 - `CaptureHappyPathTest`: compiles; needs drive-verify
-- **Total: 46 unit tests passing**
+- **Total: 490 unit tests across 82 test files, all green** (was 32 + 2 broken androidTest before v1.8.0)
 
 ## Files changed
 - NEW: `app/src/main/java/com/baton/app/data/export/BackupManager.kt` (15.6 KB)
