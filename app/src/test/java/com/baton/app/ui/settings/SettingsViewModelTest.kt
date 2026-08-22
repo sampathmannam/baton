@@ -98,6 +98,11 @@ class SettingsViewModelTest {
             securePreferences = mockk<SecurePreferences>(relaxed = true),
             preferences = mockk<BatonPreferences>(relaxed = true),
             plainExporter = mockk<PlainExporter>(relaxed = true),
+            // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
+            // the BackupManager. Relaxed mock;
+            // the existing tests don't exercise
+            // the drive backup / restore paths.
+            backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
             // v1.6.2: developer-only fixture loader. None of the
             // existing tests touch this path; a relaxed mock is
             // sufficient. The dedicated loadFixture() behaviour

@@ -91,6 +91,7 @@ class SettingsVaultPinTest {
             securePreferences = securePreferences,
             preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
             plainExporter = mockk<com.baton.app.data.export.PlainExporter>(relaxed = true),
+            backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
             appContext = mockk<android.content.Context>(relaxed = true),
             fixtureLoader = mockk<com.baton.app.data.dev.FixtureLoader>(relaxed = true),
             // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict

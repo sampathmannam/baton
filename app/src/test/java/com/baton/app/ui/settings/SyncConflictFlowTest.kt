@@ -83,6 +83,7 @@ class SyncConflictFlowTest {
         securePreferences = mockk<SecurePreferences>(relaxed = true),
         preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
         plainExporter = mockk<PlainExporter>(relaxed = true),
+        backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
         fixtureLoader = mockk<FixtureLoader>(relaxed = true),
         syncConflictDao = conflictDao,
         // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
@@ -187,6 +188,7 @@ class SyncConflictFlowTest {
             securePreferences = mockk<SecurePreferences>(relaxed = true),
             preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
             plainExporter = mockk<PlainExporter>(relaxed = true),
+            backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
             fixtureLoader = mockk<FixtureLoader>(relaxed = true),
             syncConflictDao = db.syncConflictDao(),
             // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
