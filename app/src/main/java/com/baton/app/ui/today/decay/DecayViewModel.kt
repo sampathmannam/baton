@@ -8,6 +8,7 @@ import com.baton.app.data.local.entities.PersonEntity
 import com.baton.app.data.person.Person
 import com.baton.app.data.person.TierCadence
 import com.baton.app.data.person.toDomain
+import com.baton.app.data.preferences.BatonPreferences
 import com.baton.app.data.undo.UndoController
 import com.baton.app.data.undo.UndoableAction
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +41,7 @@ class DecayViewModel @Inject constructor(
     private val personDao: PersonDao,
     private val touchOnActivity: TouchPersonOnActivity,
     private val undoController: UndoController,
+    private val preferences: BatonPreferences,
 ) : ViewModel() {
 
     private val _filterDays = MutableStateFlow(DEFAULT_FILTER_DAYS)
@@ -75,6 +77,26 @@ class DecayViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = DecayUiState(),
     )
+
+    /**
+     * v1.9.6 (drive-verify polish #6): the one-time
+     * discoverability hint. Combines the visible-row count
+     * with the DataStore-backed "has the user already seen
+     * the hint?" flag. The UI reads this StateFlow and
+     * renders the [com.baton.app.ui.today.decay.DecayGestureHint]
+     * chip when `true`. Pure decision logic lives in
+     * [shouldShowGestureHint] so the contract is unit-testable
+     * without standing up the VM.
+     */
+    val gestureHintVisible: StateFlow<Boolean> = combine(
+        state,
+        preferences.decayGestureHintShown,
+    ) { s, hintShown -> shouldShowGestureHint(s.rows.size, hintShown) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false,
+        )
 
     fun setFilter(days: Int) {
         if (_filterDays.value != days) _filterDays.value = days
@@ -118,6 +140,11 @@ class DecayViewModel @Inject constructor(
      * (e.g. the user typed in another filter while the snackbar
      * was visible). The DAO call is idempotent so a duplicate
      * tap is a safe no-op.
+     *
+     * v1.9.6: also dismisses the discoverability hint — once
+     * the user has marked someone recent, the hint is no
+     * longer useful, so we set the pref so the chip never
+     * shows again.
      */
     fun markRecent(row: DecayRow) {
         val now = System.currentTimeMillis()
@@ -132,7 +159,23 @@ class DecayViewModel @Inject constructor(
                     previousUpdatedAt = row.person.updatedAt ?: nowIso,
                 )
             )
+            // v1.9.6: mark the gesture hint as seen in the
+            // same viewmodel-scope coroutine. The flag
+            // is observed by `gestureHintVisible`, so the
+            // chip disappears the next time the UI
+            // recomposes after this push completes.
+            preferences.setDecayGestureHintShown()
         }
+    }
+
+    /**
+     * v1.9.6: dismiss the one-time discoverability hint
+     * when the user taps the "Got it" affordance. Pure
+     * state mutation; the UI hides the chip on the next
+     * recomposition.
+     */
+    fun dismissGestureHint() {
+        viewModelScope.launch { preferences.setDecayGestureHintShown() }
     }
 
     private fun PersonEntity.toDecayRow(now: Long): DecayRow {
@@ -163,6 +206,34 @@ class DecayViewModel @Inject constructor(
     companion object {
         const val DEFAULT_FILTER_DAYS = 30
         val FILTER_OPTIONS = listOf(14, 30, 60, 90)
+        /**
+         * v1.9.6 (drive-verify polish #6): the minimum
+         * quiet-contact count for the discoverability hint
+         * to be worth showing. Below this count, the section
+         * is sparse and the user is unlikely to swipe; we
+         * suppress the hint to avoid noise on a near-empty
+         * Today.
+         */
+        const val HINT_MIN_ROWS = 3
+
+        /**
+         * v1.9.6: pure decision function — extracted from
+         * the Composable so the contract is unit-testable
+         * without standing up a Robolectric / Compose
+         * runtime. The UI calls this indirectly via the
+         * `gestureHintVisible` StateFlow; the unit test
+         * calls it directly with explicit inputs.
+         *
+         * Contract:
+         * - hint is visible only when the user has >= 3
+         *   quiet contacts on this screen AND the
+         *   `decay_gesture_hint_shown_v1` preference is
+         *   still `false`.
+         * - any `prefShown = true` input (including a
+         *   re-install) means the hint stays hidden.
+         */
+        fun shouldShowGestureHint(rowCount: Int, prefShown: Boolean): Boolean =
+            rowCount >= HINT_MIN_ROWS && !prefShown
     }
 }
 
