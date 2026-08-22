@@ -271,6 +271,15 @@
          to now so they leave the Quiet-a-while list. -->
     <string name="decay_mark_recent">Mark recent</string>
     <string name="a11y_decay_row_mark_recent">Mark as recently contacted</string>
+    <!-- v1.9.6 (drive-verify polish #6): one-time
+         discoverability hint for the v1.9.5 swipe-right +
+         long-press gestures on the DecayRow. Renders as a
+         small AssistChip above the filter row on first run
+         when the user has >= 3 quiet contacts. Tapping the
+         chip (or marking a row recent) hides it permanently
+         via BatonPreferences.decay_gesture_hint_shown_v1. -->
+    <string name="decay_gesture_hint">Swipe right or long-press a card to mark someone as recent.</string>
+    <string name="decay_gesture_hint_dismiss">Got it</string>
     <string name="status_quiet_a_while">Quiet a while</string>
     <string name="status_getting_due">Getting due</string>
     <string name="status_on_track">On track</string>
@@ -370,7 +379,7 @@
     <string name="worry_box_empty">No worries. The box is empty.</string>
     <string name="todays_win_title">Today\'s win</string>
     <string name="todays_win_summary">%1$d captures across %2$d people, %3$d carried over, %4$d sensitive.</string>
-    <string name="todays_win_summary_zero">No captures today yet. Tap the note bar to start.</string>
+    <string name="todays_win_summary_zero">No captures today yet. Add one from the Home tab.</string>
     <string name="person_links_section">Linked people</string>
     <string name="person_links_add">Add link</string>
     <string name="person_link_relation_reports_to">Reports to</string>

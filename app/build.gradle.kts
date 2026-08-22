@@ -245,8 +245,8 @@ android {
         // (was 5 in v1.9.4). Bugfix release;
         // no public-API or schema changes.
         // versionCode 36 -> 37.
-        versionCode = 37
-        versionName = "1.9.5"
+        versionCode = 38
+        versionName = "1.9.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

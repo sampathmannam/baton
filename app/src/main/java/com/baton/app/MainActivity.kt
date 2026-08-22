@@ -279,10 +279,20 @@ private fun MainScaffold(
     // undone" + an "Undo" button. 5 s auto-dismissal maps to
     // SnackbarDuration.Short. On undo, the controller's
     // `undoLast()` re-inserts the row.
+    //
+    // v1.9.6 (drive-verify polish #6): the message must show
+    // the human-readable name (`action.displayName`), NOT a
+    // UUID fragment (`action.id.take(6)`). The v1.9.5
+    // implementation read the first 6 chars of the contact's
+    // UUID, so the snackbar read "Mark recent 96ldae" instead
+    // of "Mark recent B. Ramesh Naidu". Every `UndoableAction`
+    // variant now declares its own `displayName` (person name,
+    // instruction title, capture preview, or person name for
+    // MarkPersonRecent).
     LaunchedEffect(lastUndo) {
         val action = lastUndo ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message = "${action.label} ${action.id.take(6)}",
+            message = "${action.label} ${action.displayName}",
             actionLabel = undoLabel,
             withDismissAction = true,
         )

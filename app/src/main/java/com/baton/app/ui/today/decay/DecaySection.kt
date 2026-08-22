@@ -23,11 +23,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -73,6 +77,7 @@ fun DecaySection(
     viewModel: DecayViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val showGestureHint by viewModel.gestureHintVisible.collectAsStateWithLifecycle()
     var showRedistribute by remember { mutableStateOf(false) }
 
     Column(
@@ -101,6 +106,22 @@ fun DecaySection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // v1.9.6 (drive-verify polish #6): one-time
+        // discoverability hint for the v1.9.5 swipe-right +
+        // long-press gestures. Renders above the filter chip
+        // row so the user reads the hint before they try to
+        // filter / sort. The hint is a small AssistChip with
+        // the hint text and a "Got it" close affordance; the
+        // same calm tertiaryContainer palette as the
+        // redistribution banner above. The hint is gated on
+        // (a) >= 3 quiet contacts (so the gesture is worth
+        // surfacing) AND (b) the DataStore flag
+        // `decay_gesture_hint_shown_v1` being `false`. Once
+        // dismissed, the flag flips to `true` and the chip
+        // never re-appears in this APK version.
+        if (showGestureHint) {
+            DecayGestureHint(onDismiss = { viewModel.dismissGestureHint() })
+        }
         FilterChipsRow(
             current = state.filterDays,
             onPick = viewModel::setFilter,
@@ -142,6 +163,50 @@ fun DecaySection(
                 showRedistribute = false
             },
             onDismiss = { showRedistribute = false },
+        )
+    }
+}
+
+/**
+ * v1.9.6 (drive-verify polish #6): the discoverability
+ * hint. Wraps the hint text + a "Got it" close affordance
+ * in a Row so both pieces of UI are clickable. The chip
+ * itself uses [AssistChip] (Material 3) with a leading
+ * close icon so the user has two ways to dismiss: tap
+ * the label body or tap the close icon. Either dispatches
+ * the same `onDismiss` lambda, which calls
+ * [DecayViewModel.dismissGestureHint] and persists the
+ * "shown" flag to DataStore.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DecayGestureHint(onDismiss: () -> Unit) {
+    val hintText = stringResource(R.string.decay_gesture_hint)
+    val dismissLabel = stringResource(R.string.decay_gesture_hint_dismiss)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AssistChip(
+            onClick = onDismiss,
+            label = {
+                Text(
+                    text = hintText,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            // v1.9.6: leading close icon so the user has an
+            // obvious dismiss affordance. The icon is
+            // intentional, not the default `Icons.Filled.Close`
+            // because Material 3 leads the chip with
+            // something actionable — Close is the action.
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = dismissLabel,
+                    modifier = Modifier.size(AssistChipDefaults.IconSize),
+                )
+            },
         )
     }
 }
