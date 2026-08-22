@@ -221,8 +221,32 @@ android {
         // stack fix, drop the visual gap; flip back
         // to horizontal controls because the stack
         // wasted too much vertical space).
-        versionCode = 36
-        versionName = "1.9.4"
+        // v1.9.5: versionCode 37, versionName "1.9.5".
+        // The fourth drive-verify polish. The
+        // v1.9.4 horizontal-sibling layout still
+        // left the "Mark recent" TextButton eating
+        // ~80dp of horizontal space, which forced
+        // the days-quiet text to ellipsize as
+        // "haven't touched in 93 d..." instead of
+        // the full "haven't touched in 93 days".
+        // v1.9.5 drops the TextButton entirely and
+        // moves the "Mark recent" affordance to:
+        //  1. Swipe-right past a 96dp threshold
+        //     (Material 3 standard list-item
+        //     side-effect action)
+        //  2. Long-press → ModalBottomSheet with
+        //     "Mark as recent" + "Cancel" actions
+        // The status pill (ReachOutPill) is the
+        // only right-side control. Left column
+        // gets the full available width so
+        // "haven't touched in 93 days" renders
+        // without ellipsis. 6+ full DecayRow
+        // cards visible on the Today screen
+        // (was 5 in v1.9.4). Bugfix release;
+        // no public-API or schema changes.
+        // versionCode 36 -> 37.
+        versionCode = 37
+        versionName = "1.9.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
