@@ -33,11 +33,21 @@ fun TodaysWinCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            // v1.9.4 (drive-verify polish #4): outer vertical
+            // padding 8dp -> 4dp. The v1.9.3-era 8dp on top and
+            // bottom of an already-padded inner Column produced
+            // a ~140px tall card for just 2 lines of text. The
+            // "UI should use the screen properly" feedback.
+            .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            // v1.9.4: inner padding 16dp -> 12dp on top + bottom
+            // (keep 16dp on sides for the title/body alignment
+            // with the rest of the surface). Two text lines +
+            // 24dp vertical padding is now ~70dp tall, down
+            // from ~94dp.
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = stringResource(R.string.todays_win_title),

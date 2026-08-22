@@ -67,8 +67,17 @@ fun DecaySection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            // v1.9.4 (drive-verify polish #4): outer vertical
+            // padding 8dp -> 4dp. The Decay section sits right
+            // under Today's win; shaving 8dp off the top +
+            // bottom gives the visible list 16dp more of
+            // breathing room without changing the card sizes.
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        // v1.9.4: inter-element spacing 8dp -> 6dp. Five
+        // gaps (header / subtitle / chips / banner / rows) at
+        // 6dp instead of 8dp = 10dp saved on the section as a
+        // whole. Below the "noise floor" the eye notices.
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
             text = stringResource(R.string.decay_section_title),
@@ -182,13 +191,27 @@ private fun DecayRow(
             // grows from ~88dp to ~110dp, which is still
             // well within the LazyColumn item budget and
             // gives the cards room to breathe.
-            .heightIn(min = 88.dp)
+            //
+            // v1.9.4 (drive-verify polish #4): min height
+            // 88dp -> 72dp. The 88dp floor was set in v1.7.3
+            // to prevent a layout-collapse bug at the bottom
+            // of the list, but with the v1.9.2 maxLines caps
+            // (name 2 + designation 1 + days-quiet 1, all
+            // ellipsized) the natural card height is already
+            // ~70dp. 72dp keeps the touch target comfortable
+            // without padding empty space. Cards now sit ~16dp
+            // closer together, so 5+ rows fit on the Today
+            // screen instead of 4.
+            .heightIn(min = 72.dp)
             .clickable(onClickLabel = openLabel, onClick = onClick),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                // v1.9.4: inner vertical padding 12dp -> 10dp.
+                // 4dp saved per card, 20dp+ saved across 5
+                // visible rows.
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -213,7 +236,11 @@ private fun DecayRow(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
-                Spacer(Modifier.height(2.dp))
+                // v1.9.4: Spacer 2dp -> 1dp. The 2dp gap was
+                // a 1.5-line-scaling-rounding-effect; 1dp is
+                // enough vertical separation between the
+                // designation and the days-quiet lines.
+                Spacer(Modifier.height(1.dp))
                 Text(
                     text = pluralStringResource(
                         // v1.6.4: pluralised (was hard-coded
@@ -225,29 +252,58 @@ private fun DecayRow(
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // v1.9.4: cap the days-quiet text to 1 line.
+                    // The right-side Mark recent + Quiet a while
+                    // pill together take ~420dp, leaving ~800dp
+                    // for the left column on a 1264px device.
+                    // "haven't touched in 93 days" fits, but
+                    // longer day counts (e.g. 180d) wrap to 2
+                    // lines and push the card height back up.
+                    // Capping at 1 line + ellipsize keeps
+                    // every card at the same compact height.
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(8.dp))
-            // v1.9.2: stack the Mark recent button + the
-            // status pill vertically in a right-aligned
-            // column. The v1.8.0 layout put them as
-            // siblings in the parent `Row`, which forced
-            // them to share the same vertical line and
-            // consumed ~250dp of horizontal width. A
-            // `Column` with `Arrangement.spacedBy(4.dp)` +
-            // `horizontalAlignment = Alignment.End` keeps
-            // the controls right-aligned and gives the
-            // left text column the full available width.
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            // v1.9.4: the right-side controls are back as
+            // horizontal siblings in the parent Row, NOT
+            // stacked vertically. The v1.9.2 `Column` stack
+            // doubled the card height (~292px on a 1264px
+            // device) — only 3 full DecayRow cards + a
+            // partial 4th fit on the visible Today screen.
+            // The user reported "UI should use the screen
+            // properly". The v1.9.2 fix (stack the
+            // controls) was needed because the v1.9.1
+            // row layout had no `maxLines` caps on the
+            // name + designation and the controls ate
+            // ~250dp of horizontal space, leaving only
+            // ~600dp for the name. With the v1.9.2
+            // `maxLines` caps in place (name 2 lines +
+            // designation 1 line, both ellipsized), the
+            // left column is bounded to ~3 lines, so a
+            // ~420dp right column leaves ~800dp for the
+            // name and designation — enough for any
+            // realistic Indian-police name. Card height
+            // drops from ~292px back to ~210px, the
+            // screen shows 4-5 full DecayRow cards
+            // instead of 3, and the bottom of the scroll
+            // is no longer a partial card. The
+            // "Mark recent" / "Quiet a while" controls
+            // are right-aligned in the same row.
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // v1.8.0 (PROD-READINESS-P1-#6): the per-row
                 // "Mark recent" button. Bumps the person's
                 // lastInteractionAt to now so they leave the
                 // Quiet-a-while list. The Undo snackbar is
                 // driven by the UndoController push in
-                // DecayViewModel.markRecent.
+                // DecayViewModel.markRecent. The TextButton
+                // uses a tight `contentPadding` so it sits
+                // next to the ReachOutPill on the same
+                // visual line.
                 androidx.compose.material3.TextButton(
                     onClick = onMarkRecent,
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
@@ -260,6 +316,7 @@ private fun DecayRow(
                         style = MaterialTheme.typography.labelMedium,
                     )
                 }
+                Spacer(Modifier.width(4.dp))
                 ReachOutPill(row.status)
             }
         }

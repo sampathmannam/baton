@@ -185,8 +185,17 @@ fun TodayScreen(
                 // in the Decay list) now sits flush against
                 // the top of the bottom nav instead of clipping
                 // behind it.
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                //
+                // v1.9.4 (drive-verify polish #4): vertical
+                // contentPadding 8dp -> 4dp + spacedBy 8dp -> 4dp.
+                // The user's "UI should use the screen
+                // properly" feedback. 4dp of vertical
+                // contentPadding + 4dp of inter-item spacing
+                // gives the surface room to breathe without
+                // wasting 1/4 of the screen on gaps. 5+ cards
+                // now fit on the Today screen instead of 4.
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
             // v2.0 Tier 2 (§2.11): Today's win summary.
             item { TodaysWinCard() }
