@@ -85,6 +85,10 @@ class SyncConflictFlowTest {
         plainExporter = mockk<PlainExporter>(relaxed = true),
         fixtureLoader = mockk<FixtureLoader>(relaxed = true),
         syncConflictDao = conflictDao,
+        // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
+        // channel. Relaxed mock; the conflict flow test
+        // doesn't exercise the check path.
+        updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
         appContext = ApplicationProvider.getApplicationContext(),
     )
 
@@ -185,6 +189,9 @@ class SyncConflictFlowTest {
             plainExporter = mockk<PlainExporter>(relaxed = true),
             fixtureLoader = mockk<FixtureLoader>(relaxed = true),
             syncConflictDao = db.syncConflictDao(),
+            // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
+            // channel. Relaxed mock.
+            updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
             appContext = context,
         )
         assertEquals(0, freshVm.syncConflictCount.value)
