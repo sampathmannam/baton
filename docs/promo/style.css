@@ -1,0 +1,89 @@
+/* Baton promo page styles. Single CSS file, no build step. */
+
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #fafaf7;
+  --bg-alt: #f0f0ec;
+  --fg: #1a1a1a;
+  --fg-muted: #555;
+  --accent: #4f46e5;
+  --accent-fg: #ffffff;
+  --border: #e0e0d8;
+  --max-width: 64rem;
+  --radius: 8px;
+  --gap: 1.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16161a;
+    --bg-alt: #1f1f25;
+    --fg: #f0f0f0;
+    --fg-muted: #a0a0a0;
+    --border: #38383f;
+  }
+}
+
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: 0 1.5rem; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 2.4rem; line-height: 1.2; margin: 0 0 1rem; }
+h2 { font-size: 1.6rem; margin: 0 0 1rem; }
+h3 { font-size: 1.15rem; margin: 0 0 0.5rem; }
+p { margin: 0 0 1rem; }
+ul { padding-left: 1.5rem; margin: 0 0 1rem; }
+li { margin-bottom: 0.25rem; }
+
+/* Header / nav */
+.site-header { background: var(--bg); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+.site-header .wrap { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: var(--fg); }
+.brand img { width: 36px; height: 36px; }
+.site-nav { display: flex; gap: 1rem; }
+.site-nav a { color: var(--fg-muted); }
+.site-nav a:hover { color: var(--fg); text-decoration: none; }
+
+/* Hero */
+.hero { padding: 4rem 0; text-align: center; }
+.hero h1 { max-width: 30rem; margin: 0 auto 1rem; }
+.hero .lede { font-size: 1.15rem; color: var(--fg-muted); max-width: 36rem; margin: 0 auto 1.5rem; }
+.eyebrow { text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); font-size: 0.85rem; }
+.cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.meta { color: var(--fg-muted); font-size: 0.9rem; margin-top: 0.5rem; }
+
+/* Buttons */
+.btn { display: inline-block; padding: 0.6rem 1.25rem; border-radius: var(--radius); font-weight: 500; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { text-decoration: none; opacity: 0.9; }
+.btn.secondary { background: transparent; color: var(--fg); border: 1px solid var(--border); }
+.btn.secondary:hover { text-decoration: none; background: var(--bg-alt); }
+
+/* Sections */
+.section { padding: 3rem 0; }
+.section.alt { background: var(--bg-alt); }
+.section h2 { text-align: center; margin-bottom: 2rem; }
+
+/* Grid */
+.grid { display: grid; gap: var(--gap); }
+.grid.two { grid-template-columns: 1fr; }
+.grid.three { grid-template-columns: 1fr; }
+.feature { background: var(--bg); padding: 1.5rem; border-radius: var(--radius); border: 1px solid var(--border); }
+.section.alt .feature { background: var(--bg-alt); }
+
+@media (min-width: 700px) {
+  .grid.two { grid-template-columns: 1fr 1fr; }
+  .grid.three { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* Footer */
+.site-footer { background: var(--bg); border-top: 1px solid var(--border); padding: 1.5rem 0; text-align: center; color: var(--fg-muted); font-size: 0.9rem; }
