@@ -579,15 +579,21 @@ fun SettingsSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // v1.9.0 (PROD-READINESS-P3-P1-#8): the
-            // "Back up to Google Drive" row. The
-            // tap launches the system file picker
-            // via [driveBackupLauncher] (declared
-            // near the top of the Settings sheet);
-            // the user picks a Drive folder (or any
-            // folder — the system file picker
-            // supports Google Drive, Dropbox,
-            // local storage, etc.).
+            // v1.9.0 (PROD-READINESS-P3-P1-#8) +
+            // v1.9.1 honest re-label: the row was
+            // labelled "Back up to Google Drive" in
+            // v1.9.0 but the implementation uses the
+            // system file picker (SAF) and never talks
+            // to Google Drive directly. The user CAN
+            // pick a Drive folder via the system
+            // picker, but they can also pick local
+            // storage, Dropbox, OneDrive, etc. The
+            // label now reads "Save backup to a
+            // folder..." with a subtitle that lists
+            // the destinations. The tap launches the
+            // system file picker via
+            // [driveBackupLauncher] (declared near
+            // the top of the Settings sheet).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -607,19 +613,19 @@ fun SettingsSheet(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = stringResource(R.string.settings_drive_backup_signed_out),
+                    text = stringResource(R.string.settings_drive_backup_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // v1.9.0 (PROD-READINESS-P3-P1-#9): the
-            // "Restore from backup" row. The tap
-            // launches the system file picker
-            // via [restoreBackupLauncher] (declared
-            // near the top of the Settings sheet);
-            // the user picks a backup file (from
-            // Drive, local storage, etc.) and the
-            // app applies it to the local DB.
+            // v1.9.0 (PROD-READINESS-P3-P1-#9) +
+            // v1.9.1 string resource extraction: the
+            // v1.9.0 row had a hardcoded
+            // "Restore from backup" + "(on a new device)"
+            // pair. Moved to string resources so the
+            // same translations path as the save row
+            // above applies (Tamil + Hindi already
+            // shipped in v1.8.0).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -631,11 +637,11 @@ fun SettingsSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = "Restore from backup",
+                    text = stringResource(R.string.settings_drive_restore),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = "(on a new device)",
+                    text = stringResource(R.string.settings_drive_restore_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

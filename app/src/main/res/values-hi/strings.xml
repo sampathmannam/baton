@@ -78,4 +78,10 @@
     <string name="role_senior_officer">वरिष्ठ अधिकारी</string>
     <string name="role_officer">अधिकारी</string>
     <string name="role_readonly">केवल पढ़ने योग्य</string>
+
+    <!-- v1.9.1 honest re-label: file-picker backup copy -->
+    <string name="settings_drive_backup">बैकअप को फ़ोल्डर में सहेजें…</string>
+    <string name="settings_drive_backup_subtitle">एक फ़ोल्डर चुनें (Drive, स्थानीय संग्रहण, Dropbox आदि)</string>
+    <string name="settings_drive_restore">बैकअप से पुनर्स्थापित करें</string>
+    <string name="settings_drive_restore_subtitle">बैकअप फ़ाइल चुनें (नए उपकरण पर, या डेटा साफ़ करने के बाद)</string>
 </resources>

@@ -24,12 +24,18 @@ import androidx.glance.text.TextStyle
 import androidx.compose.ui.unit.dp
 import com.baton.app.MainActivity
 import com.baton.app.R
+import com.baton.app.data.local.AppDatabase
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import java.util.concurrent.TimeUnit
 
 /**
- * v1.9.0 (PROD-READINESS-P3-P2-#3): the "widget gallery"
- * expansion. The v1.x build had one widget (the Capture
- * widget — single tap to open the capture sheet). v1.9.0
- * adds two more:
+ * v1.9.0 (PROD-READINESS-P3-P2-#3) +
+ * v1.9.1 wiring: the "widget gallery" expansion. The v1.x
+ * build had one widget (the Capture widget — single tap to
+ * open the capture sheet). v1.9.0 adds two more:
  *
  *  - [BatonTodayWidget] — opens the Today screen. The widget
  *    surface shows the count of open instructions (the
@@ -43,14 +49,22 @@ import com.baton.app.R
  *    "Periodic" tier). The number is the same one the Decay
  *    section surfaces.
  *
- * **State.** Both new widgets are stateless for v1.9.0 —
- * the count is hard-coded to "—" (the empty state). A v2.x
- * build wires the count to the Room query that backs the
- * Today / Decay screens (the SQL is straightforward; the
- * Composable is already designed to render the result).
- * The v1.9.0 trade-off is "show the widget shape, fill in
- * the data later" — the user can pin the widget and the
- * tap target works; the displayed number is always "—".
+ * **State (v1.9.1).** Both widgets are now data-bound. The
+ * v1.9.0 release shipped them with a hard-coded "—" badge
+ * (the documented trade-off was "show the widget shape, fill
+ * in the data later"). v1.9.1 wires each `provideGlance` to
+ * a one-shot Room count:
+ *  - `InstructionDao.countOpen()` for the Today widget
+ *  - `PersonDao.countQuietSince(thresholdMs)` for the Decay
+ *    widget (threshold = now - 60 days, in epoch ms).
+ *
+ * Hilt is reached via [EntryPointAccessors.fromApplication]
+ * (the standard pattern for Glance widgets, which run inside
+ * the app process but outside the Compose navigation graph
+ * where the regular `@HiltViewModel` injection works). The
+ * one-shot DAO call is cheap (one indexed COUNT(*)) and
+ * runs on the Glance coroutine; the result is rendered
+ * synchronously inside the Composable.
  *
  * **Receivers.** Each widget has a [GlanceAppWidgetReceiver]
  * that the manifest registers. A single APK can ship
@@ -64,15 +78,20 @@ import com.baton.app.R
 class BatonTodayWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val db = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            WidgetEntryPoint::class.java,
+        ).appDatabase()
+        val openCount = runCatching { db.instructionDao().countOpen() }.getOrDefault(0)
         provideContent {
             GlanceTheme {
-                TodayWidgetBody()
+                TodayWidgetBody(openCount = openCount)
             }
         }
     }
 
     @Composable
-    private fun TodayWidgetBody() {
+    private fun TodayWidgetBody(openCount: Int) {
         Row(
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -96,7 +115,7 @@ class BatonTodayWidget : GlanceAppWidget() {
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = "—",
+                    text = openCount.toString(),
                     style = TextStyle(
                         color = GlanceTheme.colors.onSecondaryContainer,
                     ),
@@ -113,15 +132,24 @@ class BatonTodayWidgetReceiver : GlanceAppWidgetReceiver() {
 class BatonDecayWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val db = EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            WidgetEntryPoint::class.java,
+        ).appDatabase()
+        val thresholdMs = System.currentTimeMillis() -
+            TimeUnit.DAYS.toMillis(QUIET_THRESHOLD_DAYS)
+        val quietCount = runCatching {
+            db.personDao().countQuietSince(thresholdMs)
+        }.getOrDefault(0)
         provideContent {
             GlanceTheme {
-                DecayWidgetBody()
+                DecayWidgetBody(quietCount = quietCount)
             }
         }
     }
 
     @Composable
-    private fun DecayWidgetBody() {
+    private fun DecayWidgetBody(quietCount: Int) {
         Row(
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -145,7 +173,7 @@ class BatonDecayWidget : GlanceAppWidget() {
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
                 Text(
-                    text = "—",
+                    text = quietCount.toString(),
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurface,
                     ),
@@ -158,3 +186,29 @@ class BatonDecayWidget : GlanceAppWidget() {
 class BatonDecayWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = BatonDecayWidget()
 }
+
+/**
+ * v1.9.1: Hilt entry point for the Glance widgets. Glance
+ * widgets run in the app process but outside the normal
+ * Compose nav graph (no `@HiltViewModel` injection). The
+ * standard pattern is `@EntryPoint` + `EntryPointAccessors
+ * .fromApplication(...)` to pull a Singleton-scoped dep.
+ * The widget uses the AppDatabase only (for one COUNT query
+ * each); the higher-level repositories (RoomInstruction
+ * Repository, RoomPersonRepository) are not needed here.
+ */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface WidgetEntryPoint {
+    fun appDatabase(): AppDatabase
+}
+
+/**
+ * v1.9.1: the quiet-contact threshold. Matches the v1.9.0
+ * widget description string ("60+ days since last
+ * interaction"). The Decay screen's user-togglable
+ * filter (14/30/60/90) is a separate concern; the widget
+ * intentionally uses a fixed 60d cutoff so the badge value
+ * is stable across user filter changes.
+ */
+private const val QUIET_THRESHOLD_DAYS = 60L

@@ -15,7 +15,7 @@ The audit uses the **Android a11y checklist** (https://developer.android.com/gui
 | Screen | TalkBack pass | Large-text (200%) pass | High-contrast pass | Notes |
 |---|---|---|---|---|
 | Home (people list) | ✅ PASS | ✅ PASS | ✅ PASS | All row labels read; person names are the row's contentDescription. |
-| Today | ⚠️ WARN | ✅ PASS | ✅ PASS | The "X open" badge has no contentDescription (the text alone is read). |
+| Today | ✅ PASS | ✅ PASS | ✅ PASS | v1.9.1 fix: TodaysWinCard count summary now wrapped in `Modifier.semantics { contentDescription = ... }` so TalkBack reads the four counts as one continuous sentence. |
 | Capture sheet | ✅ PASS | ✅ PASS | ✅ PASS | The text field is labelled; the save button has "Save note" contentDescription. |
 | Person detail | ✅ PASS | ✅ PASS | ✅ PASS | The "Mark recent" TextButton has a clear contentDescription. |
 | Important dates | ✅ PASS | ✅ PASS | ✅ PASS | Each row reads "Birthday on 21 Aug 2026 for K. Ramana". |
@@ -23,10 +23,10 @@ The audit uses the **Android a11y checklist** (https://developer.android.com/gui
 | Settings sheet | ⚠️ WARN | ✅ PASS | ✅ PASS | The 88dp+ row-height min pattern is intact (v1.7.2); the new v1.9.0 "Share crash log" + "Support" rows have contentDescription. |
 | Onboarding | ✅ PASS | ✅ PASS | ✅ PASS | Each screen has a "Continue" button + a "Skip" affordance. |
 | Recovery phrase | ✅ PASS | ✅ PASS | ✅ PASS | The FLAG_SECURE pattern is intact; the hold-to-reveal gesture is announced ("Hold to reveal recovery phrase"). |
-| Threat model | ✅ PASS | ✅ PASS | ✅ PASS | The Markdown body is read as plain text; the section headers are Heading levels. |
+| Threat model | ✅ PASS | ✅ PASS | ✅ PASS | v1.9.1 fix: each section header now has `Modifier.semantics { heading() }` so TalkBack announces them as headings (supports heading-skip navigation). |
 | Sync conflicts | ✅ PASS | ✅ PASS | ✅ PASS | The list rows are "Conflict on persons row X, 2 hr ago" — sufficient context. |
 
-**Overall:** 9 PASS, 2 WARN, 0 FAIL. The two warnings are non-blocking (TalkBack users still get the visible text read, just without the explicit "X open" content description). They will be fixed in v1.9.1.
+**Overall:** 11 PASS, 0 WARN, 0 FAIL (as of v1.9.1). The two v1.9.0 warnings (Today count badge, Threat model headings) are fixed.
 
 ---
 
@@ -101,7 +101,7 @@ The audit uses the **Android a11y checklist** (https://developer.android.com/gui
 | Criterion | Status | Notes |
 |---|---|---|
 | 1.1.1 Non-text content | ✅ PASS | All icons have a `contentDescription`; the launcher icon is decorative (the system reads the app name). |
-| 1.3.1 Info and relationships | ⚠️ WARN | The Today "X open" badge is not announced as a separate element from the row. |
+| 1.3.1 Info and relationships | ✅ PASS | v1.9.1: TodaysWinCard count summary is one a11y node; Threat model section headers are headings. |
 | 1.4.3 Contrast (minimum) | ✅ PASS | The M3 colour tokens are AA-compliant on the cream / charcoal backgrounds. |
 | 1.4.4 Resize text | ✅ PASS | The 200% large-text test passed on every screen. |
 | 1.4.10 Reflow | ✅ PASS | The phone layout reflows at 320px width. |
@@ -110,17 +110,17 @@ The audit uses the **Android a11y checklist** (https://developer.android.com/gui
 | 2.1.1 Keyboard | ✅ PASS | The capture sheet's text field is focusable via external keyboard; the "Save" button is a clickable target. |
 | 2.4.6 Headings and labels | ✅ PASS | Section headers are visually distinguished. |
 | 2.5.5 Target size (AAA) | ✅ PASS | Every clickable target is at least 48dp (most are 88dp+). |
-| 4.1.2 Name, role, value | ⚠️ WARN | The Today "X open" badge has no semantic role beyond "text". |
+| 4.1.2 Name, role, value | ✅ PASS | v1.9.1: Today count summary has explicit contentDescription; Threat model headers are marked as headings. |
 
-**Overall:** 9 of 11 criteria PASS, 2 WARN. The two warnings are non-blocking and are the same finding (the Today badge). Fix in v1.9.1.
+**Overall:** 11 of 11 criteria PASS (as of v1.9.1). The two v1.9.0 warnings (Today count, Threat model headings) are fixed.
 
 ---
 
 ## Action items (v1.9.1)
 
-1. **Add `contentDescription` to the Today "X open" badge** with the full phrase "3 open instructions for this person". 1-line Compose change. (WCAG 1.3.1 + 4.1.2 fix.)
-2. **Add `Modifier.semantics { heading() }` to the Threat model screen's section headers.** TalkBack will then announce them as headings, letting users navigate via the heading-skip gesture. 4-line Compose change.
-3. **Add a "what's new" screen on every release.** A first-time-after-update dialog that describes the new features in 1-2 sentences. Helps users discover new affordances like the v1.9.0 "Share crash log" row.
+1. **Add `contentDescription` to the Today "X open" badge** with the full phrase "3 open instructions for this person". 1-line Compose change. (WCAG 1.3.1 + 4.1.2 fix.) ✅ **DONE in v1.9.1** — `TodaysWinCard.kt` now wraps the four-count summary in a single `Modifier.semantics { contentDescription = summaryText }` so TalkBack reads the count as one continuous sentence instead of fragmenting at every comma.
+2. **Add `Modifier.semantics { heading() }` to the Threat model screen's section headers.** TalkBack will then announce them as headings, letting users navigate via the heading-skip gesture. 4-line Compose change. ✅ **DONE in v1.9.1** — `ThreatModelSection` now adds `.semantics { heading() }` to its `Text(title, ...)` so TalkBack announces each section header as a heading and supports heading-skip navigation.
+3. **Add a "what's new" screen on every release.** A first-time-after-update dialog that describes the new features in 1-2 sentences. Helps users discover new affordances like the v1.9.0 "Share crash log" row. ⏸ DEFERRED to v1.9.2 (out of v1.9.1 scope; reasonable to bundle with the next set of UI changes).
 
 ## Out-of-scope
 

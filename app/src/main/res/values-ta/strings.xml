@@ -81,4 +81,10 @@
     <string name="role_senior_officer">மூத்த அதிகாரி</string>
     <string name="role_officer">அதிகாரி</string>
     <string name="role_readonly">படிக்க மட்டும்</string>
+
+    <!-- v1.9.1 honest re-label: file-picker backup copy -->
+    <string name="settings_drive_backup">கோப்புறையில் காப்புப்பிரதி சேமி…</string>
+    <string name="settings_drive_backup_subtitle">ஒரு கோப்புறையைத் தேர்ந்தெடுக்கவும் (டிரைவ், உள்ளக சேமிப்பு, டிராப்பாக்ஸ் போன்றவை)</string>
+    <string name="settings_drive_restore">காப்புப்பிரதியிலிருந்து மீட்டமை</string>
+    <string name="settings_drive_restore_subtitle">காப்புப்பிரதி கோப்பைத் தேர்ந்தெடுக்கவும் (புதிய சாதனத்தில் அல்லது தரவு அழிக்கப்பட்ட பிறகு)</string>
 </resources>

@@ -634,14 +634,26 @@
     <string name="crash_log_share_subject">Baton crash report</string>
     <string name="crash_log_share_body">Baton %1$s (build %2$d) crashed. See the attached crash log.</string>
 
-    <!-- v1.9.0 (PROD-READINESS-P3-P1-#8): Drive backup -->
-    <string name="settings_drive_backup">Back up to Google Drive</string>
-    <string name="settings_drive_backup_signed_out">Sign in to Google to enable Drive backup</string>
-    <string name="settings_drive_backup_signed_in">Backed up to Drive on %1$s</string>
-    <string name="settings_drive_backup_working">Uploading to Drive�</string>
-    <string name="settings_drive_backup_failed">Drive backup failed: %1$s</string>
-    <string name="settings_drive_sign_in">Sign in to Google</string>
-    <string name="settings_drive_sign_out">Sign out of Google</string>
+    <!-- v1.9.0 (PROD-READINESS-P3-P1-#8): file-picker backup.
+         v1.9.1 honest re-label: the v1.9.0 copy promised Google
+         Drive specifically. The implementation uses the system
+         file picker (SAF) and never talks to Google Drive
+         directly. The user CAN pick a Drive folder via the
+         system picker, but they can also pick local storage,
+         Dropbox, OneDrive, etc. The label now says "Save
+         backup to a folder..." so the user knows they're
+         picking a destination, not signing into Drive. The
+         "Sign in to Google" / "Sign out of Google" / "Uploading
+         to Drive" rows are removed (they implied a Google
+         Sign-In flow that does not exist). The "Working" / "Failed"
+         states are kept (they are status messages, not promises). -->
+    <string name="settings_drive_backup">Save backup to a folder…</string>
+    <string name="settings_drive_backup_subtitle">Pick a folder (Drive, local storage, Dropbox, etc.)</string>
+    <string name="settings_drive_backup_signed_in">Last saved on %1$s</string>
+    <string name="settings_drive_backup_working">Saving…</string>
+    <string name="settings_drive_backup_failed">Save failed: %1$s</string>
+    <string name="settings_drive_restore">Restore from backup</string>
+    <string name="settings_drive_restore_subtitle">Pick a backup file (on a new device, or after clearing data)</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery descriptions -->
     <string name="widget_today_description">Tap to open Today. The badge shows the count of open instructions.</string>

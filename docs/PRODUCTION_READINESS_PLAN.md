@@ -116,6 +116,27 @@ Goal: a stranger can install from Play Store, pass a security audit, and use it 
 
 ## Status
 
+### 2026-08-22 — v1.9.1 honest deployability polish (SOTA, this branch is `m0/skeleton-v1.7.0`)
+
+The v1.9.0 release shipped a credible pre-release build that compiled to a signed APK and had the security/policy docs in place. The fresh-eyes honest deployability rating was 5.5/10 — "credible pre-release, not something I'd put in front of a real user today without 2-4 more weeks of polish". v1.9.1 is the polish pass that closes every P0 + P1 from that critique:
+
+| # | Item | Status | What changed |
+|---|------|--------|--------------|
+| 1 | A11y: Today "X open" badge contentDescription | ✅ DONE | `TodaysWinCard` wraps the four-count summary in a single `Modifier.semantics { contentDescription = summaryText }` so TalkBack reads the count as one continuous sentence instead of fragmenting at every comma. |
+| 2 | A11y: Threat model section heading semantics | ✅ DONE | `ThreatModelSection` adds `.semantics { heading() }` to the title `Text` so TalkBack announces each section header as a heading and supports heading-skip navigation. |
+| 3 | Drive label lie | ✅ DONE | `settings_drive_backup` string renamed from "Back up to Google Drive" to "Save backup to a folder…". The Drive-only-sign-in rows removed. New `settings_drive_restore` string replaces the hardcoded "Restore from backup" pair. 4 new strings translated into Tamil + Hindi. |
+| 4 | Onboarding 4-screen wire-up | ✅ DONE | New `NotJustNotes` page in `OnboardingScreen` uses the v1.9.0 `onboarding_title` / `onboarding_subtitle` / `onboarding_screen_1..4_*` strings. The first-run flow is now Welcome -> Privacy -> "Baton is not a notes app" -> Get Started. |
+| 5 | Widget badge data wiring | ✅ DONE | New `InstructionDao.countOpen()` + `PersonDao.countQuietSince(thresholdMs)` (4 tests). `BatonTodayWidget` and `BatonDecayWidget` use a Hilt `@EntryPoint` (`WidgetEntryPoint`) to reach `AppDatabase` and render the live count via `EntryPointAccessors.fromApplication`. |
+| 6 | Per-ABI splits | ✅ DONE | `splits { abi { isEnable = true; include("armeabi-v7a", "arm64-v8a", "x86", "x86_64"); isUniversalApk = true } }` in `app/build.gradle.kts`. arm64-v8a APK is now 23.4 MB (down from 68 MB universal). Universal APK still produced for sideload. |
+| 7 | Play Store screenshot stubs | ✅ DONE | 8 placeholder PNGs at 1080x1920 in `docs/play-store-screenshots/` (70 KB each, branded palette, red "PLACEHOLDER" stripe). Generator: `app/src/test/java/com/baton/app/tools/GeneratePlayStoreScreenshots.py`. `play-store-listing.md` updated with the path + table. |
+| 8 | Recovery phrase E2E test | ✅ DONE | New `RecoveryPhraseEndToEndTest` (4 tests) pins the BIP39 generation -> checksum validate -> SHA-256 hash pipeline. The SecurePreferences round-trip is documented as out-of-scope (requires AndroidKeyStore that the plain Robolectric runtime does not provide). |
+
+**v1.9.1 metrics:** 533 unit tests across 91 test files, all green (was 525 / 89 in v1.9.0; +8 tests, +2 files). Build pipeline solid. Release APK sizes: universal 68 MB, arm64-v8a 23.4 MB, armeabi-v7a 17.6 MB, x86 23.6 MB, x86_64 24.6 MB.
+
+### 2026-08-22 — v1.9.0 deployable SOTA (this branch is `m0/skeleton-v1.7.0` at `769ece9`)
+
+v1.9.0 closed every Phase 3 P0 / P1 (crash log, support email, IARC content rating, update channel, Drive backup + restore via SAF, widget gallery, tablet form factor, Play Store listing, a11y audit, promo page, onboarding strings) and the v1.8.0 Phase 1 + Phase 2 P0s. Honest deployability rating from a fresh perspective: **5.5/10**. The 8 v1.9.1 items above are the v1.9.0 critique's P0 + P1 list.
+
 ### 2026-08-21 — v1.7.4 SOTA audit (this branch is `m0/skeleton-v1.7.0` at `60f4a9a`)
 
 The 3-phase gap analysis was derived from v1.4 (`m0/skeleton` at `58d9b23`). v1.7.4 has had 4 polish cycles since (v1.7.0 → v1.7.4). Re-audit per item:

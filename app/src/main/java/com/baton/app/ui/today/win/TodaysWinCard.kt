@@ -12,6 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -42,34 +44,44 @@ fun TodaysWinCard(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
+            // v1.9.1 (a11y-audit-action-#1): merge the four
+            // counts into a single accessibility node so TalkBack
+            // reads them as one continuous sentence. Without this,
+            // the screen reader pauses at every comma+number and
+            // announces each fragment as a separate "text" node,
+            // which is the WCAG 1.3.1 + 4.1.2 finding from the
+            // a11y audit. The visible text is unchanged; only the
+            // semantic announcement is consolidated.
+            val summaryText = if (state.isEmpty) {
+                stringResource(R.string.todays_win_summary_zero)
+            } else {
+                // v1.6.6 P1: per-segment pluralization. The
+                // previous single stringResource call used 4
+                // %d args in a template that could not change
+                // "1 capture" vs "5 captures", "1 person" vs
+                // "5 people", etc. Build the sentence from
+                // individual pluralStringResource calls joined
+                // by ", " and ending with ".".
+                buildString {
+                    append(pluralStringResource(R.plurals.count_captures, state.captureCount, state.captureCount))
+                    append(stringResource(R.string.count_connector_comma))
+                    append(pluralStringResource(R.plurals.count_people, state.peopleCount, state.peopleCount))
+                    append(stringResource(R.string.count_connector_comma))
+                    // v1.6.8: count_carried_over and count_sensitive
+                    // are now <string> (the v1.6.6 <plurals> had
+                    // identical one/other items so the wrapper was
+                    // wrong). Use stringResource, no quantity arg.
+                    append(stringResource(R.string.count_carried_over, state.carriedOverCount))
+                    append(stringResource(R.string.count_connector_comma))
+                    append(stringResource(R.string.count_sensitive, state.sensitiveCount))
+                    append('.')
+                }
+            }
             Text(
-                text = if (state.isEmpty) {
-                    stringResource(R.string.todays_win_summary_zero)
-                } else {
-                    // v1.6.6 P1: per-segment pluralization. The
-                    // previous single stringResource call used 4
-                    // %d args in a template that could not change
-                    // "1 capture" vs "5 captures", "1 person" vs
-                    // "5 people", etc. Build the sentence from
-                    // individual pluralStringResource calls joined
-                    // by ", " and ending with ".".
-                    buildString {
-                        append(pluralStringResource(R.plurals.count_captures, state.captureCount, state.captureCount))
-                        append(stringResource(R.string.count_connector_comma))
-                        append(pluralStringResource(R.plurals.count_people, state.peopleCount, state.peopleCount))
-                        append(stringResource(R.string.count_connector_comma))
-                        // v1.6.8: count_carried_over and count_sensitive
-                        // are now <string> (the v1.6.6 <plurals> had
-                        // identical one/other items so the wrapper was
-                        // wrong). Use stringResource, no quantity arg.
-                        append(stringResource(R.string.count_carried_over, state.carriedOverCount))
-                        append(stringResource(R.string.count_connector_comma))
-                        append(stringResource(R.string.count_sensitive, state.sensitiveCount))
-                        append('.')
-                    }
-                },
+                text = summaryText,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.semantics { contentDescription = summaryText },
             )
         }
     }
