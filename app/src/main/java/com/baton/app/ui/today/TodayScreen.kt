@@ -170,26 +170,22 @@ fun TodayScreen(
                 // cards no longer need their own horizontal
                 // padding (consistent with HomeScreen.PersonList).
                 //
-                // v1.9.2: bottom contentPadding bumped from 8dp
-                // to 96dp. The Today screen's bottom nav
-                // (Home / Today / Settings) is rendered by
-                // MainActivity OUTSIDE the Scaffold, so the
-                // Scaffold's `padding` parameter does not
-                // account for it. Without a 96dp bottom buffer
-                // the last card in the LazyColumn (e.g.
-                // "K. Magesh" in the Decay list) clips behind
-                // the bottom nav at the very end of the scroll.
-                // 96dp matches the v1.6.4 bottom-nav bottom-
-                // padding constant used by the bottom-nav row
-                // itself; the LazyColumn scroll now ends with
-                // a full nav-height of empty space below the
-                // last card.
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 8.dp,
-                    bottom = 96.dp,
-                ),
+                // v1.9.2: bottom contentPadding reset to 8dp
+                // (the v1.6.3 default). The earlier v1.9.2 bump
+                // to 96dp was meant to clear the bottom nav
+                // (Home / Today / Settings) which is rendered
+                // by MainActivity OUTSIDE the Scaffold, but
+                // the Scaffold's `padding` parameter already
+                // accounts for the bottom nav's height (it is
+                // the Scaffold's `bottomBar`). Adding 96dp on
+                // top of that produced a visible dark gap of
+                // ~288px between the last card and the nav.
+                // Removing the extra contentPadding eliminates
+                // the gap and the last card (e.g. "K. Mahesh"
+                // in the Decay list) now sits flush against
+                // the top of the bottom nav instead of clipping
+                // behind it.
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
             // v2.0 Tier 2 (§2.11): Today's win summary.
