@@ -88,6 +88,7 @@ fun SettingsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val signingOut by viewModel.signingOut.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
@@ -523,6 +524,133 @@ fun SettingsSheet(
                     appVersion.code,
                 ),
             )
+            // v1.9.0 (PROD-READINESS-P3-P1-#4): the
+            // support row. Tapping it opens the
+            // system email composer with a
+            // pre-filled subject (Baton {version}
+            // support) and body (version + device
+            // + Android). The row uses
+            // [androidx.compose.ui.platform.LocalContext]
+            // for the Intent; the handler chain
+            // (mailto: → Gmail / Outlook / system
+            // default) is whatever the user has
+            // installed.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_SENDTO,
+                        ).apply {
+                            data = android.net.Uri.parse(
+                                "mailto:" + ctx.getString(R.string.settings_support_email) +
+                                    "?subject=" + java.net.URLEncoder.encode(
+                                        ctx.getString(
+                                            R.string.settings_support_email_subject,
+                                            appVersion.name,
+                                        ),
+                                        "UTF-8",
+                                    ) +
+                                    "&body=" + java.net.URLEncoder.encode(
+                                        ctx.getString(
+                                            R.string.settings_support_email_body,
+                                            appVersion.name,
+                                            appVersion.code,
+                                            android.os.Build.MANUFACTURER + " " +
+                                                android.os.Build.MODEL,
+                                            "Android " + android.os.Build.VERSION.RELEASE,
+                                        ),
+                                        "UTF-8",
+                                    ),
+                            )
+                        }
+                        ctx.startActivity(intent)
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp)
+                    .semantics {
+                        contentDescription = ctx.getString(R.string.settings_support_email_cd)
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_support),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_support_email),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#1): the
+            // "Share crash log" row, visible only
+            // when a crash log exists from a
+            // previous session. Tapping it opens
+            // the system share intent with the
+            // log file as the attachment. After
+            // share, the row disappears (the
+            // log is cleared so the user isn't
+            // pestered to share it again on the
+            // next launch).
+            val mostRecentCrash = remember { com.baton.app.ui.util.CrashLog.mostRecent(ctx) }
+            if (mostRecentCrash != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                ctx,
+                                ctx.packageName + ".fileprovider",
+                                mostRecentCrash,
+                            )
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_SEND,
+                            ).apply {
+                                type = "text/plain"
+                                putExtra(
+                                    android.content.Intent.EXTRA_SUBJECT,
+                                    ctx.getString(
+                                        R.string.crash_log_share_subject,
+                                    ),
+                                )
+                                putExtra(
+                                    android.content.Intent.EXTRA_TEXT,
+                                    ctx.getString(
+                                        R.string.crash_log_share_body,
+                                        appVersion.name,
+                                        appVersion.code,
+                                    ),
+                                )
+                                putExtra(
+                                    android.content.Intent.EXTRA_STREAM,
+                                    uri,
+                                )
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            ctx.startActivity(
+                                android.content.Intent.createChooser(
+                                    intent,
+                                    ctx.getString(R.string.crash_log_share),
+                                ),
+                            )
+                            com.baton.app.ui.util.CrashLog.clear(ctx)
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.crash_log_share),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.crash_log_title),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             // v1.8.0 (PROD-READINESS-P2-#6): the
             // per-build branding rows. BRAND_NAME +
             // BRAND_DEPARTMENT come from gradle

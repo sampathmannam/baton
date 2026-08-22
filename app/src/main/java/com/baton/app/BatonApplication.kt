@@ -35,6 +35,21 @@ class BatonApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        // v1.9.0 (PROD-READINESS-P3-P1-#1): install
+        // the uncaught-exception handler BEFORE
+        // anything else runs. The handler writes
+        // a structured crash log to
+        // `cacheDir/crashes/`; the user can share
+        // it with support on the next launch.
+        // Installed as the SECOND handler (the
+        // system default is the first; this wraps
+        // it so the user still gets the standard
+        // "App has stopped" dialog).
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            com.baton.app.ui.util.CrashLog.write(this, throwable)
+            previous?.uncaughtException(thread, throwable)
+        }
         appInitializer.runOnAppStart()
         // v1.8.0 (PROD-READINESS-P2-#3): ensure the
         // device-owner row exists. Idempotent; the row
