@@ -97,6 +97,9 @@ class SettingsVaultPinTest {
             // DAO. Relaxed mock; the vault-pin tests don't touch
             // the conflict flow.
             syncConflictDao = mockk<com.baton.app.data.local.SyncConflictDao>(relaxed = true),
+            // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
+            // channel. Relaxed mock.
+            updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
         )
         return Triple(vm, vaultModeHolder, securePreferences)
     }

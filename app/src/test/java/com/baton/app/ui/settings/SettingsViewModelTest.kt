@@ -109,6 +109,11 @@ class SettingsViewModelTest {
             // dedicated behaviour is covered by
             // [com.baton.app.ui.settings.SyncConflictFlowTest].
             syncConflictDao = mockk<com.baton.app.data.local.SyncConflictDao>(relaxed = true),
+            // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
+            // channel. Relaxed mock; the existing tests don't
+            // exercise the check path. The dedicated behaviour
+            // is covered by [com.baton.app.data.update.UpdateCheckerTest].
+            updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
             appContext = appContext,
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)

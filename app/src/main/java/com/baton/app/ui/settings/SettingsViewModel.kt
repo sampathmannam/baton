@@ -219,6 +219,14 @@ class SettingsViewModel @Inject constructor(
 
     private val plainExporter: PlainExporter,
 
+    // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+    // in-app update channel. The Settings sheet
+    // "Check for updates" row calls
+    // [checkForUpdates]; the result is exposed
+    // as a one-shot flow so the UI can render
+    // a snackbar with the latest check.
+    private val updateChecker: com.baton.app.data.update.UpdateChecker,
+
     // v1.6.2: the developer-only synthetic data loader.
     private val fixtureLoader: com.baton.app.data.dev.FixtureLoader,  // v1.6.2
 
@@ -1074,6 +1082,42 @@ class SettingsViewModel @Inject constructor(
      */
     fun backupNow() {
         com.baton.app.data.work.WorkManagerInitializer.enqueueBackupNow(appContext)
+    }
+
+    /**
+     * v1.9.0 (PROD-READINESS-P3-P1-#3): the
+     * one-shot update-check trigger. The
+     * Settings sheet's "Check for updates" row
+     * calls this; the latest result is exposed
+     * via [updateCheckResult] as a [SharedFlow]
+     * so the row can show a snackbar.
+     *
+     * The check is best-effort: a network
+     * failure surfaces as
+     * [UpdateInfo.Unavailable] with the reason.
+     * The user can retry; we don't auto-retry.
+     */
+    private val _updateCheckResult = kotlinx.coroutines.flow.MutableSharedFlow<
+        com.baton.app.data.update.UpdateChecker.UpdateInfo>(extraBufferCapacity = 1)
+    val updateCheckResult: kotlinx.coroutines.flow.SharedFlow<
+        com.baton.app.data.update.UpdateChecker.UpdateInfo> = _updateCheckResult
+
+    private val _updateCheckInProgress = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val updateCheckInProgress: kotlinx.coroutines.flow.StateFlow<Boolean> = _updateCheckInProgress.asStateFlow()
+
+    fun checkForUpdates() {
+        if (_updateCheckInProgress.value) return
+        _updateCheckInProgress.value = true
+        viewModelScope.launch {
+            runCatching { updateChecker.check() }
+                .onSuccess { _updateCheckResult.tryEmit(it) }
+                .onFailure { _updateCheckResult.tryEmit(
+                    com.baton.app.data.update.UpdateChecker.UpdateInfo.Unavailable(
+                        it.message ?: it::class.java.simpleName,
+                    ),
+                ) }
+            _updateCheckInProgress.value = false
+        }
     }
 
     /**
