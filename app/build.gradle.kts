@@ -189,41 +189,40 @@ android {
         // role model. Phase 1 audit found 3 P0 + 3 P1 were
         // pre-existing closures; only 5 P0 + 3 P1 needed
         // fresh work.
-        // v1.9.3: versionCode 35, versionName "1.9.3".
-        // "Drive-verify polish #2" release. The v1.9.2
-        // release fixed the DecayRow card layout and
-        // bumped the TodayScreen LazyColumn bottom
-        // contentPadding to 96dp to clear the bottom
-        // nav. The drive-verify on ZD2232FCR5 (Android
-        // 17, gesture nav) revealed the fix was
-        // over-applied:
-        //   - The MainActivity NavigationBar had a
-        //     v1.6.4-era `padding(bottom = 96.dp)` that
-        //     was meant to clear the system recents
-        //     button's extended touch area on 3-button
-        //     nav. On gesture nav (the current mode on
-        //     ZD2232FCR5) the 96dp just created a
-        //     visible dark gap of ~288px between the
-        //     bottom nav and the bottom of the screen.
-        //   - My v1.9.2 LazyColumn 96dp contentPadding
-        //     added another ~288px gap on top of that
-        //     (the v1.6.4-era 96dp was in the SAME
-        //     physical position as my v1.9.2 96dp —
-        //     both added 96dp between the last card
-        //     and the system nav, for a total of 192dp
-        //     of empty space).
-        //   - v1.9.3 removes both 96dp paddings. The
-        //     NavigationBar's `navigationBarsPadding()`
-        //     alone is sufficient for gesture nav; the
-        //     Scaffold's `padding` parameter already
-        //     accounts for the bottom nav height (it is
-        //     the Scaffold's `bottomBar`). The last
-        //     DecayRow card now sits flush against the
-        //     top of the bottom nav with no visible gap.
-        // Bugfix release; no public-API or schema
-        // changes. versionCode 34 -> 35.
-        versionCode = 35
-        versionName = "1.9.3"
+        // v1.9.4: versionCode 36, versionName "1.9.4".
+        // "Compact cards" release. The v1.9.3 fix
+        // removed the visible gap below the bottom nav,
+        // but the DecayRow card layout was still
+        // ~292px tall because the v1.9.2 fix stacked
+        // the "Mark recent" button above the
+        // "Quiet a while" pill in a right-aligned
+        // Column. On a 1264x2780 device, only 3 full
+        // DecayRow cards + a partial 4th fit on the
+        // visible Today screen, with a partial card
+        // clipping at the bottom. The user reported
+        // "UI should use the screen properly". v1.9.4
+        // flips the right-side controls back to
+        // horizontal siblings (the v1.8.0 layout)
+        // while keeping the v1.9.2 `maxLines` caps on
+        // the name (2 lines) + designation (1 line),
+        // both ellipsized. The name + designation
+        // + days-quiet column is bounded to ~3 lines,
+        // so a ~420dp right column leaves ~800dp for
+        // the name and designation — enough for any
+        // realistic Indian-police name. Card height
+        // drops from ~292px back to ~210px, the
+        // screen shows 4-5 full DecayRow cards
+        // instead of 3, and the bottom of the scroll
+        // is no longer a partial card. Bugfix release;
+        // no public-API or schema changes. versionCode
+        // 35 -> 36. The third drive-verify polish
+        // in this cycle (v1.9.2: stack controls;
+        // v1.9.3: remove 192dp gap; v1.9.4: keep
+        // stack fix, drop the visual gap; flip back
+        // to horizontal controls because the stack
+        // wasted too much vertical space).
+        versionCode = 36
+        versionName = "1.9.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
