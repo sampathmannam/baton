@@ -189,8 +189,15 @@ android {
         // role model. Phase 1 audit found 3 P0 + 3 P1 were
         // pre-existing closures; only 5 P0 + 3 P1 needed
         // fresh work.
-        versionCode = 31
-        versionName = "1.8.0"
+        // v1.9.0: versionCode 32, versionName "1.9.0".
+        // "Make the app deployable" release. Closes the
+        // deploy-readiness Phase 3 items: in-app crash
+        // log, in-app update channel (GitHub releases),
+        // Drive backup + restore via SAF, widget gallery
+        // (Today + Decay), tablet form factor, Play Store
+        // listing, a11y audit, promo page, support email.
+        versionCode = 32
+        versionName = "1.9.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
