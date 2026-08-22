@@ -189,43 +189,41 @@ android {
         // role model. Phase 1 audit found 3 P0 + 3 P1 were
         // pre-existing closures; only 5 P0 + 3 P1 needed
         // fresh work.
-        // v1.9.2: versionCode 34, versionName "1.9.2".
-        // "Drive-verify polish" release. The v1.9.1
-        // release was rated 7.0/10 from a fresh
-        // perspective. The first drive-verify on a real
-        // device (ZD2232FCR5, Android 17, 1264x2780 @ 480dpi)
-        // surfaced two Today-screen UI issues that the
-        // unit tests + a11y audit did not catch:
-        //   - DecayRow card layout: the Mark recent
-        //     TextButton + the ReachOutPill were laid out
-        //     as siblings in the parent Row, taking ~250dp
-        //     of horizontal space on a 1080px device. That
-        //     squeezed the left text column to ~600dp,
-        //     forcing the name to wrap to 2 lines
-        //     ("B. Ramesh" / "Naidu") and the designation
-        //     to its own line — the cards looked cramped
-        //     and unbalanced. v1.9.2 stacks the right-side
-        //     controls in their own right-aligned Column
-        //     and caps the name to 2 lines + the
-        //     designation to 1 line (ellipsized), so the
-        //     left column gets the full available width
-        //     and the name stays on one line.
-        //   - TodayScreen LazyColumn bottom clipping: the
-        //     bottom nav (Home / Today / Settings) is
-        //     rendered by MainActivity OUTSIDE the Scaffold,
-        //     so the Scaffold's `padding` parameter does
-        //     not account for it. Without a 96dp bottom
-        //     buffer the last card in the LazyColumn
-        //     ("K. Magesh" in the Decay list) clipped
-        //     behind the bottom nav. v1.9.2 bumps the
-        //     LazyColumn's bottom contentPadding to 96dp
-        //     so the scroll ends with a full nav-height
-        //     of empty space below the last card.
-        // Bugfix release; no public-API or schema changes.
-        // versionCode 33 -> 34; the first user-facing
-        // drive-verify of v1.9.1.
-        versionCode = 34
-        versionName = "1.9.2"
+        // v1.9.3: versionCode 35, versionName "1.9.3".
+        // "Drive-verify polish #2" release. The v1.9.2
+        // release fixed the DecayRow card layout and
+        // bumped the TodayScreen LazyColumn bottom
+        // contentPadding to 96dp to clear the bottom
+        // nav. The drive-verify on ZD2232FCR5 (Android
+        // 17, gesture nav) revealed the fix was
+        // over-applied:
+        //   - The MainActivity NavigationBar had a
+        //     v1.6.4-era `padding(bottom = 96.dp)` that
+        //     was meant to clear the system recents
+        //     button's extended touch area on 3-button
+        //     nav. On gesture nav (the current mode on
+        //     ZD2232FCR5) the 96dp just created a
+        //     visible dark gap of ~288px between the
+        //     bottom nav and the bottom of the screen.
+        //   - My v1.9.2 LazyColumn 96dp contentPadding
+        //     added another ~288px gap on top of that
+        //     (the v1.6.4-era 96dp was in the SAME
+        //     physical position as my v1.9.2 96dp —
+        //     both added 96dp between the last card
+        //     and the system nav, for a total of 192dp
+        //     of empty space).
+        //   - v1.9.3 removes both 96dp paddings. The
+        //     NavigationBar's `navigationBarsPadding()`
+        //     alone is sufficient for gesture nav; the
+        //     Scaffold's `padding` parameter already
+        //     accounts for the bottom nav height (it is
+        //     the Scaffold's `bottomBar`). The last
+        //     DecayRow card now sits flush against the
+        //     top of the bottom nav with no visible gap.
+        // Bugfix release; no public-API or schema
+        // changes. versionCode 34 -> 35.
+        versionCode = 35
+        versionName = "1.9.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

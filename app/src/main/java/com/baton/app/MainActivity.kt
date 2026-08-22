@@ -503,10 +503,28 @@ private fun BottomNav(
     // area top. Drive-verified: bottom nav tappable from
     // every screen; the NoteBar above it still has a 12dp
     // visual gap.
+    //
+    // v1.9.2: the explicit `padding(bottom = 96.dp)` is
+    // REMOVED. The v1.6.4 fix was for 3-button nav, where
+    // the system recents button has an extended touch area
+    // that reaches ~30-50dp above the visible buttons.
+    // ZD2232FCR5 is now on gesture nav (the home-indicator
+    // pill at the bottom of the screen is the only system
+    // touch target in that area), so the 96dp manual
+    // padding was over-applied — it just created a visible
+    // dark gap of ~288px between the bottom nav and the
+    // bottom of the screen. `navigationBarsPadding()` alone
+    // is sufficient for gesture nav; the system gesture
+    // insets are already handled by `enableEdgeToEdge()` in
+    // [BatonApplication.onCreate]. If a user with 3-button
+    // nav reports the recents-button-tap regression, the
+    // fix is to read `WindowInsets.navigationBars` height
+    // and add 48dp on top of it (the 3-button extended
+    // touch area) — but gesture nav is the only mode that
+    // the build-time Windows machine can drive-verify.
     NavigationBar(
         modifier = Modifier
-            .navigationBarsPadding()
-            .padding(bottom = 96.dp),
+            .navigationBarsPadding(),
     ) {
         NavEntry(
             label = stringResource(R.string.tab_home),
