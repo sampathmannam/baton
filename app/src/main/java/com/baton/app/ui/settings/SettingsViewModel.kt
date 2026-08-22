@@ -219,6 +219,14 @@ class SettingsViewModel @Inject constructor(
 
     private val plainExporter: PlainExporter,
 
+    // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
+    // the BackupManager is exposed so the
+    // Settings sheet's "Back up to Google
+    // Drive" / "Restore from backup" rows
+    // can copy the latest cached backup
+    // to / from the SAF-chosen URI.
+    val backupManager: com.baton.app.data.export.BackupManager,
+
     // v1.9.0 (PROD-READINESS-P3-P1-#3): the
     // in-app update channel. The Settings sheet
     // "Check for updates" row calls

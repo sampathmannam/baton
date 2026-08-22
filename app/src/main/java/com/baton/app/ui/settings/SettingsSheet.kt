@@ -84,6 +84,17 @@ fun SettingsSheet(
     onOpenRecoveryPhrase: () -> Unit = {},
     onOpenThreatModel: () -> Unit = {},
     onOpenSyncConflicts: () -> Unit = {},
+    // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
+    // the Drive backup / restore rows use
+    // [rememberLauncherForActivityResult]
+    // inside the Settings sheet directly.
+    // The MainActivity callbacks for the
+    // drive / restore are no-ops (the
+    // sheet's launchers fire the system
+    // file picker).
+    // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+    // update channel + crash log rows are
+    // handled by the sheet's own VM.
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -93,6 +104,29 @@ fun SettingsSheet(
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
     val syncConflictCount by viewModel.syncConflictCount.collectAsStateWithLifecycle()
+    // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+    // in-app update channel. The "Check for
+    // updates" row in the Settings sheet
+    // calls [viewModel.checkForUpdates]
+    // directly. The result is exposed via
+    // [SettingsViewModel.updateCheckResult]
+    // and rendered as a snackbar via
+    // [LaunchedEffect] below.
+    val updateCheckInProgress by viewModel.updateCheckInProgress.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        viewModel.updateCheckResult.collect { info ->
+            val msg = when (info) {
+                is com.baton.app.data.update.UpdateChecker.UpdateInfo.UpToDate ->
+                    "You are on the latest version"
+                is com.baton.app.data.update.UpdateChecker.UpdateInfo.UpdateAvailable ->
+                    "Baton ${info.latestVersion} is available. You are on ${info.currentVersion}."
+                is com.baton.app.data.update.UpdateChecker.UpdateInfo.Unavailable ->
+                    "Could not reach the update server. Try again later."
+            }
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
     val appVersion = viewModel.appVersion
     // v1.6.1: the "Models" section is gone. The on-device
     // LLM and the whisper.cpp voice model are both removed.
@@ -145,6 +179,48 @@ fun SettingsSheet(
             }
         }
     }
+    // v1.9.0 (PROD-READINESS-P3-P1-#8): the
+    // "Back up to Google Drive" launcher.
+    // The system file picker shows Google
+    // Drive, Dropbox, local storage, etc.
+    // The user picks a folder; the app
+    // copies the latest cached backup to
+    // the chosen content:// URI.
+    val driveBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val latest = viewModel.backupManager.listBackups()
+                    .maxByOrNull { it.lastModified() }
+                if (latest != null) {
+                    runCatching {
+                        com.baton.app.data.export.DriveBackup.writeToUri(ctx, latest, uri)
+                    }
+                }
+            }
+        }
+    }
+    // v1.9.0 (PROD-READINESS-P3-P1-#9): the
+    // "Restore from backup" launcher. The
+    // user picks a backup file; the app
+    // reads it into a temp file and
+    // applies it to the local DB.
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val tempFile = runCatching {
+                    com.baton.app.data.export.DriveBackup.readFromUri(ctx, uri)
+                }.getOrNull() ?: return@launch
+                runCatching {
+                    viewModel.backupManager.restore(tempFile)
+                    tempFile.delete()
+                }
+            }
+        }
+    }
     // v2.0 T3-1: deniable-vault dialogs. The three state vars
     // drive the "set PIN" / "enter PIN to unlock" / "confirm
     // switch to hidden" flows. They are mutually exclusive
@@ -161,6 +237,15 @@ fun SettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
+        // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+        // snackbar host for the update-check
+        // result. The host is rendered at the
+        // bottom of the sheet (above the
+        // content) so the snackbar appears as
+        // an overlay on the sheet.
+        androidx.compose.material3.SnackbarHost(
+            hostState = snackbarHostState,
+        )
         // v1.6.2: the Settings sheet is now longer (the
         // Developer section + its Load test data button were
         // added in v1.6.2). On a small screen the previous
@@ -462,6 +547,95 @@ fun SettingsSheet(
             if (plainExportOk) {
                 Text(
                     text = "Backup queued. The file will appear in the app's private storage.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+            // "Check for updates" row. The tap
+            // calls [viewModel.checkForUpdates]
+            // directly; the result is surfaced
+            // via the [updateCheckInProgress] +
+            // [snackbarHostState] state at the top
+            // of the Settings sheet.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !updateCheckInProgress) {
+                        viewModel.checkForUpdates()
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = if (updateCheckInProgress) "Checking…"
+                           else "Check for updates",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "v${appVersion.name}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#8): the
+            // "Back up to Google Drive" row. The
+            // tap launches the system file picker
+            // via [driveBackupLauncher] (declared
+            // near the top of the Settings sheet);
+            // the user picks a Drive folder (or any
+            // folder — the system file picker
+            // supports Google Drive, Dropbox,
+            // local storage, etc.).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        driveBackupLauncher.launch(
+                            "baton-backup-" +
+                                java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                                    .format(java.util.Date()) + ".json",
+                        )
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_drive_backup),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_drive_backup_signed_out),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#9): the
+            // "Restore from backup" row. The tap
+            // launches the system file picker
+            // via [restoreBackupLauncher] (declared
+            // near the top of the Settings sheet);
+            // the user picks a backup file (from
+            // Drive, local storage, etc.) and the
+            // app applies it to the local DB.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        restoreBackupLauncher.launch(arrayOf("application/json"))
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Restore from backup",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "(on a new device)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
