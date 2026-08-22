@@ -167,6 +167,21 @@ private fun DecayRow(
             // user scrolls to the very end of the list. The
             // dump shows the clipped text at h=21 instead of
             // h=37 (the natural height of `bodySmall`).
+            //
+            // v1.9.2: the right-side `TextButton` + `ReachOutPill`
+            // were laid out as siblings in the parent `Row`,
+            // taking ~250dp of horizontal space on a 1080px
+            // device. That squeezed the left text column to
+            // ~600dp, forcing the name to wrap to 2 lines
+            // ("B. Ramesh" / "Naidu") and the designation to
+            // its own line — the cards looked cramped and
+            // unbalanced. The right-side controls are now
+            // stacked in their own `Column` so the left
+            // column gets the full available width and the
+            // name stays on one line. The total card height
+            // grows from ~88dp to ~110dp, which is still
+            // well within the LazyColumn item budget and
+            // gives the cards room to breathe.
             .heightIn(min = 88.dp)
             .clickable(onClickLabel = openLabel, onClick = onClick),
     ) {
@@ -181,12 +196,21 @@ private fun DecayRow(
                     text = row.name,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
+                    // v1.9.2: cap the name to 2 lines (it can
+                    // wrap to 3 for very long names like
+                    // "Superintendent of Police"); ellipsize the
+                    // tail so a long name does not push the
+                    // designation off the card.
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
                 row.designation?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
                 Spacer(Modifier.height(2.dp))
@@ -204,25 +228,40 @@ private fun DecayRow(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            // v1.8.0 (PROD-READINESS-P1-#6): the per-row
-            // "Mark recent" button. Bumps the person's
-            // lastInteractionAt to now so they leave the
-            // Quiet-a-while list. The Undo snackbar is
-            // driven by the UndoController push in
-            // DecayViewModel.markRecent. The button uses
-            // a TextButton (M3) so it sits in the same
-            // row as the status pill without inflating
-            // the row's height past 88dp.
-            androidx.compose.material3.TextButton(
-                onClick = onMarkRecent,
+            // v1.9.2: stack the Mark recent button + the
+            // status pill vertically in a right-aligned
+            // column. The v1.8.0 layout put them as
+            // siblings in the parent `Row`, which forced
+            // them to share the same vertical line and
+            // consumed ~250dp of horizontal width. A
+            // `Column` with `Arrangement.spacedBy(4.dp)` +
+            // `horizontalAlignment = Alignment.End` keeps
+            // the controls right-aligned and gives the
+            // left text column the full available width.
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.decay_mark_recent),
-                    style = MaterialTheme.typography.labelMedium,
-                )
+                // v1.8.0 (PROD-READINESS-P1-#6): the per-row
+                // "Mark recent" button. Bumps the person's
+                // lastInteractionAt to now so they leave the
+                // Quiet-a-while list. The Undo snackbar is
+                // driven by the UndoController push in
+                // DecayViewModel.markRecent.
+                androidx.compose.material3.TextButton(
+                    onClick = onMarkRecent,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 8.dp,
+                        vertical = 4.dp,
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(R.string.decay_mark_recent),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+                ReachOutPill(row.status)
             }
-            Spacer(Modifier.width(4.dp))
-            ReachOutPill(row.status)
         }
     }
 }
