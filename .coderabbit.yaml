@@ -57,20 +57,12 @@ reviews:
                           # for CodeRabbit to re-run them.
 
 # Tone. Solo dev on a private-but-now-public R&D project. Keep the
-# bot's voice friendly, not preachy.
-tone_instructions: "You are reviewing a solo Android developer’s
-  R&D project (Baton, an ADHD-friendly instruction tracker for IPS
-  officers). The codebase uses Kotlin 2.0 / Jetpack Compose / Hilt /
-  Room + SQLCipher / Material 3, and the project is now public on
-  GitHub (Apache 2.0). The author is the only maintainer, ships in
-  small focused PRs, and has explicitly opted-in to public review.
-  Be terse, friendly, and concrete. Cite the file:line for every
-  finding. Do not lecture about style preferences (e.g. ktlint
-  formatting); focus on correctness, security, accessibility, and
-  public-API surface. The author already runs `./gradlew
-  :app:testDebugUnitTest` on every PR (552 tests, 0 failures on
-  v1.9.6) — do not re-suggest unit-test changes unless a specific
-  test is missing or the new code lacks coverage."
+# bot's voice friendly, not preachy. Note: max 250 chars.
+tone_instructions: "Solo Android dev, Kotlin+Compose+Room+SQLCipher.
+  Cite file:line. Be terse, friendly, concrete. No ktlint lectures.
+  552 unit tests already run; don't re-suggest tests unless new
+  code lacks coverage. Focus: correctness, security, a11y, public
+  API."
 
 # Early-access features. Don't opt in until CodeRabbit ships them
 # as default-on; turning on early-access flags can introduce
