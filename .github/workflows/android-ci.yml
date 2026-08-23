@@ -9,11 +9,15 @@ on:
 
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
+  # macOS runners don't set ANDROID_HOME / JAVA_HOME the way the
+  # developer's local shell does. The setup-android + setup-java
+  # steps below write to $GITHUB_ENV; we source them via the gradle
+  # invocation rather than re-exporting here.
 
 jobs:
   unit-test:
     name: Unit tests (testDebugUnitTest)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macos, arm64, baton]
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -27,6 +31,14 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # The developer's Mac (the runner host) already has a full
+          # Android SDK at $HOME/Library/Android/sdk. The action
+          # accepts a pre-installed path and skips the download.
+          ANDROID_HOME: ${{ env.HOME }}/Library/Android/sdk
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -42,6 +54,10 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # v1.9.7 (CI-001): Robolectric upgraded from 4.13 -> 4.14.1
+      # to fix the runOnMainThread hang on JDK 17 + ARM64 Mac
+      # (MethodCallProxy.apply park). 4.14.1 changelog has the
+      # fix. If the hang returns, this is the line to investigate.
       - name: Run unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
 
@@ -57,7 +73,7 @@ jobs:
 
   lint:
     name: Kotlin lint (ktlint + detekt if present)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macos, arm64, baton]
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -69,15 +85,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          ANDROID_HOME: ${{ env.HOME }}/Library/Android/sdk
 
       - name: Run Android lint
         run: ./gradlew :app:lintDebug --no-daemon || echo "lint warnings present, see report"
@@ -87,14 +98,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lint-report
-          path: |
-            app/build/reports/lint-results-debug.html
-            app/build/reports/lint-results-debug.xml
-          retention-days: 14
+        path: |
+          app/build/reports/lint-results-debug.html
+          app/build/reports/lint-results-debug.xml
+        retention-days: 14
 
   assemble:
     name: Assemble debug APK
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macos, arm64, baton]
     timeout-minutes: 30
     needs: [unit-test]
     steps:
@@ -107,15 +118,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          ANDROID_HOME: ${{ env.HOME }}/Library/Android/sdk
 
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace

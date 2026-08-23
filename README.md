@@ -22,14 +22,14 @@ A working IPS officer gets instructions from a dozen people, gives instructions 
 
 ## What it does
 
-- **Single note bar everywhere.** Speak, type, or snap. The on-device LLM decides what kind of instruction it is and extracts the person, designation, station, FIR number, due date, and tags — automatically.
+- **Single note bar everywhere.** Speak, type, or snap a photo. The text lands as-is, time-stamped, in your timeline.
 - **People-centric.** The home screen is a list of people (SP, DSP, SHOs, IOs) with a quiet badge showing open items per person. Tap a person → their full timeline.
-- **Auto-tagging.** Person, designation, station, FIR number, due date, priority markers — all extracted. Free-form `#tags` preserved. Tags have their own management screen.
-- **Layered follow-up.** Morning brief, stale-surfacing dot, AI-drafted nudge messages, evening review. All opt-out-able, none punishing.
-- **Multi-device.** Phone, laptop, tablet, all in sync. Built on Supabase.
-- **MCP server in the cloud.** Other MCP clients (Claude Desktop, etc.) can read your data and trigger nudges.
-- **On-device AI only.** No third-party AI provider ever sees your data. llama.cpp + Qwen 3 1.7B (default) or Phi-4-mini / Gemma 3 4B on flagships.
-- **MindAnchor integration.** Opt-in. Baton's nudge frequency adapts to your current energy state.
+- **Quiet semantics.** "Carried over", not "overdue". "Quiet a while", not "stale". "Redistribute?", not "delete". A swipe-right on a quiet contact marks them recent.
+- **Photo OCR, on-device.** Snap a hand-written note; ML Kit Text Recognition v2 reads it on-device. No cloud AI, no third-party calls.
+- **Vault mode.** A PIN-protected hidden list for sensitive items. Behavioural deniability, not cryptographic (see [threat model](docs/threat-model.md) §3.2).
+- **Multi-device via Supabase.** Phone + laptop + tablet, end-to-end encrypted in transit. A cloud MCP server exposes the same data to your desktop tools (Claude Desktop, etc.).
+- **12-word recovery phrase.** BIP39-style. The only way back in if this phone is lost.
+- **No third-party AI ever sees your data.** No analytics, no telemetry, no crash reporting. Local logs only.
 
 ## Design principles
 
@@ -40,23 +40,54 @@ These are non-negotiable, applied at the component level:
 3. **"Carried over", never "overdue."** No red badges, no streaks, no shame.
 4. **Capture in < 5 seconds.** Measured. CI fails if it regresses.
 5. **Forgive inconsistency.** Skip the review for a month → still works, still calm.
-6. **Energy-aware.** Reads MindAnchor's state, dials down when you're low.
+6. **Energy-aware.** *(v2.x — the data plumbing is in place but the dial-down UI is not yet wired.)*
 7. **External scaffolding, not rigid.** Suggestions, not diktats.
 
-See [`docs/superpowers/specs/2026-08-10-baton-design.md`](docs/superpowers/specs/2026-08-10-baton-design.md) for the full design.
+See [`AGENTS.md`](AGENTS.md) for the developer-facing rules and `docs/architecture/ai-strategy.md` for the AI strategy (short version: in v1.9.6 the only AI is ML Kit on-device OCR; the v1.5.x llama.cpp + Whisper.cpp stack was removed in v1.6.1 because the 5-second capture budget couldn't survive cold-start + inference).
 
 ## Status
 
-**Pre-implementation.** Design is final. Implementation roadmap in the design doc.
+**v1.9.6 — first public release.** Active development on the `m0/skeleton-v1.7.0` branch; 16+ releases shipped in 8 days; 30+ unit + UI tests, 56-person synthetic fixture for manual QA. See [`CHANGELOG.md`](CHANGELOG.md) (TODO) for the per-release notes.
 
 ## Stack
 
-- **Android:** Kotlin, Jetpack Compose, Hilt, Room/SQLCipher, WorkManager
-- **On-device AI:** llama.cpp (JNI) for LLM, Whisper.cpp (JNI) for STT, ML Kit for OCR
-- **Backend:** Supabase (Postgres + Auth + Storage + Realtime + Edge Functions)
-- **MCP:** Cloud MCP server deployed as a Supabase Edge Function
-- **Shared with MindAnchor:** `app-anchor-crypto` Kotlin module (Argon2id + AES-GCM + SQLCipher setup)
+- **Android:** Kotlin 2.0+ / Jetpack Compose / Hilt / Room + SQLCipher / WorkManager / Material 3
+- **On-device AI:** ML Kit Text Recognition v2 (~12 MB bundled, Latin script). That's it. See [`docs/architecture/ai-strategy.md`](docs/architecture/ai-strategy.md) for why.
+- **Backend:** Supabase (Postgres + Auth + Storage + Realtime + Edge Functions). Cloud sync is opt-in; local-only is the default.
+- **MCP:** Cloud MCP server at `supabase/functions/mcp-server/` (v0.4.0). Public contract in [`docs/mcp/server-contract.md`](docs/mcp/server-contract.md).
+- **Privacy / security:** Argon2id + AES-GCM vault mode, SQLCipher-encrypted DB, FLAG_SECURE on the recovery screen, hash-chained audit log. Full operational story in [`docs/threat-model.md`](docs/threat-model.md).
+
+## Building
+
+```bash
+# Prereqs: JDK 17, Android SDK with platform-34 + build-tools 34.0.0
+./gradlew :app:assembleDebug         # Build debug APK
+./gradlew :app:testDebugUnitTest     # Run unit tests
+./gradlew :app:lintDebug             # Kotlin lint
+./gradlew :app:connectedAndroidTest  # Instrumented tests (requires device)
+```
+
+The debug APK ships in `app/build/outputs/apk/debug/app-arm64-v8a-debug.apk` (~45 MB) and `app-universal-debug.apk` (~75 MB). The release APK is minified with R8 + shrinkResources (~23 MB arm64).
+
+## Repo conventions
+
+- **Trunk-based.** Single `main` branch; short-lived feature branches off `m0/skeleton-v1.7.0`; `work/**` is scratch.
+- **Commit messages:** imperative, present tense ("Add capture flow", not "Added").
+- **PRs:** include what + why + how-to-verify. Use the [PR template](.github/pull_request_template.md).
+- **No force-push to `main`.**
+
+## CI
+
+GitHub Actions. The CI is hosted on a self-hosted runner (the developer's Mac); it's "unlimited" in the sense that GitHub's hosted-minute billing doesn't apply. See `.github/workflows/` for the workflows.
 
 ## License
 
-TBD — will follow once the project is ready for a public release. Currently private.
+[Apache 2.0](LICENSE). Copyright 2026 Sampath Mannam (Amaithi Labs).
+
+Contributions welcome. By submitting a pull request, you agree to license your contribution under the same terms.
+
+## Author
+
+Sampath Mannam — solo developer. The user, the developer, the ops person, the QA. Reach me via kaavalan-note@protonmail.com (the support email in the app's Settings → About).
+
+The brand name on v1.9.5+ is **Amaithi Labs** (Tamil: "platform" / "stage", from அமைதி — calm / composure). The git author on v1.9.5+ is `Amaithi Labs`; the README and the app's settings email use `Sampath Mannam` directly.
