@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
@@ -77,6 +78,7 @@ fun AddPersonSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .imePadding()
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -163,3 +165,9 @@ fun AddPersonSheet(
 @Composable
 private fun Modifier.onFocusChangedCompat(onChange: (Boolean) -> Unit): Modifier =
     this.then(onFocusChanged { onChange(it.isFocused) })
+
+// v1.9.7 (UX-001): added `.imePadding()` to the Column inside the
+// ModalBottomSheet so the Save button floats above the soft keyboard
+// on Android 14+ at 480 dpi (real-device test on Motorola signature
+// showed Save at y=1892 hidden by IME with visible area ending at
+// y=1646). Reproduces in API 34+ where the IME insets are stricter.
