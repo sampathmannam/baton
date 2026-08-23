@@ -2,10 +2,10 @@ name: Baton Android CI
 
 on:
   push:
-    branches: [main, master, 'm0/**', 'work/**']
+    branches: [main, master, 'm0/**', 'work/**', 'chore/**', 'fix/**', 'docs/**', 'test/**']
     tags: ['v*']
   pull_request:
-    branches: [main, master]
+    branches: [main, master, 'm0/**']
 
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
