@@ -1,9 +1,17 @@
 # Baton Threat Model
-**Date:** 2026-08-21
-**Build:** v1.8.0 (commit `b1e5a08` on `m0/skeleton-v1.7.0`)
+**Date:** 2026-08-23
+**Build:** v1.9.6 (commit `3293f70` on `m0/skeleton-v1.7.0`)
 **Persona:** IPS officer / SP-of-district, single-device, no cloud
 
 A short, operational threat model for Baton. Not an academic exercise — the goal is to spell out, in two pages, what Baton defends, what it doesn't, and what the user has to do for the things in between.
+
+## v1.8.0 → v1.9.6 diff (what changed in this rev)
+
+The threat model is largely stable across v1.8.0 → v1.9.6. The only material change is **defense §3.4 ("no cloud") is now misleading**: the v1.5.0 "sync is dormant" claim is still true for the per-device `sync_queue`, but **v1.9.0 added a cloud MCP server** (`supabase/functions/mcp-server/index.ts`, v0.4.0, public contract in `docs/mcp/server-contract.md`). The MCP server exposes read-only resources and write tools (e.g. `draft_nudge`, `add_capture`) that the user's desktop tools can call.
+
+The threat model has NOT been rewritten to account for the MCP server's attack surface. The user has not run a v1.9.x release against a real Supabase instance (the local build uses `https://placeholder.supabase.co`). The MCP server is documented but not security-audited. See §8 below for the gap.
+
+The v1.9.5 swipe-right gesture on the "Quiet a while" card does not change the threat model.
 
 ---
 
@@ -114,4 +122,33 @@ Baton is a tool, not a guarantee. The threat model is only as strong as the weak
 
 ---
 
-This document is the authoritative threat model for Baton v1.8.0. A future v2.x pilot or public release MUST update this document as part of the release readiness gate.
+## 8. Known v1.9.6 gaps (added 2026-08-23, before this rev ships as the v1.9.6 threat model)
+
+These items are NOT defended in v1.9.6 and SHOULD be addressed before the first public release:
+
+### 8.1 Cloud MCP server (defends-against gap)
+- v1.9.0 added a Supabase-hosted MCP server (`supabase/functions/mcp-server/index.ts`, v0.4.0). The contract is in `docs/mcp/server-contract.md`. The server exposes 7 read-only resources and 5 write tools.
+- **Risk**: if the Supabase project is misconfigured (e.g. RLS policies on `persons` and `instructions` are too permissive, or the anon key has more than `read`/`write` to the user's own rows), the MCP server is a data-exfiltration path.
+- **Mitigation today**: the v0.4.0 contract explicitly says all tools scope to `auth.uid()`. RLS policies in the Supabase migrations enforce this. **This has not been independently audited.**
+- **Action before public release**: third-party security audit of the MCP server's RLS policies and the Edge Function code. Out of scope for private R&D; required for Play Store launch.
+
+### 8.2 Voice capture privacy (the one real v1.x AI risk)
+- `android.speech.SpeechRecognizer` is platform-managed. On a Pixel with the Google app installed, audio MAY leave the device and hit Google's cloud recognizer.
+- **Action before public release**: surface this in Settings → Privacy. Either with a one-liner "Voice capture uses the system speech recognizer (your device may send audio to Google)" or by replacing the system recognizer with **ML Kit on-device speech** (Android 13+, ~30 MB APK impact).
+- See `docs/architecture/ai-strategy.md` §3 for the full analysis.
+
+### 8.3 Recovery phrase downgrade
+- v1.8.0 added a 24-word BIP39-style recovery phrase. The hash-chain audit log's `signingKey` is a device-scoped UUID, not a user JWT.
+- **Risk**: a device-scoped UUID means a cloud-sync re-validation of the chain cannot prove the user signed the row.
+- **Action before public release**: when sync is enabled (v2.x), change the chain's `signingKey` to a server-issued JWT `sub` claim.
+
+### 8.4 "No accessibility service" claim
+- v1.8.0 doc claims Baton does not request `BIND_ACCESSIBILITY_SERVICE` and does not include any accessibility-service export. **Verified 2026-08-23**: `AndroidManifest.xml` has no `<service>` element with `BIND_ACCESSIBILITY_SERVICE` permission. Claim holds.
+
+### 8.5 What's NOT changed from v1.8.0
+- All v1.8.0 defenses (§3.1 SQLCipher, §3.2 vault mode, §3.3 FLAG_SECURE on recovery, §3.5 hash chain, §3.6 sanitised error messages, §3.7 sandbox) still hold in v1.9.6. The code paths are unchanged.
+- The v2.x roadmap (§7) still applies.
+
+---
+
+This document is the authoritative threat model for Baton v1.9.6. A future v2.x pilot or public release MUST update this document as part of the release readiness gate.

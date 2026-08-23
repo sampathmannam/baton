@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -52,7 +55,13 @@ fun AddPersonSheet(
     onSave: (name: String, designation: String?, station: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(
+        // v1.9.7 (UX-001): skip the partial-expanded state so the
+        // sheet goes straight to fully expanded when the IME is
+        // up. Without this, the sheet sits at ~50% height with
+        // Save below the keyboard on 480 dpi Android 14+ devices.
+        skipPartiallyExpanded = true,
+    )
     var name by remember { mutableStateOf("") }
     var designation by remember { mutableStateOf("") }
     var station by remember { mutableStateOf("") }
@@ -77,6 +86,8 @@ fun AddPersonSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -163,3 +174,9 @@ fun AddPersonSheet(
 @Composable
 private fun Modifier.onFocusChangedCompat(onChange: (Boolean) -> Unit): Modifier =
     this.then(onFocusChanged { onChange(it.isFocused) })
+
+// v1.9.7 (UX-001): added `.imePadding()` to the Column inside the
+// ModalBottomSheet so the Save button floats above the soft keyboard
+// on Android 14+ at 480 dpi (real-device test on Motorola signature
+// showed Save at y=1892 hidden by IME with visible area ending at
+// y=1646). Reproduces in API 34+ where the IME insets are stricter.

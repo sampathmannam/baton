@@ -1,0 +1,18 @@
+# Baton branch archive — 2026-08-23T05:00:11Z
+# All branches below were deleted from origin on the date above.
+# To recover: git push origin <sha>:refs/heads/<branch-name>
+# Or cherry-pick: git checkout -b <new-branch> <sha>
+
+m0/skeleton  58d9b23b80072c4cfb28fdf857220f01907f7d34  v1.4: RLS denial distinguished from auth, AAB bundle config, ProGuard coverage (BATON-WIRE-005, F-CRIT-05, F-HIGH-04, F-HIGH-12)
+m0/skeleton-v1.4-ui-color-isolated  11c39607bcacd3cbd368a75e3a93b28276f1eb45  v1.4: no-red sign out, neutral error message, confidence chip WCAG AA (PHONE-FINDING-2, PHONE-FINDING-7, F-23)
+m0/skeleton-v1.4.2-data02  cab664e6c7ba8f744ac6c8e2c2553c29a345425f  v1.4.2: LWW conflict check in processInstructionEntry (DATA-FINDING-02)
+m0/skeleton-v1.4.2-data03  2068be889f0bb00371761ddd44742bbcf5cd8df7  v1.4.2: drop carriedOver rows from needsYouToday in BriefGenerator (DATA-FINDING-03)
+m0/skeleton-v1.4.2-data04  3212c1cc9b67c5f17e676bc3c6e6df23cea1e735  v1.4.2: dedup invariant on (op, table, rowId) in sync queue (DATA-FINDING-04)
+m0/skeleton-v1.4.2-f09-f20  1e950588c53b14d006054d4902ea03a325fbb829  v1.4.2: F-09/F-20 local Room mirror for captures — survives Supabase outage
+m0/skeleton-v1.4.2-f10  c5738ac492c65fe06c1cd645c173bc8178fd5d0c  v1.4.2: on-device LLM model manager + first-run download UI (F-10)
+m0/skeleton-v1.4.3-capture-sync  6da820bcda5f93fb96d6d6afb226ff8a9d41a584  v1.4.3: register CaptureSyncWorker with WorkManager — closes the F-09/F-20 wiring gap
+m0/skeleton-v1.4.3-f10-picker  3c4fd1673182b282c29f15ee7e84488db7a3a5a6  v1.4.3: switch model picker UI for F-10
+m0/skeleton-v1.4.3-f37  18ac10568a458d3b06f17e2d19967ad0d4da71b3  v1.4.3: PRAGMA cipher_memory_security = OFF — silences 8+ SQLCipher mlock warnings per start (F-37)
+m0/skeleton-v1.6.6  382e15e10c8d58de7be5274fa7adc8abbeaf3320  v1.6.8: complete UI/UX overhaul
+m0/skeleton-v2-integration  4482517fdfce3cb9ea9f0faad03aeddac01e1749  v1.6.0.1: LLM graceful fallback + Room FTS migration fix
+m0/skeleton-v2-survival  14e93cded187a1a59968c9807499f96bb639adf5  Tier 1 survival: green tests, vault round-trip, on-device drive
