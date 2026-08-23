@@ -138,7 +138,7 @@ private fun AddLinkDialog(
                 )
                 if (people.isEmpty()) {
                     Text(
-                        text = "Add another person first.",
+                        text = stringResource(R.string.links_add_person_first),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 } else {

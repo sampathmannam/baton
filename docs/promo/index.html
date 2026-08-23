@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Baton (Kaavalan note) — private instruction tracker for IPS officers</title>
+  <meta name="description" content="A local-only, SQLCipher-encrypted Android app for IPS officers to track instructions, people, and important dates. No cloud, no analytics, no telemetry.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="#">
+        <img src="logo.svg" alt="Baton" width="36" height="36">
+        <span>Baton</span>
+      </a>
+      <nav class="site-nav">
+        <a href="#why">Why</a>
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/sampathmannam/baton">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">v1.9.0 · Android 8.0+ · No cloud</p>
+      <h1>A private instruction tracker for IPS officers.</h1>
+      <p class="lede">
+        Baton (Kaavalan note) is a local-only Android app for tracking
+        instructions between officers, contacts, and important dates.
+        Every byte of your data lives on your device, in a SQLCipher-encrypted
+        database. There is no cloud sync, no analytics, no telemetry.
+      </p>
+      <p class="cta">
+        <a class="btn primary" href="#install">Get Baton</a>
+        <a class="btn secondary" href="https://github.com/sampathmannam/baton">Read the source</a>
+      </p>
+      <p class="meta">
+        Free, forever. No ads. No premium tier. Built by a serving IPS officer.
+      </p>
+    </div>
+  </section>
+
+  <section id="why" class="section">
+    <div class="wrap">
+      <h2>Why Baton</h2>
+      <div class="grid two">
+        <div>
+          <h3>Local-only by design</h3>
+          <p>
+            A thief who pulls the SD card cannot read your notes. A
+            coercive adversary who has the device unlocked for a few
+            minutes can be deterred with the vault mode toggle. A
+            third-party with cloud access has nothing to access because
+            the cloud does not exist.
+          </p>
+        </div>
+        <div>
+          <h3>Person-first, not folder-first</h3>
+          <p>
+            Notes are tied to a person (your SP, your SHO, a witness).
+            Tap a person to see everything you ever gave them or took
+            from them. Decay reminders nudge you to follow up with
+            people you have not touched in 30 / 60 / 90 days.
+          </p>
+        </div>
+        <div>
+          <h3>Auditable</h3>
+          <p>
+            Every state change appends a SHA-256 hash-chained audit row.
+            The chain is detectable on tampering; a 7-year BNSS
+            retention window redacts the payload while preserving the
+            chain. The threat model is documented in
+            <a href="https://github.com/sampathmannam/baton/blob/main/docs/threat-model.md">docs/threat-model.md</a>.
+          </p>
+        </div>
+        <div>
+          <h3>Free, forever</h3>
+          <p>
+            Baton is a private R&amp;D project. No ads, no premium tier,
+            no tracking, no "we will charge you next year" roadmap.
+            The full source is on GitHub if you want to read the
+            threat model or audit the crypto.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="section alt">
+    <div class="wrap">
+      <h2>Features</h2>
+      <div class="grid three">
+        <div class="feature">
+          <h3>Voice, text, photo capture</h3>
+          <p>Three modes for capturing instructions: type, talk, or shoot a photo. OCR runs on-device (ML Kit, Latin script).</p>
+        </div>
+        <div class="feature">
+          <h3>Calendar link</h3>
+          <p>"Add to calendar" writes an event to your phone's calendar with the due date and the people mentioned.</p>
+        </div>
+        <div class="feature">
+          <h3>Decay reminders</h3>
+          <p>The Today screen's decay section lists people you have not touched in 60+ days. Tap a name to send a quick "checking in" note.</p>
+        </div>
+        <div class="feature">
+          <h3>Vault mode</h3>
+          <p>Toggle a row to "hidden" and it disappears from every list and search. A 6-digit vault PIN gates the toggle. (Behavioural, not cryptographic — see the threat model.)</p>
+        </div>
+        <div class="feature">
+          <h3>24-word recovery</h3>
+          <p>Your vault passphrase is recoverable via a 24-word seed. Write it on paper, store the paper somewhere physically safe.</p>
+        </div>
+        <div class="feature">
+          <h3>Daily local backup</h3>
+          <p>A one-tap backup writes a JSON snapshot of all your data to the app's private storage. The file is encrypted at rest by SQLCipher.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" class="section">
+    <div class="wrap">
+      <h2>Privacy, in one paragraph</h2>
+      <p>
+        Baton collects nothing. No name, no email, no phone, no
+        device identifier, no location, no contacts, no calendar
+        (events are created via the system Intent, not collected), no
+        photos (kept on device), no audio, no files, no app activity,
+        no web browsing, no crash logs sent off-device, no device
+        IDs. The full privacy policy is at
+        <a href="https://github.com/sampathmannam/baton/blob/main/docs/privacy-policy.md">docs/privacy-policy.md</a>.
+      </p>
+    </div>
+  </section>
+
+  <section id="install" class="section alt">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p>
+        Download the latest APK from the
+        <a href="https://github.com/sampathmannam/baton/releases/latest">releases page</a>
+        and sideload it. (The Play Store listing is being prepared;
+        sideloading is the v1.x install path.)
+      </p>
+      <h3>System requirements</h3>
+      <ul>
+        <li>Android 8.0 (API 26) or newer.</li>
+        <li>~80 MB of free storage (the APK is 71 MB; the local DB adds a few MB on top).</li>
+        <li>No network connection is required after install.</li>
+      </ul>
+      <h3>Verify the APK</h3>
+      <p>
+        The release APKs are signed with the production keystore
+        committed to the repo (the project is single-author; a
+        third-party key custodian is out of scope for v1.x). The
+        signing fingerprint is published in each release's "Verify"
+        section.
+      </p>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>
+        © 2026 Sampath M. Baton is licensed under the
+        <a href="https://github.com/sampathmannam/baton/blob/main/LICENSE">MIT license</a>.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

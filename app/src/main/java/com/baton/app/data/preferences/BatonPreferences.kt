@@ -38,6 +38,16 @@ class BatonPreferences @Inject constructor(
 ) {
     private val themeKey = intPreferencesKey("theme_mode")
     private val onboardingKey = booleanPreferencesKey("has_seen_onboarding")
+    // v1.9.6 (drive-verify polish #6): one-time
+    // discoverability hint for the v1.9.5 swipe-right +
+    // long-press gestures on the DecayRow. The chip renders
+    // the first time the user opens Today with >= 3 quiet
+    // contacts; tapping the chip (or marking a row recent)
+    // flips this to true and the chip never appears again.
+    // The `_v1` suffix is the standard re-key pattern so a
+    // future copy / placement change can re-introduce the
+    // hint by writing a new key.
+    private val decayGestureHintShownKey = booleanPreferencesKey("decay_gesture_hint_shown_v1")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         val ord = prefs[themeKey] ?: ThemeMode.System.ordinal
@@ -48,11 +58,27 @@ class BatonPreferences @Inject constructor(
         prefs[onboardingKey] ?: false
     }
 
+    /**
+     * v1.9.6: one-time discoverability hint for the new
+     * DecayRow gestures. `false` on a fresh install; the
+     * DecaySection flips it to `true` when the user taps the
+     * hint chip (or marks a row recent via swipe / long-
+     * press). The flag survives process death and reinstall
+     * of the same APK version.
+     */
+    val decayGestureHintShown: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[decayGestureHintShownKey] ?: false
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[themeKey] = mode.ordinal }
     }
 
     suspend fun setOnboardingSeen() {
         context.dataStore.edit { it[onboardingKey] = true }
+    }
+
+    suspend fun setDecayGestureHintShown() {
+        context.dataStore.edit { it[decayGestureHintShownKey] = true }
     }
 }

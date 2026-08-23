@@ -111,13 +111,25 @@ open class BriefGenerator @Inject constructor(
         instructions: List<Instruction>,
         now: Instant = Instant.now(),
     ): DailyBrief {
-        val needs = instructions
+        // v1.8.0 (PROD-READINESS-P1-#4): the privacy gate.
+        // Sensitive rows (is_sensitive = true) never appear in
+        // the brief. They live in the local SQLCipher mirror
+        // only and are excluded from the morning / evening
+        // brief by spec §13. A row that is "open" + "needs
+        // you" but is_sensitive is intentionally not surfaced
+        // — the user's most sensitive cases are not what
+        // they want to see at 8am. The flag is also the
+        // sync-engine filter, so the row never leaves the
+        // device in the first place; this filter is the
+        // UI-side backstop.
+        val visible = instructions.filterNot { it.isSensitive }
+        val needs = visible
             .filter { it.needsYouToday(date, now) }
             .sortedWith(needsYouComparator)
-        val waiting = instructions
+        val waiting = visible
             .filter { it.waitingOnOthers() }
             .sortedBy { it.updatedAt }  // oldest first
-        val carried = instructions
+        val carried = visible
             .filter { it.carriedOver(now) }
             .sortedBy { it.updatedAt }  // oldest first
         // DATA-FINDING-03: carriedOver (8-30d INCOMING OPEN) and

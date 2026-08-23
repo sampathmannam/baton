@@ -16,6 +16,21 @@ interface CaptureDao {
     @Query("SELECT * FROM captures WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): CaptureEntity?
 
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#5): hard-delete every
+     * capture whose `createdAt` (ISO-8601 string) is
+     * lexicographically less than the supplied
+     * [cutoffIso]. ISO-8601 strings sort in time
+     * order so the lexicographic compare is a valid
+     * time compare. Returns the number of rows
+     * deleted so the
+     * [com.baton.app.data.retention.RetentionWorker]
+     * can report the result. Used by the daily
+     * retention sweep.
+     */
+    @Query("DELETE FROM captures WHERE createdAt < :cutoffIso")
+    suspend fun deleteOlderThan(cutoffIso: String): Int
+
     @Query("SELECT * FROM captures WHERE processed = 0 ORDER BY createdAt DESC")
     suspend fun unprocessed(): List<CaptureEntity>
 

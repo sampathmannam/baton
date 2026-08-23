@@ -149,26 +149,26 @@ private fun AddImportantDateDialog(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Date: $date",
+                        text = stringResource(R.string.important_date_label, date),
                         modifier = Modifier.weight(1f),
                     )
                     TextButton(onClick = { menuOpen = true }) {
-                        Text("Pick")
+                        Text(stringResource(R.string.important_date_pick))
                     }
                     DropdownMenu(
                         expanded = menuOpen,
                         onDismissRequest = { menuOpen = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Today") },
+                            text = { Text(stringResource(R.string.important_date_today)) },
                             onClick = { date = LocalDate.now(); menuOpen = false },
                         )
                         DropdownMenuItem(
-                            text = { Text("Tomorrow") },
+                            text = { Text(stringResource(R.string.important_date_tomorrow)) },
                             onClick = { date = LocalDate.now().plusDays(1); menuOpen = false },
                         )
                         DropdownMenuItem(
-                            text = { Text("In a week") },
+                            text = { Text(stringResource(R.string.important_date_in_a_week)) },
                             onClick = { date = LocalDate.now().plusDays(7); menuOpen = false },
                         )
                     }
@@ -179,7 +179,7 @@ private fun AddImportantDateDialog(
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Will save as: $resolvedLabel",
+                    text = stringResource(R.string.important_date_will_save_as, resolvedLabel),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

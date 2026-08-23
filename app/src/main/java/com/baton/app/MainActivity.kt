@@ -12,10 +12,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
@@ -275,10 +279,20 @@ private fun MainScaffold(
     // undone" + an "Undo" button. 5 s auto-dismissal maps to
     // SnackbarDuration.Short. On undo, the controller's
     // `undoLast()` re-inserts the row.
+    //
+    // v1.9.6 (drive-verify polish #6): the message must show
+    // the human-readable name (`action.displayName`), NOT a
+    // UUID fragment (`action.id.take(6)`). The v1.9.5
+    // implementation read the first 6 chars of the contact's
+    // UUID, so the snackbar read "Mark recent 96ldae" instead
+    // of "Mark recent B. Ramesh Naidu". Every `UndoableAction`
+    // variant now declares its own `displayName` (person name,
+    // instruction title, capture preview, or person name for
+    // MarkPersonRecent).
     LaunchedEffect(lastUndo) {
         val action = lastUndo ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message = "${action.label} ${action.id.take(6)}",
+            message = "${action.label} ${action.displayName}",
             actionLabel = undoLabel,
             withDismissAction = true,
         )
@@ -368,6 +382,33 @@ private fun MainScaffold(
                         onClose = { navController.popBackStack() },
                     )
                 }
+                // v1.8.0 (PROD-READINESS-P2-#2): the
+                // sync-conflict list screen. Reachable
+                // from Settings → Sync conflicts. The
+                // row is hidden in the Settings sheet
+                // when the count is 0, so the screen
+                // is dormant in the vault-mode build.
+                composable(Routes.SYNC_CONFLICTS) {
+                    com.baton.app.ui.settings.SyncConflictListScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenConflict = { id ->
+                            navController.navigate(Routes.syncConflict(id))
+                        },
+                    )
+                }
+                composable(
+                    Routes.SYNC_CONFLICT_DIFF,
+                    arguments = listOf(
+                        androidx.navigation.navArgument("id") { type = androidx.navigation.NavType.LongType },
+                    ),
+                ) { entry ->
+                    val id = entry.arguments?.getLong("id") ?: return@composable
+                    com.baton.app.ui.settings.SyncConflictDiffScreen(
+                        conflictId = id,
+                        onBack = { navController.popBackStack() },
+                        onResolved = { navController.popBackStack() },
+                    )
+                }
             }
             OfflineIndicator(
                 isOnline = isOnline,
@@ -391,6 +432,10 @@ private fun MainScaffold(
             onOpenThreatModel = {
                 showSettings = false
                 navController.navigate(Routes.THREAT_MODEL)
+            },
+            onOpenSyncConflicts = {
+                showSettings = false
+                navController.navigate(Routes.SYNC_CONFLICTS)
             },
         )
     }
@@ -451,16 +496,45 @@ private fun BottomNav(
     // (A14, 1080x2400) and ZD2232FCR5 (A17, 1264x2780).
     //
     // v1.6.4 fix: hardcoded 48dp (126px at 420dpi)
-    // bottom padding on top of the inset. On 3-button
-    // devices this guarantees the Compose nav ends ABOVE
-    // the system nav. On gesture-nav devices the inset is
-    // already ~16dp so adding 48dp makes the bar sit 64dp
-    // above the bottom — slightly more space, still
-    // standard Material 3.
+    // bottom padding on top of the inset.
+    //
+    // v1.7.1 fix (CRIT-H1+H2): the v1.6.4 48dp extra
+    // padding was JUST barely enough — the system's
+    // 3-button nav has an extended touch area that
+    // reaches ~30-50dp above the visible buttons, so the
+    // TOP 24-30% of the Compose NavigationBar overlapped
+    // the recents-button hit area. Tapping the Today or
+    // Settings tab from the Home screen on ZD2232FCR5
+    // (Android 17, 1264x2780, 3-button nav) was captured
+    // by the system recents and the user was dropped
+    // into a background app (e.g. BSA for Dummies).
+    // Bumped the explicit bottom padding to 96dp so the
+    // Compose bar ends ~48dp above the system nav touch
+    // area top. Drive-verified: bottom nav tappable from
+    // every screen; the NoteBar above it still has a 12dp
+    // visual gap.
+    //
+    // v1.9.2: the explicit `padding(bottom = 96.dp)` is
+    // REMOVED. The v1.6.4 fix was for 3-button nav, where
+    // the system recents button has an extended touch area
+    // that reaches ~30-50dp above the visible buttons.
+    // ZD2232FCR5 is now on gesture nav (the home-indicator
+    // pill at the bottom of the screen is the only system
+    // touch target in that area), so the 96dp manual
+    // padding was over-applied — it just created a visible
+    // dark gap of ~288px between the bottom nav and the
+    // bottom of the screen. `navigationBarsPadding()` alone
+    // is sufficient for gesture nav; the system gesture
+    // insets are already handled by `enableEdgeToEdge()` in
+    // [BatonApplication.onCreate]. If a user with 3-button
+    // nav reports the recents-button-tap regression, the
+    // fix is to read `WindowInsets.navigationBars` height
+    // and add 48dp on top of it (the 3-button extended
+    // touch area) — but gesture nav is the only mode that
+    // the build-time Windows machine can drive-verify.
     NavigationBar(
         modifier = Modifier
-            .navigationBarsPadding()
-            .padding(bottom = 48.dp),
+            .navigationBarsPadding(),
     ) {
         NavEntry(
             label = stringResource(R.string.tab_home),
@@ -506,12 +580,58 @@ private fun androidx.compose.foundation.layout.RowScope.NavEntry(
     currentRoute: String,
     onClick: () -> Unit,
 ) {
-    NavigationBarItem(
-        selected = currentRoute == route,
-        onClick = onClick,
-        icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label) },
-    )
+    // v1.7.3 (P1-D, H3 follow-up from v1.7.0): replace the M3
+    // NavigationBarItem with a custom Row that always exposes
+    // `clickable=true` in the UI hierarchy. The v1.7.0 critique
+    // H3 noted that the active tab reports `clickable=false` in
+    // uiautomator dump because M3 NavigationBarItem sets the
+    // `selected=true` child as non-clickable. The actual click
+    // handler on the parent Surface still fires, so the user's
+    // tap works — but the dump signal is wrong and a screen
+    // reader announces the active tab as inert. The custom Row
+    // fixes both: every tab reports `clickable=true` (including
+    // the active one), and `onClick` fires on every tap (no
+    // M3 internal guard). The visual selected indicator is the
+    // same primary-color tint + 3dp pill that M3's
+    // NavigationBarItem renders under the active label.
+    val isActive = currentRoute == route
+    val onSurfaceVariant = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+    val primary = androidx.compose.material3.MaterialTheme.colorScheme.primary
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier
+            .weight(1f)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        androidx.compose.foundation.layout.Column(
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        ) {
+            androidx.compose.material3.Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isActive) primary else onSurfaceVariant,
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
+            androidx.compose.material3.Text(
+                text = label,
+                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                color = if (isActive) primary else onSurfaceVariant,
+            )
+            if (isActive) {
+                androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .background(
+                            color = primary,
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                        )
+                        .size(width = 24.dp, height = 3.dp),
+                )
+            }
+        }
+    }
 }
 
 /** M3.5: thin wrapper for the person detail nav entry. */
@@ -543,6 +663,13 @@ object Routes {
     // itself to the right window.
     const val RECOVERY_PHRASE = "privacy/recovery-phrase"
     const val THREAT_MODEL = "privacy/threat-model"
+    // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
+    // routes. The list screen is reachable from
+    // Settings; the diff screen is pushed when a
+    // conflict row is tapped.
+    const val SYNC_CONFLICTS = "sync/conflicts"
+    const val SYNC_CONFLICT_DIFF = "sync/conflict/{id}"
+    fun syncConflict(id: Long) = "sync/conflict/$id"
     fun person(id: String) = "person/$id"
 }
 

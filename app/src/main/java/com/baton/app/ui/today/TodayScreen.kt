@@ -43,16 +43,16 @@ import com.baton.app.R
 import com.baton.app.data.brief.DailyBrief
 import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.instructions.Status
+import com.baton.app.data.instructions.toDomain
 import com.baton.app.data.person.toEntity
 import com.baton.app.features.search.SearchBar
 import com.baton.app.features.search.SearchViewModel
+import com.baton.app.ui.components.InstructionDetailSheet
+import com.baton.app.ui.components.formatTimeIso
 import com.baton.app.ui.today.brief.MeetingBriefCard
 import com.baton.app.ui.today.decay.DecaySection
 import com.baton.app.ui.today.win.TodaysWinCard
 import com.baton.app.ui.today.worry.WorryBoxSection
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * M4-T1: Today screen. The morning brief content lives here.
@@ -103,7 +103,7 @@ fun TodayScreen(
                         // Obsidian-like (the action is secondary
                         // to the content).
                         TextButton(onClick = { showReview = true }) {
-                            Text("Review")
+                            Text(stringResource(R.string.today_review_action))
                         }
                     },
                     windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
@@ -135,7 +135,21 @@ fun TodayScreen(
                 instructionResults = results,
                 personNameById = personNameById,
                 padding = padding,
-                onPersonClick = { /* search is read-only on Today */ },
+                // v1.7.2 (P1-D): a tap on a person result used to
+                // be a no-op (the comment said "search is read-only
+                // on Today"). The HomeScreenSearchResults Composable
+                // is the same component used on Home, where person
+                // taps route to PersonDetail. Routing the Today-side
+                // tap to the same `onOpenPerson(id)` makes the two
+                // search surfaces behave identically — a quiet
+                // affordance parity, not a feature.
+                onPersonClick = { id -> onOpenPerson(id) },
+                // v1.7.0: instruction tap opens the existing
+                // InstructionDetailSheet (same component the
+                // brief cards open). Reuses TodayViewModel
+                // handlers — the same markDone / markDropped
+                // / reopen used for the brief cards.
+                onInstructionClick = { entity -> selected = entity.toDomain() },
             )
         } else if (brief.isEmpty) {
             // v1.6.3: the EmptyBriefContent used to render at the
@@ -155,8 +169,33 @@ fun TodayScreen(
                 // v1.6.3: 16dp horizontal contentPadding so the
                 // cards no longer need their own horizontal
                 // padding (consistent with HomeScreen.PersonList).
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                //
+                // v1.9.2: bottom contentPadding reset to 8dp
+                // (the v1.6.3 default). The earlier v1.9.2 bump
+                // to 96dp was meant to clear the bottom nav
+                // (Home / Today / Settings) which is rendered
+                // by MainActivity OUTSIDE the Scaffold, but
+                // the Scaffold's `padding` parameter already
+                // accounts for the bottom nav's height (it is
+                // the Scaffold's `bottomBar`). Adding 96dp on
+                // top of that produced a visible dark gap of
+                // ~288px between the last card and the nav.
+                // Removing the extra contentPadding eliminates
+                // the gap and the last card (e.g. "K. Mahesh"
+                // in the Decay list) now sits flush against
+                // the top of the bottom nav instead of clipping
+                // behind it.
+                //
+                // v1.9.4 (drive-verify polish #4): vertical
+                // contentPadding 8dp -> 4dp + spacedBy 8dp -> 4dp.
+                // The user's "UI should use the screen
+                // properly" feedback. 4dp of vertical
+                // contentPadding + 4dp of inter-item spacing
+                // gives the surface room to breathe without
+                // wasting 1/4 of the screen on gaps. 5+ cards
+                // now fit on the Today screen instead of 4.
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
             // v2.0 Tier 2 (§2.11): Today's win summary.
             item { TodaysWinCard() }
@@ -181,13 +220,13 @@ fun TodayScreen(
                     }
                 }
                 if (brief.waitingOnOthers.isNotEmpty()) {
-                    item { SectionHeader("Waiting on others") }
+                    item { SectionHeader(stringResource(R.string.today_section_waiting)) }
                     items(items = brief.waitingOnOthers, key = { it.id }) { ins ->
                         InstructionCard(ins, onClick = { selected = ins })
                     }
                 }
                 if (brief.carriedOver.isNotEmpty()) {
-                    item { SectionHeader("Carried over") }
+                    item { SectionHeader(stringResource(R.string.today_section_carried_over)) }
                     items(items = brief.carriedOver, key = { it.id }) { ins ->
                         InstructionCard(ins, onClick = { selected = ins })
                     }
@@ -242,12 +281,12 @@ private fun EmptyBriefContent() {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = "Nothing on your plate.",
+                text = stringResource(R.string.today_empty_title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "When instructions come in, they'll show up here.",
+                text = stringResource(R.string.today_empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -306,136 +345,11 @@ private fun InstructionCard(ins: Instruction, onClick: () -> Unit) {
                 )
             }
             Text(
-                text = formatTime(ins.capturedAt),
+                text = formatTimeIso(ins.capturedAt),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-    }
-}
-
-private fun formatTime(iso: String): String = try {
-    val inst = Instant.parse(iso)
-    DateTimeFormatter.ofPattern("d MMM, HH:mm")
-        .withZone(ZoneId.systemDefault())
-        .format(inst)
-} catch (e: Exception) { iso }
-
-/**
- * v1.5.3 (VAULT-010): the instruction detail sheet. Shows the
- * full raw text + a status pill + one of three action buttons
- * depending on the current status.
- *
- *  - OPEN / IN_PROGRESS / WAITING_ON_OTHER / ACK_PENDING:
- *    [Mark done] [Drop]
- *  - DONE:
- *    [Reopen]
- *  - DROPPED:
- *    [Reopen]
- *  - CARRIED_OVER:
- *    [Mark done] [Drop]
- *
- * The actions use the same neutral wording as the rest of the
- * app (no "Delete" / "Destroy" / red colour).
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun InstructionDetailSheet(
-    instruction: Instruction,
-    onDismiss: () -> Unit,
-    onMarkDone: () -> Unit,
-    onDrop: () -> Unit,
-    onReopen: () -> Unit,
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = instruction.title,
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            StatusPill(instruction.status)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Text(
-                text = instruction.rawText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            if (instruction.dueAt != null) {
-                Text(
-                    text = "Due: ${formatTime(instruction.dueAt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text(
-                text = "Captured: ${formatTime(instruction.capturedAt)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            // The action row. Reopen-only for DONE / DROPPED.
-            val isClosed = instruction.status == Status.DONE ||
-                instruction.status == Status.DROPPED
-            if (isClosed) {
-                Button(
-                    onClick = onReopen,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Reopen")
-                }
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Button(
-                        onClick = onMarkDone,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("Mark done")
-                    }
-                    OutlinedButton(
-                        onClick = onDrop,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    ) {
-                        Text("Drop")
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
-
-/**
- * v1.5.3 (VAULT-010): a soft status pill. The colour is
- * surfaceVariant (not red, not amber) — the spec's
- * "no-shame" rule means we never shout at the user about
- * an instruction's state, only label it.
- */
-@Composable
-private fun StatusPill(status: Status) {
-    androidx.compose.material3.Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MaterialTheme.shapes.small,
-    ) {
-        Text(
-            text = status.name.lowercase().replaceFirstChar { it.uppercase() },
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
     }
 }
 
@@ -457,7 +371,7 @@ private fun EveningReviewSheet(review: EveningReview, onDismiss: () -> Unit) {
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Evening review", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.today_evening_review), style = MaterialTheme.typography.headlineSmall)
             Text(
                 text = review.date,
                 style = MaterialTheme.typography.bodySmall,
@@ -466,21 +380,21 @@ private fun EveningReviewSheet(review: EveningReview, onDismiss: () -> Unit) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             if (review.stillOpen.isEmpty()) {
                 Text(
-                    "Nothing carried over. Nice.",
+                    text = stringResource(R.string.today_review_nothing_carried),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
-                Text("Still open:", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.today_review_still_open), style = MaterialTheme.typography.titleSmall)
                 review.stillOpen.forEach { ins ->
                     Text(
-                        text = "• ${ins.title}",
+                        text = stringResource(R.string.today_review_bullet_prefix, ins.title),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Tap outside to dismiss. Tomorrow's brief picks up from here.",
+                text = stringResource(R.string.today_review_dismiss_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

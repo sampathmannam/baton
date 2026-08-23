@@ -15,7 +15,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -45,12 +45,23 @@ import com.baton.app.R
 import kotlinx.coroutines.launch
 
 /**
- * Tier 1.2 (v2.0): the first-run onboarding screen.
+ * Tier 1.2 (v2.0) + v1.9.1 polish: the first-run onboarding
+ * screen.
  *
- * 3 steps in a Compose `HorizontalPager`:
+ * 4 steps in a Compose `HorizontalPager`:
  *  1. Welcome — short hero + the K+dot icon.
  *  2. Privacy — "your data lives only here" + 3 plain lines.
- *  3. Add your first person — hero with a "Use sample data"
+ *  3. How Baton is different — the v1.9.0 "Baton is not a
+ *     notes app" explainer (3 short bullet rows). The
+ *     strings (`onboarding_screen_1_*` .. `onboarding_screen_4_*`)
+ *     shipped in v1.9.0 but were never wired into the
+ *     OnboardingScreen. v1.9.1 promotes the explainer from
+ *     a settings-only view (intended for v1.9.0's
+ *     `onboarding_title` / `onboarding_subtitle` doc screen)
+ *     to the first-run flow. Three of the four v1.9.0
+ *     strings map directly to a row in the new page; the
+ *     fourth ("Free, forever") is folded into the page body.
+ *  4. Add your first person — hero with a "Use sample data"
  *     toggle.
  *
  * The host ([com.baton.app.MainScaffold]) reads the
@@ -67,6 +78,7 @@ fun OnboardingScreen(
     val pages = listOf(
         OnboardingPage.Welcome,
         OnboardingPage.Privacy,
+        OnboardingPage.NotJustNotes,
         OnboardingPage.GetStarted,
     )
     val pagerState = rememberPagerState(pageCount = { pages.size })
@@ -161,7 +173,7 @@ fun OnboardingScreen(
     }
 }
 
-private enum class OnboardingPage { Welcome, Privacy, GetStarted }
+private enum class OnboardingPage { Welcome, Privacy, NotJustNotes, GetStarted }
 
 @Composable
 private fun OnboardingPageContent(
@@ -172,6 +184,7 @@ private fun OnboardingPageContent(
     when (page) {
         OnboardingPage.Welcome -> WelcomePage()
         OnboardingPage.Privacy -> PrivacyPage()
+        OnboardingPage.NotJustNotes -> NotJustNotesPage()
         OnboardingPage.GetStarted -> GetStartedPage(
             loadSample = loadSample,
             onSampleToggled = onSampleToggled,
@@ -327,6 +340,107 @@ private fun GetStartedPage(
                 )
             }
             Switch(checked = loadSample, onCheckedChange = onSampleToggled)
+        }
+    }
+}
+
+/**
+ * v1.9.1 (PROD-READINESS-P3-P0-#9 wiring): the "Baton is not
+ * a notes app" explainer page. This is the v1.9.0
+ * `onboarding_title` + `onboarding_subtitle` content rendered
+ * inside the first-run pager rather than as a separate
+ * settings doc. Three of the four v1.9.0 explainer rows
+ * (local-only / person-first / deniable) become
+ * `PrivacyBullet`-style rows; the fourth ("Free, forever")
+ * is the page footer. The visible copy is the v1.9.0 string
+ * verbatim — no rewrite, no padding, no multi-phase rollout.
+ */
+@Composable
+private fun NotJustNotesPage() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.onboarding_title),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = stringResource(R.string.onboarding_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        NotJustNotesBullet(
+            icon = Icons.Default.PhoneAndroid,
+            title = stringResource(R.string.onboarding_screen_1_title),
+            body = stringResource(R.string.onboarding_screen_1_body),
+        )
+        NotJustNotesBullet(
+            icon = Icons.Default.Person,
+            title = stringResource(R.string.onboarding_screen_2_title),
+            body = stringResource(R.string.onboarding_screen_2_body),
+        )
+        NotJustNotesBullet(
+            icon = Icons.Default.Lock,
+            title = stringResource(R.string.onboarding_screen_3_title),
+            body = stringResource(R.string.onboarding_screen_3_body),
+        )
+        NotJustNotesBullet(
+            icon = Icons.Default.Favorite,
+            title = stringResource(R.string.onboarding_screen_4_title),
+            body = stringResource(R.string.onboarding_screen_4_body),
+        )
+    }
+}
+
+/**
+ * v1.9.1: a title + body bullet variant for the
+ * "NotJustNotes" page (the Privacy page uses a simpler
+ * icon + single-line pattern). Same Surface-in-Circle icon
+ * treatment so the two pages read as siblings.
+ */
+@Composable
+private fun NotJustNotesBullet(
+    icon: ImageVector,
+    title: String,
+    body: String,
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = CircleShape,
+            modifier = Modifier.size(36.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Spacer(Modifier.size(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

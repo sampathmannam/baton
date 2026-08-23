@@ -1,9 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Kaavalan note</string>
     <string name="home_title">People</string>
     <string name="home_empty_title">No one yet</string>
-    <string name="home_empty_subtitle">Add the first person you coordinate with — your SP, your SHOs, anyone you give or take instructions from.</string>
+    <string name="home_empty_subtitle">Add the first person you coordinate with � your SP, your SHOs, anyone you give or take instructions from.</string>
     <string name="home_add_person">Add person</string>
     <string name="person_name">Name</string>
     <string name="person_designation">Designation (e.g. SP, DSP, SHO)</string>
@@ -48,6 +48,9 @@
 
     <!-- M3-T4: settings sheet + sign-out -->
     <string name="settings_title">Settings</string>
+    <!-- v1.7.1 (P1 St1): the visible Close button in the
+         Settings sheet top-right. -->
+    <string name="settings_close">Close settings</string>
     <!-- v1.5.1: vault-mode copy. There is no Supabase data to
          preserve, so the v1.4 "Supabase data stays" line is
          misleading. The destructive action is now framed as
@@ -55,10 +58,17 @@
          button is renamed to match. -->
     <string name="settings_subtitle">Erase all data on this phone: every person, every instruction, and every tag. This cannot be undone.</string>
     <string name="settings_sign_out">Erase all data</string>
-    <string name="settings_signing_out">Erasing…</string>
-    <!-- v1.5.1 (VAULT-007): the confirmation dialog. -->
+    <string name="settings_signing_out">Erasing�</string>
+    <!-- v1.5.1 (VAULT-007): the confirmation dialog.
+         v1.7.2 (Debt-2): added a typed confirmation ("ERASE")
+         so a single tap-tap-tap sequence can't wipe the data
+         even if the user lands on the confirm button
+         accidentally. The previous AlertDialog was a one-tap
+         irreversible action - the strongest safe-by-default
+         pattern is "type the destructive word to confirm". -->
     <string name="settings_erase_confirm_title">Erase all data on this phone?</string>
     <string name="settings_erase_confirm_body">This deletes every person, every instruction, and every tag. There is no backup. This cannot be undone.</string>
+    <string name="settings_erase_confirm_typed_label">Type ERASE to confirm</string>
     <string name="settings_erase_confirm_yes">Erase</string>
     <string name="settings_erase_confirm_no">Cancel</string>
 
@@ -73,6 +83,12 @@
     <string name="settings_dev_load_fixture">Load test data</string>
     <string name="settings_dev_clear_reload">Clear &amp; reload</string>
     <string name="settings_dev_loading">Loading\u2026</string>
+    <!-- v1.6.6 P1: the 4-count dev-load report is now built from
+         per-segment plurals. settings_dev_loaded_prefix holds the
+         static "Loaded " lead; the count list is appended
+         programmatically. The old settings_dev_loaded is retained
+         in case future code wants the single-string form. -->
+    <string name="settings_dev_loaded_prefix">Loaded </string>
     <string name="settings_dev_loaded">Loaded %1$d people, %2$d instructions, %3$d captures, %4$d tags.</string>
 
     <!-- v1.5.3 (VAULT-010): TalkBack label for the Today-tab
@@ -83,6 +99,15 @@
     <!-- v1.5.3 (VAULT-008): the About section. -->
     <string name="settings_section_about">About</string>
     <string name="settings_app_version">App version</string>
+    <!-- v1.8.0 (PROD-READINESS-P2-#6): the per-build
+         branding rows in the Settings ? About section.
+         The R&D default build shows "Kaavalan note" +
+         no department; a pilot build shows the build's
+         BRAND_NAME + BRAND_DEPARTMENT from gradle
+         properties. -->
+    <string name="settings_brand_name">App name</string>
+    <string name="settings_brand_department">Department</string>
+    <string name="settings_brand_department_none">�</string>
     <string name="settings_app_version_value">%1$s (build %2$d)</string>
     <string name="settings_storage">On this phone</string>
     <string name="settings_storage_value">%1$d people, %2$d instructions, %3$d tags</string>
@@ -90,9 +115,9 @@
     <string name="settings_notifications">Notifications</string>
     <string name="settings_notifications_value">%1$s</string>
     <string name="settings_notifications_enabled">Allowed</string>
-    <string name="settings_notifications_disabled">Blocked — enable in system settings</string>
+    <string name="settings_notifications_disabled">Blocked � enable in system settings</string>
     <string name="settings_data_mode">Data mode</string>
-    <string name="settings_data_mode_vault">Vault — stays on this phone</string>
+    <string name="settings_data_mode_vault">Vault � stays on this phone</string>
 
     <!-- M3-T6: person detail screen -->
     <string name="person_detail_title">Person</string>
@@ -111,6 +136,11 @@
     <string name="a11y_person_row_open">Open person</string>
     <string name="a11y_person_count_badge">%1$d open instructions</string>
     <string name="a11y_person_count_badge_one">1 open instruction</string>
+    <!-- v1.7.1 (P1 T3): short "open" label that follows the
+         count in the PersonList row so the digit is self-
+         explanatory without needing TalkBack. Used inline
+         as " 3 open". -->
+    <string name="today_count_open_short">open</string>
     <string name="a11y_person_stale_indicator">No recent activity for 3 or more days</string>
     <string name="a11y_status_chip">Status: %1$s</string>
 
@@ -145,7 +175,7 @@
     <string name="vault_export_confirm">Confirm passphrase</string>
     <string name="vault_export_button">Save vault file</string>
     <string name="vault_strength_label">Strength: %1$s</string>
-    <string name="vault_strength_0">Too weak — try a longer phrase</string>
+    <string name="vault_strength_0">Too weak � try a longer phrase</string>
     <string name="vault_strength_1">Weak</string>
     <string name="vault_strength_2">OK</string>
     <string name="vault_strength_3">Strong</string>
@@ -236,12 +266,26 @@
     </plurals>
     <string name="decay_empty">Everyone\'s been touched recently. Nice.</string>
     <string name="a11y_decay_row_open">Open person</string>
+    <!-- v1.8.0 (PROD-READINESS-P1-#6): the per-row "Mark
+         recent" button. Bumps the person\'s lastInteractionAt
+         to now so they leave the Quiet-a-while list. -->
+    <string name="decay_mark_recent">Mark recent</string>
+    <string name="a11y_decay_row_mark_recent">Mark as recently contacted</string>
+    <!-- v1.9.6 (drive-verify polish #6): one-time
+         discoverability hint for the v1.9.5 swipe-right +
+         long-press gestures on the DecayRow. Renders as a
+         small AssistChip above the filter row on first run
+         when the user has >= 3 quiet contacts. Tapping the
+         chip (or marking a row recent) hides it permanently
+         via BatonPreferences.decay_gesture_hint_shown_v1. -->
+    <string name="decay_gesture_hint">Swipe right or long-press a card to mark someone as recent.</string>
+    <string name="decay_gesture_hint_dismiss">Got it</string>
     <string name="status_quiet_a_while">Quiet a while</string>
     <string name="status_getting_due">Getting due</string>
     <string name="status_on_track">On track</string>
     <plurals name="bulk_snooze_banner">
-        <item quantity="one">%1$d quiet contact — redistribute?</item>
-        <item quantity="other">%1$d quiet contacts — redistribute?</item>
+        <item quantity="one">%1$d quiet contact � redistribute?</item>
+        <item quantity="other">%1$d quiet contacts � redistribute?</item>
     </plurals>
     <string name="bulk_snooze_title">Reschedule the quiet pile?</string>
     <string name="bulk_snooze_body">We\'ll push the snooze to 2 weeks from now for the oldest half.</string>
@@ -252,7 +296,7 @@
     <string name="tier_active">Active</string>
     <string name="tier_periodic">Periodic</string>
     <string name="tier_dormant">Dormant</string>
-    <string name="tier_label_with_cadence">%1$s · %2$d d</string>
+    <string name="tier_label_with_cadence">%1$s � %2$d d</string>
     <string name="cadence_override_label">Override</string>
     <string name="cadence_clear">Use tier default</string>
     <string name="important_date_section">Important dates</string>
@@ -273,6 +317,40 @@
         <item quantity="one">%1$d carried over</item>
         <item quantity="other">%1$d carried over</item>
     </plurals>
+
+    <!-- v1.6.6 P1 plural fix: the multi-count summaries on the
+         Today card and Settings sheet previously used single
+         stringResource(...) calls with %d args (e.g. "%1$d people,
+         %2$d instructions, %3$d tags") that cannot pluralize
+         per-segment. Each count now uses its own
+         pluralStringResource, joined by the comma connector.
+         `count_people` handles the irregular 1=person / N=people. -->
+    <plurals name="count_captures">
+        <item quantity="one">%1$d capture</item>
+        <item quantity="other">%1$d captures</item>
+    </plurals>
+    <plurals name="count_people">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+    <plurals name="count_instructions">
+        <item quantity="one">%1$d instruction</item>
+        <item quantity="other">%1$d instructions</item>
+    </plurals>
+    <plurals name="count_tags">
+        <item quantity="one">%1$d tag</item>
+        <item quantity="other">%1$d tags</item>
+    </plurals>
+    <!-- v1.6.8: these were <plurals> with identical one/other
+         items (the words don't actually pluralize � "1 carried
+         over" and "5 carried over" are both correct). Converting
+         to <string> removes the misleading <plurals> wrapper.
+         Call sites in TodaysWinCard now use stringResource
+         instead of pluralStringResource. -->
+    <string name="count_carried_over">%1$d carried over</string>
+    <string name="count_sensitive">%1$d sensitive</string>
+    <string name="count_connector_comma">, </string>
+    <string name="count_connector_period">. </string>
     <string name="morning_brief_permission_rationale">Allow notifications so Kaavalan can show your morning brief.</string>
     <string name="meeting_brief_title">Brief me before a meeting</string>
     <string name="meeting_brief_no_events">No matching events in the next 15 minutes.</string>
@@ -280,7 +358,7 @@
     <string name="meeting_brief_recent_instructions">Recent instructions</string>
     <string name="meeting_brief_recent_photos">Recent photos</string>
     <string name="meeting_brief_recent_notes">Recent notes</string>
-    <string name="meeting_brief_event_time">%1$s — %2$s</string>
+    <string name="meeting_brief_event_time">%1$s � %2$s</string>
     <string name="case_type_chip_label">Type: %1$s</string>
     <string name="case_type_case">Case</string>
     <string name="case_type_witness">Witness</string>
@@ -288,7 +366,7 @@
     <string name="case_type_other">Other</string>
     <string name="settings_show_type_chip">Show type chip on instructions</string>
     <string name="calendar_link_prompt_title">Attach to your next event with %1$s?</string>
-    <string name="calendar_link_prompt_body">%1$s · %2$s</string>
+    <string name="calendar_link_prompt_body">%1$s � %2$s</string>
     <string name="calendar_link_prompt_attach">Attach</string>
     <string name="calendar_link_prompt_skip">Skip</string>
     <string name="calendar_link_prompt_attach_done">Attached to event.</string>
@@ -301,7 +379,7 @@
     <string name="worry_box_empty">No worries. The box is empty.</string>
     <string name="todays_win_title">Today\'s win</string>
     <string name="todays_win_summary">%1$d captures across %2$d people, %3$d carried over, %4$d sensitive.</string>
-    <string name="todays_win_summary_zero">No captures today yet. Tap the note bar to start.</string>
+    <string name="todays_win_summary_zero">No captures today yet. Add one from the Home tab.</string>
     <string name="person_links_section">Linked people</string>
     <string name="person_links_add">Add link</string>
     <string name="person_link_relation_reports_to">Reports to</string>
@@ -329,9 +407,9 @@
     <string name="settings_vault_pin_set">Set</string>
     <string name="settings_vault_pin_change">Change</string>
     <string name="settings_vault_pin_unset">Not set</string>
-    <string name="settings_vault_pin_value_set">Set — 4 to 6 digits</string>
+    <string name="settings_vault_pin_value_set">Set � 4 to 6 digits</string>
     <string name="settings_vault_pin_dialog_title">Set vault PIN</string>
-    <string name="settings_vault_pin_dialog_body">Enter a 4 to 6 digit PIN. You\'ll need it to switch back from Hidden to Visible mode. The PIN is never stored — only its hash.</string>
+    <string name="settings_vault_pin_dialog_body">Enter a 4 to 6 digit PIN. You\'ll need it to switch back from Hidden to Visible mode. The PIN is never stored � only its hash.</string>
     <string name="settings_vault_pin_dialog_label">PIN</string>
     <string name="settings_vault_pin_dialog_save">Save PIN</string>
     <string name="settings_vault_pin_dialog_cancel">Cancel</string>
@@ -345,7 +423,7 @@
     <string name="settings_vault_switch_confirm">Switch</string>
     <string name="settings_recovery_phrase">Recovery phrase</string>
     <string name="settings_recovery_phrase_value_unset">Not generated</string>
-    <string name="settings_recovery_phrase_value_set">Set up — 12 words on paper</string>
+    <string name="settings_recovery_phrase_value_set">Set up � 12 words on paper</string>
     <string name="settings_recovery_phrase_explainer">Your recovery phrase is a 12-word master key. It\'s the only way to recover your data if this phone is lost. Write the words on paper. Do not screenshot.</string>
     <string name="settings_threat_model">Threat model</string>
     <string name="settings_threat_model_value">Read the threat model</string>
@@ -356,11 +434,16 @@
     <string name="recovery_phrase_step_2">2. Tap the words in order</string>
     <string name="recovery_phrase_verify_hint">Tap each word below, in the order you wrote them down.</string>
     <string name="recovery_phrase_copy">Copy to clipboard</string>
+    <!-- v1.8.0 (PROD-READINESS-P1-#2): the "Save as PDF"
+         export row on the recovery-phrase screen. Generates
+         an A4 sheet with the 24 words in 4 columns and
+         hands it to the system share sheet. -->
+    <string name="recovery_phrase_save_pdf">Save as PDF</string>
     <string name="recovery_phrase_written_down">I have written it down</string>
     <string name="recovery_phrase_picked_count">%1$d of %2$d words picked</string>
     <string name="recovery_phrase_retry">Try again</string>
     <string name="recovery_phrase_hold_to_reveal">Press and hold to reveal</string>
-    <string name="recovery_phrase_revealing">Showing — keep holding</string>
+    <string name="recovery_phrase_revealing">Showing � keep holding</string>
     <string name="recovery_phrase_confirmed_title">Recovery phrase set</string>
     <string name="recovery_phrase_confirmed_body">Keep the paper safe. The phrase is the only way to recover your data if this phone is lost. Anyone with the phrase can read your data.</string>
     <string name="recovery_phrase_trust_device">I trust this device</string>
@@ -391,5 +474,199 @@
     <string name="tier0_voice_in_app_stop">Stop voice</string>
     <string name="tier0_voice_in_app_stop_desc">Stop voice capture and transcribe</string>
     <string name="a11y_voice_in_app_stop">Stop voice capture and transcribe</string>
-    <string name="tier0_model_progress_label">Downloading… %1$d%%</string>
+    <!-- v1.6.8: hardcoded a11y labels for previously-English-only TalkBack
+         content. Centralised so the next locale pass covers them. -->
+    <string name="a11y_capture_note_text">Capture note text</string>
+    <string name="a11y_add_to_calendar">Add to calendar</string>
+    <string name="a11y_add_note">Add note</string>
+    <string name="tier0_model_progress_label">Downloading� %1$d%%</string>
+
+    <!-- v1.6.8: localised all hardcoded user-facing strings. -->
+    <!-- Today screen -->
+    <string name="today_section_waiting">Waiting on others</string>
+    <string name="today_section_carried_over">Carried over</string>
+    <string name="today_empty_title">Nothing on your plate.</string>
+    <string name="today_empty_subtitle">When instructions come in, they\'ll show up here.</string>
+    <string name="today_due_at">Due: %1$s</string>
+    <string name="today_captured_at">Captured: %1$s</string>
+    <string name="today_evening_review">Evening review</string>
+    <string name="today_review_dismiss_hint">Tap outside to dismiss. Tomorrow\'s brief picks up from here.</string>
+    <string name="today_review_action">Review</string>
+    <string name="today_review_still_open">Still open:</string>
+    <string name="today_review_nothing_carried">Nothing carried over. Nice.</string>
+    <string name="today_review_bullet_prefix">� %1$s</string>
+    <!-- Reusable actions -->
+    <string name="action_mark_done">Mark done</string>
+    <string name="action_draft_nudge">Draft nudge</string>
+    <string name="action_drop">Drop</string>
+    <string name="action_reopen">Re-open</string>
+    <string name="action_save">Save</string>
+    <string name="action_remove_flag">Remove flag</string>
+    <!-- Person detail sensitive toggle (person-level + instruction-level) -->
+    <string name="person_add_instruction_for">Add instruction for %1$s</string>
+    <string name="person_sensitive_explainer_full">Stays on this phone, never backed up.</string>
+    <string name="person_sensitive_explainer_short">Stays on this phone.</string>
+    <string name="person_remove_sensitive_flag">Remove sensitive flag</string>
+    <string name="person_mark_as_sensitive">Mark as sensitive</string>
+    <string name="instruction_make_syncable">Make syncable</string>
+    <string name="instruction_mark_sensitive">Mark sensitive</string>
+    <string name="instruction_will_stay_local">This instruction will stay on this phone only.</string>
+    <string name="instruction_will_start_syncing">This instruction will start syncing to the cloud %1$s</string>
+    <string name="instruction_remove_flag">Remove flag</string>
+    <string name="instruction_will_start_syncing_tail">if cloud sync is on for this device.</string>
+    <string name="person_sensitive_stay_local">%1$s and their instructions will stay on this phone only.</string>
+    <string name="person_sensitive_will_sync">%1$s will be available for cloud sync if cloud sync is on for this device.</string>
+    <!-- Person detail -->
+    <string name="person_new_instruction_title">New instruction for %1$s</string>
+    <string name="person_new_instruction_body">Capture what you want %1$s to do. The note will be attributed to them and show up on their timeline.</string>
+    <string name="person_note_label">Note</string>
+    <string name="person_done_at">Done %1$s</string>
+    <string name="person_dropped_reason">Dropped: %1$s</string>
+    <string name="person_drop_title">Drop instruction</string>
+    <string name="person_drop_reason_label">Reason (optional)</string>
+    <!-- Nudge sheet -->
+    <string name="nudge_edit_before_sending">Edit before sending. The draft is local; the message itself goes through WhatsApp or SMS, not Baton.</string>
+    <string name="nudge_message_label">Message</string>
+    <string name="nudge_clipboard_label">Baton nudge</string>
+    <string name="nudge_tone_polite">Polite</string>
+    <string name="nudge_tone_urgent">Urgent</string>
+    <string name="nudge_tone_casual">Casual</string>
+    <string name="nudge_action_copy">Copy</string>
+    <string name="nudge_action_share">Share</string>
+    <string name="nudge_share_chooser_title">Send nudge</string>
+    <string name="nudge_generating">Generating draft�</string>
+    <!-- Person links / relationships -->
+    <string name="links_add_person_first">Add another person first.</string>
+    <!-- Important dates row -->
+    <string name="important_date_label">Date: %1$s</string>
+    <string name="important_date_in_a_week">In a week</string>
+    <string name="important_date_will_save_as">Will save as: %1$s</string>
+    <string name="important_date_pick">Pick</string>
+    <string name="important_date_today">Today</string>
+    <string name="important_date_tomorrow">Tomorrow</string>
+    <!-- Settings sheet -->
+    <string name="settings_sync_error_retries">Failed to sync after multiple retries. Retry to put them back in the queue.</string>
+    <string name="settings_section_tags">Tags</string>
+    <string name="settings_tags_placeholder">new-tag</string>
+    <string name="settings_tags_empty">No tags yet. They\'ll show up here as you create instructions.</string>
+    <string name="settings_tags_add_chip">+ #tag</string>
+    <string name="settings_tags_add_button">Add</string>
+    <string name="settings_sync_retry">Retry</string>
+    <string name="settings_sync_stuck_one">%1$d stuck outbox entry</string>
+    <string name="settings_sync_stuck_other">%1$d stuck outbox entries</string>
+    <!-- Auth screen (vault mode pivot made this dead but kept localised) -->
+    <string name="auth_welcome_back">Welcome back</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_password_label">Password</string>
+    <string name="auth_resend_code">Resend code</string>
+    <string name="auth_use_password">Use password instead</string>
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_continue_with_email">Continue with email</string>
+    <string name="auth_sending">Sending�</string>
+    <string name="auth_otp_explainer">We\'ll email you a one-time code. No password needed.</string>
+    <string name="auth_code_sent">We sent a code to</string>
+    <string name="auth_verify">Verify</string>
+    <string name="auth_verifying">Verifying�</string>
+    <string name="auth_hide_password">Hide password sign-in</string>
+    <string name="auth_create">Create</string>
+    <string name="auth_code_label">6-digit code</string>
+    <!-- Tag picker -->
+    <string name="tag_picker_title">Tags</string>
+    <string name="tag_picker_free_placeholder">#tag</string>
+    <string name="tag_picker_add">Add</string>
+    <string name="tag_picker_add_chip">+ #tag</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#2): sync conflict screen copy -->
+    <string name="sync_conflicts_title">Sync conflicts</string>
+    <string name="sync_conflicts_empty">Nothing to resolve. All local writes are in sync.</string>
+    <string name="sync_conflicts_count">%1$d to resolve</string>
+    <string name="sync_conflict_keep_local">Keep local</string>
+    <string name="sync_conflict_keep_server">Keep server</string>
+    <string name="sync_conflict_resolved">Conflict resolved</string>
+    <string name="sync_conflict_no_cloud">Cloud sync is not enabled in this build. The chosen payload will be retained for the next sync cycle.</string>
+    <string name="sync_conflict_keep_local_cd">Keep local change</string>
+    <string name="sync_conflict_keep_server_cd">Keep server version</string>
+    <string name="sync_conflict_back_cd">Back</string>
+    <string name="sync_conflict_gone">Conflict no longer exists.</string>
+    <string name="sync_conflict_resolve_title">Conflict resolution</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#4): audit chain -->
+    <string name="audit_chain_intact">Audit chain intact: %1$d events</string>
+    <string name="audit_chain_broken">Audit chain broken at event %1$d</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#5): retention summary -->
+    <string name="retention_summary">Retention: 7y audit, 3y captures, 3y dates, 7y instructions</string>
+
+    <!-- v1.8.0 (PROD-READINESS-P2-#3): role display labels -->
+    <string name="role_admin">Admin</string>
+    <string name="role_senior_officer">Senior officer</string>
+    <string name="role_officer">Officer</string>
+    <string name="role_readonly">Read-only</string>
+
+    <!-- v1.9.0 (PROD-READINESS-P3-P1-#4): support -->
+    <string name="settings_support">Support</string>
+    <string name="settings_support_email">kaavalan-note@protonmail.com</string>
+    <string name="settings_support_email_subject">Baton %1$s support</string>
+    <string name="settings_support_email_body">Describe the issue. Attach a screenshot if you can.\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s</string>
+    <string name="settings_support_email_cd">Email support</string>
+    <string name="settings_rate">Rate Baton</string>
+    <string name="settings_rate_cd">Open the Play Store listing for Baton</string>
+    <string name="settings_share_app">Share Baton</string>
+    <string name="settings_share_app_chooser">Share with�</string>
+    <string name="settings_share_app_text">I am using Baton (Kaavalan note) � a private instruction tracker for IPS officers. https://github.com/sampathmannam/baton</string>
+
+    <!-- v1.9.0 (PROD-READINESS-P3-P0-#9): onboarding explainer -->
+    <string name="onboarding_title">Baton is not a notes app</string>
+    <string name="onboarding_subtitle">A short explanation of what makes Baton different.</string>
+    <string name="onboarding_screen_1_title">Local-only by design</string>
+    <string name="onboarding_screen_1_body">Every byte of your data lives on this device, in a SQLCipher-encrypted database. There is no cloud sync, no analytics, no telemetry. A thief who pulls the SD card cannot read your notes.</string>
+    <string name="onboarding_screen_2_title">Person-first, not folder-first</string>
+    <string name="onboarding_screen_2_body">Notes are tied to a person (your SP, your SHO, a witness). Tap a person to see everything you ever gave them or took from them. Decay reminders nudge you to follow up with people you have not touched in 30 / 60 / 90 days.</string>
+    <string name="onboarding_screen_3_title">Ad-friendly, deniable</string>
+    <string name="onboarding_screen_3_body">A 6-digit vault PIN hides sensitive notes from the list. A 24-word recovery phrase is the only way back in if you forget the PIN. Write the recovery phrase on paper and store the paper somewhere physically safe.</string>
+    <string name="onboarding_screen_4_title">Free, forever</string>
+    <string name="onboarding_screen_4_body">Baton is a private R&amp;D project by a serving IPS officer. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.</string>
+    <!-- v1.9.0 (PROD-READINESS-P3-P0-#8): update channel -->
+    <string name="settings_check_for_updates">Check for updates</string>
+    <string name="settings_check_for_updates_working">Checking�</string>
+    <string name="settings_check_for_updates_up_to_date">You are on the latest version</string>
+    <string name="settings_check_for_updates_available">Baton %1$s is available. You are on %2$s.</string>
+    <string name="settings_check_for_updates_failed">Could not reach the update server. Try again later.</string>
+    <string name="settings_check_for_updates_open">Open release page</string>
+
+    <!-- v1.9.0 (PROD-READINESS-P3-P1-#1): crash log -->
+    <string name="crash_log_title">App crashed</string>
+    <string name="crash_log_body">Baton caught an unhandled error. You can share the crash log with support to help diagnose the issue.</string>
+    <string name="crash_log_share">Share crash log</string>
+    <string name="crash_log_dismiss">Dismiss</string>
+    <string name="crash_log_share_subject">Baton crash report</string>
+    <string name="crash_log_share_body">Baton %1$s (build %2$d) crashed. See the attached crash log.</string>
+
+    <!-- v1.9.0 (PROD-READINESS-P3-P1-#8): file-picker backup.
+         v1.9.1 honest re-label: the v1.9.0 copy promised Google
+         Drive specifically. The implementation uses the system
+         file picker (SAF) and never talks to Google Drive
+         directly. The user CAN pick a Drive folder via the
+         system picker, but they can also pick local storage,
+         Dropbox, OneDrive, etc. The label now says "Save
+         backup to a folder..." so the user knows they're
+         picking a destination, not signing into Drive. The
+         "Sign in to Google" / "Sign out of Google" / "Uploading
+         to Drive" rows are removed (they implied a Google
+         Sign-In flow that does not exist). The "Working" / "Failed"
+         states are kept (they are status messages, not promises). -->
+    <string name="settings_drive_backup">Save backup to a folder…</string>
+    <string name="settings_drive_backup_subtitle">Pick a folder (Drive, local storage, Dropbox, etc.)</string>
+    <string name="settings_drive_backup_signed_in">Last saved on %1$s</string>
+    <string name="settings_drive_backup_working">Saving…</string>
+    <string name="settings_drive_backup_failed">Save failed: %1$s</string>
+    <string name="settings_drive_restore">Restore from backup</string>
+    <string name="settings_drive_restore_subtitle">Pick a backup file (on a new device, or after clearing data)</string>
+
+    <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery descriptions -->
+    <string name="widget_today_description">Tap to open Today. The badge shows the count of open instructions.</string>
+    <string name="widget_decay_description">Tap to open Today. The badge shows the count of quiet contacts (60+ days since last interaction).</string>
 </resources>
+
+

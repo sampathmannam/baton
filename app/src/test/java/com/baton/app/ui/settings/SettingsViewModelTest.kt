@@ -98,11 +98,27 @@ class SettingsViewModelTest {
             securePreferences = mockk<SecurePreferences>(relaxed = true),
             preferences = mockk<BatonPreferences>(relaxed = true),
             plainExporter = mockk<PlainExporter>(relaxed = true),
+            // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
+            // the BackupManager. Relaxed mock;
+            // the existing tests don't exercise
+            // the drive backup / restore paths.
+            backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
             // v1.6.2: developer-only fixture loader. None of the
             // existing tests touch this path; a relaxed mock is
             // sufficient. The dedicated loadFixture() behaviour
             // is covered by [com.baton.app.data.dev.FixtureLoaderTest].
             fixtureLoader = mockk<FixtureLoader>(relaxed = true),
+            // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
+            // DAO. A relaxed mock is sufficient — none of the
+            // existing tests touch the conflict flow. The
+            // dedicated behaviour is covered by
+            // [com.baton.app.ui.settings.SyncConflictFlowTest].
+            syncConflictDao = mockk<com.baton.app.data.local.SyncConflictDao>(relaxed = true),
+            // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
+            // channel. Relaxed mock; the existing tests don't
+            // exercise the check path. The dedicated behaviour
+            // is covered by [com.baton.app.data.update.UpdateCheckerTest].
+            updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
             appContext = appContext,
         )
         return VmMocks(init, auth, realtime, syncEngine, vm)

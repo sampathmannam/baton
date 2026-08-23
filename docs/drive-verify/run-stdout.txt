@@ -1,0 +1,25 @@
+﻿======================================================================
+STEP 1: Force-stop competing apps + relaunch Baton
+======================================================================
+
+
+======================================================================
+STEP 2: Dismiss permission dialog (if any)
+======================================================================
+python : error: device 'emulator-5554' not found
+At line:1 char:227
++ ... :PYTHONUTF8='1'; python docs\drive-verify\verify_v196.py 2>&1 | Out-F ...
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (error: device 'emulator-5554' not found:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Traceback (most recent call last):
+  File "C:\Users\Sampath\.minimax-agent\projects\baton-v170\docs\drive-verify\verify_v196.py", line 110, in <module>
+    xml = dump("01-perm").read_text(encoding="utf-8")
+          ^^^^^^^^^^^^^^^
+  File "C:\Users\Sampath\.minimax-agent\projects\baton-v170\docs\drive-verify\verify_v196.py", line 52, in dump
+    subprocess.run(
+  File "C:\Users\Sampath\AppData\Local\Programs\Python\Python311\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['adb', '-s', 'emulator-5554', 'exec-out', 'uiautomator', 'dump', '/dev/tty']' 
+returned non-zero exit status 4294967295.

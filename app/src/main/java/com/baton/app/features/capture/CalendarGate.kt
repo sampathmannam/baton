@@ -11,9 +11,10 @@ import java.time.format.DateTimeParseException
  *
  * Two halves:
  *  - [buildEventData] is pure-JVM: it parses the LLM's `due_at` and
- *    returns a [CalendarEventData] (or `null` if the date is
- *    missing, unparseable, or in the past). The ViewModel calls
- *    this and emits the data over a Channel.
+ *    returns a [CalendarEventResult] (an [CalendarEventResult.Event]
+ *    on the happy path, or a [CalendarEventResult.Skipped] with a
+ *    reason when the date is missing, unparseable, or in the past).
+ *    The ViewModel calls this and emits the data / info over Channels.
  *  - [toIntent] converts the data to an Android [Intent]. The
  *    Composable calls this with `LocalContext.current` and launches
  *    the intent; this is the only place Android's `Intent` class
@@ -30,12 +31,21 @@ import java.time.format.DateTimeParseException
  * No third-party calendar SDK. No background sync. The calendar
  * event is a copy of the instruction; the `instructions` row in
  * Supabase remains the source of truth.
+ *
+ * v1.8.0 (PROD-READINESS-P0-#4): the previous shape returned a
+ * nullable [CalendarEventData] and silently dropped the calendar
+ * event when [dueAt] was in the past — the user never knew the
+ * event didn't fire. The new [CalendarEventResult] lets the
+ * ViewModel surface a one-shot info message ("That date is
+ * already past — note saved without a calendar reminder.")
+ * instead of swallowing the drop.
  */
 object CalendarGate {
 
     /**
-     * Parse the proposal and produce the event data. Returns `null`
-     * only if [dueAt] is provided, parseable, and in the past.
+     * Parse the proposal and produce the event result. Returns
+     * [CalendarEventResult.Event] when the event was created, or
+     * [CalendarEventResult.Skipped] with a reason otherwise.
      *
      * v1.6.1: with no LLM there is no `due_at` to extract. When
      * [dueAt] is null or unparseable, the calendar event still
@@ -50,19 +60,26 @@ object CalendarGate {
         description: String,
         dueAt: String?,
         durationMinutes: Long = DEFAULT_DURATION_MIN,
-    ): CalendarEventData? {
+    ): CalendarEventResult {
         val now = System.currentTimeMillis()
-        val begin = parseDueAt(dueAt) ?: now
-        // If the LLM (or any future due-date source) gave us a
-        // past timestamp, skip the event — the user is not going
-        // to want a 1-hour event for "last Tuesday".
-        if (begin < now) return null
+        val parsed = parseDueAt(dueAt)
+        // v1.8.0: distinguish "no date given" / "date given but
+        // unparseable" from "date given and in the past" so the
+        // VM can surface a user-visible info message in the past
+        // case. The previous implementation collapsed all three
+        // into a silent null.
+        val begin = parsed ?: now
+        if (parsed != null && begin < now) {
+            return CalendarEventResult.Skipped(SkipReason.IN_PAST)
+        }
         val end = begin + durationMinutes * 60_000L
-        return CalendarEventData(
-            title = title,
-            description = description,
-            beginMillis = begin,
-            endMillis = end,
+        return CalendarEventResult.Event(
+            CalendarEventData(
+                title = title,
+                description = description,
+                beginMillis = begin,
+                endMillis = end,
+            )
         )
     }
 
@@ -110,3 +127,25 @@ data class CalendarEventData(
     val beginMillis: Long,
     val endMillis: Long,
 )
+
+/**
+ * v1.8.0 (PROD-READINESS-P0-#4): the result of [CalendarGate.buildEventData].
+ * Either the event was created ([Event]) or it was skipped with a
+ * reason ([Skipped]).
+ */
+sealed class CalendarEventResult {
+    data class Event(val data: CalendarEventData) : CalendarEventResult()
+    data class Skipped(val reason: SkipReason) : CalendarEventResult()
+}
+
+/**
+ * v1.8.0 (PROD-READINESS-P0-#4): why [CalendarGate.buildEventData]
+ * returned a [CalendarEventResult.Skipped]. The VM uses this to
+ * surface an info message to the user (only [IN_PAST] is a real
+ * user-actionable case — the other two are fall-throughs for the
+ * v1.6.1 "no LLM, default to now" behaviour).
+ */
+enum class SkipReason {
+    /** A non-null, parseable [CalendarGate.buildEventData.dueAt] resolved to a past timestamp. */
+    IN_PAST,
+}

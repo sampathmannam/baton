@@ -41,6 +41,29 @@ interface PersonDao {
     suspend fun count(): Int
 
     /**
+     * v1.9.1 (PROD-READINESS-P3-P2-#3 wiring): one-shot
+     * count of "quiet" people for the Decay widget surface.
+     * A person is quiet when:
+     *  - their `lastInteractionAt` is non-null (i.e. the user
+     *    has touched them at least once — never-touched is
+     *    "New", not "Quiet", matching the [DecayViewModel]
+     *    filter at line 66), AND
+     *  - their `lastInteractionAt` is older than the
+     *    threshold (default 60 days for the widget, which
+     *    mirrors the v1.9.0 widget description string
+     *    "60+ days since last interaction").
+     *
+     * The threshold is passed as an epoch-ms value so the
+     * caller controls the cutoff (60d * 86_400_000).
+     */
+    @Query(
+        "SELECT COUNT(*) FROM persons " +
+            "WHERE lastInteractionAt IS NOT NULL " +
+            "AND lastInteractionAt < :thresholdMs",
+    )
+    suspend fun countQuietSince(thresholdMs: Long): Int
+
+    /**
      * v2.0 T3-1: count of persons in the OTHER mode (so the
      * HomeScreen can render an "X items in vault" affordance
      * when the user is in visible mode and there are hidden
@@ -126,6 +149,19 @@ interface PersonDao {
      */
     @Query("UPDATE persons SET lastInteractionAt = :nowMs, updatedAt = :updatedAt WHERE id = :personId")
     suspend fun touch(personId: String, nowMs: Long, updatedAt: String)
+
+    /**
+     * v1.8.0 (PROD-READINESS-P1-#6): the inverse of [touch] for
+     * the "Mark as recent" undo path. Restores both
+     * `lastInteractionAt` (nullable) and `updatedAt` in a
+     * single UPDATE. The non-null branch is the common case
+     * (the user touched the person, then undid the touch);
+     * the null branch is the "I marked a never-touched person
+     * as recent by mistake; undo should put them back in the
+     * new / never-touched group" edge case.
+     */
+    @Query("UPDATE persons SET lastInteractionAt = :lastInteractionAtMs, updatedAt = :updatedAt WHERE id = :personId")
+    suspend fun restoreLastInteraction(personId: String, lastInteractionAtMs: Long?, updatedAt: String)
 
     /**
      * §2.2: change the relationship tier. Used by the

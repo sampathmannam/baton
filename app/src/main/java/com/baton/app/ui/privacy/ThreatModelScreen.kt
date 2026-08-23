@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -22,6 +22,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.baton.app.R
@@ -51,7 +53,7 @@ fun ThreatModelScreen(
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(
-                            Icons.Default.ArrowBack,
+                            Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.threat_model_back),
                         )
                     }
@@ -105,11 +107,21 @@ fun ThreatModelScreen(
 @Composable
 private fun ThreatModelSection(title: String, body: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // v1.9.1 (a11y-audit-action-#2): add `Modifier.semantics
+        // { heading() }` so TalkBack announces the section title
+        // as a heading. Lets blind users navigate via the
+        // heading-skip gesture on this long-form screen. Also
+        // merges the title's text with the body into a single
+        // accessibility node so the screen reader reads them as
+        // one unit ("Section title. Body text.") without the
+        // user having to swipe past a heading-only announcement.
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { heading() },
         )
         Text(
             text = body,

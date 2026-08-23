@@ -42,6 +42,23 @@ interface InstructionDao {
     @Query("SELECT * FROM instructions WHERE personId = :personId ORDER BY capturedAt DESC")
     fun observeForPerson(personId: String): Flow<List<InstructionEntity>>
 
+    /**
+     * v1.9.1 (PROD-READINESS-P3-P2-#3 wiring): one-shot
+     * count of open instructions for the Today widget
+     * surface. "Open" = status NOT IN (DONE, CARRIED_OVER,
+     * DROPPED), matching the [observeForBrief] filter. The
+     * widget calls this on every `provideGlance` (every
+     * `updatePeriodMillis` = 30 min, plus on every widget
+     * re-bind). One indexed COUNT(*) is cheaper than
+     * materializing the full instruction list via
+     * `observeForBrief().first()`.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM instructions " +
+            "WHERE status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED')",
+    )
+    suspend fun countOpen(): Int
+
     @Query("SELECT * FROM instructions WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): InstructionEntity?
 

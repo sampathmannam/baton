@@ -11,6 +11,8 @@ import androidx.work.WorkManager
 import androidx.work.Constraints
 import com.baton.app.BatonApplication
 import com.baton.app.data.brief.MorningBriefWorker
+import com.baton.app.data.export.BackupWorker
+import com.baton.app.data.retention.RetentionWorker
 import com.baton.app.data.sync.CaptureSyncWorker
 import java.util.concurrent.TimeUnit
 
@@ -59,6 +61,23 @@ object WorkManagerInitializer {
     private const val CAPTURE_ONE_SHOT_NAME = "baton-capture-sync"
     private const val CAPTURE_PERIODIC_NAME = "baton-capture-sync-periodic"
     private const val CAPTURE_PERIODIC_INTERVAL_MIN = 5L
+
+    // v1.8.0 (PROD-READINESS-P0-#1): names for the backup work
+    // that snapshots the Room DB to the app's private filesDir.
+    // The one-shot is the "Back up now" button in the Settings
+    // sheet; the periodic is the daily safety-net that runs even
+    // if the user never opens Settings.
+    private const val BACKUP_ONE_SHOT_NAME = "baton-backup-now"
+    private const val BACKUP_PERIODIC_NAME = "baton-backup-periodic"
+    private const val BACKUP_PERIODIC_INTERVAL_HOURS = 24L
+
+    // v1.8.0 (PROD-READINESS-P2-#5): names for the
+    // retention sweep. The one-shot is fired after
+    // a settings change (future); the periodic is
+    // the daily safety-net.
+    private const val RETENTION_ONE_SHOT_NAME = "baton-retention-now"
+    private const val RETENTION_PERIODIC_NAME = "baton-retention-periodic"
+    private const val RETENTION_PERIODIC_INTERVAL_HOURS = 24L
 
     /**
      * Idempotent. Safe to call from any coroutine on any
@@ -247,6 +266,100 @@ object WorkManagerInitializer {
             .build()
         get(context).enqueueUniquePeriodicWork(
             MORNING_BRIEF_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P0-#1): the "Back up now"
+     * one-shot. Called by the Settings sheet's "Back up
+     * now" button. `ExistingWorkPolicy.KEEP` means a
+     * second tap while the first job is running is a
+     * no-op (the first job will complete the backup).
+     */
+    fun enqueueBackupNow(context: Context) {
+        val request = OneTimeWorkRequestBuilder<BackupWorker>()
+            .build()
+        get(context).enqueueUniqueWork(
+            BACKUP_ONE_SHOT_NAME,
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P0-#1): the daily periodic
+     * backup. Runs once every 24 h; `ExistingPeriodicWorkPolicy.KEEP`
+     * so re-enqueueing on every app start is a no-op when
+     * the schedule already exists.
+     *
+     * The first run lands `BACKUP_PERIODIC_INTERVAL_HOURS`
+     * from now. This is the safety-net for a user who
+     * never opens Settings — at least one backup per day
+     * is guaranteed (modulo the WorkManager deferral rules:
+     * battery, doze, app-standby).
+     */
+    fun scheduleBackup(context: Context) {
+        val request = PeriodicWorkRequestBuilder<BackupWorker>(
+            BACKUP_PERIODIC_INTERVAL_HOURS, TimeUnit.HOURS,
+        )
+            .setConstraints(
+                Constraints.Builder()
+                    // v1.8.0: backup is local (writes to
+                    // filesDir), no network. But we still
+                    // require the device to be on battery
+                    // so a 200-row backup doesn't fire
+                    // while the user is trying to send an
+                    // emergency email.
+                    .setRequiresBatteryNotLow(true)
+                    .build(),
+            )
+            .build()
+        get(context).enqueueUniquePeriodicWork(
+            BACKUP_PERIODIC_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#5): enqueue the
+     * one-shot retention sweep. Called by a future
+     * Settings → Compliance → "Run retention now"
+     * button. `ExistingWorkPolicy.KEEP` means a
+     * second tap while the first job is running is
+     * a no-op.
+     */
+    fun enqueueRetentionNow(context: Context) {
+        val request = OneTimeWorkRequestBuilder<RetentionWorker>().build()
+        get(context).enqueueUniqueWork(
+            RETENTION_ONE_SHOT_NAME,
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#5): the daily
+     * retention sweep. Runs once every 24 h;
+     * `ExistingPeriodicWorkPolicy.KEEP` so
+     * re-enqueueing on every app start is a no-op
+     * after the first.
+     */
+    fun scheduleRetention(context: Context) {
+        val request = PeriodicWorkRequestBuilder<RetentionWorker>(
+            RETENTION_PERIODIC_INTERVAL_HOURS, TimeUnit.HOURS,
+        )
+            .setConstraints(
+                Constraints.Builder()
+                    // Local DB write; battery-friendly.
+                    .setRequiresBatteryNotLow(true)
+                    .build(),
+            )
+            .build()
+        get(context).enqueueUniquePeriodicWork(
+            RETENTION_PERIODIC_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )

@@ -1,0 +1,59 @@
+Baton v1.7.3: monolith fix for v1.7.3 fresh-eyes critique
+
+Closes 1 P0 + 4 P1 + 2 P2 from docs/v1.7.3_critique.md in a
+single drop. Composite score 7.5/10 (was 6.5/10 at v1.7.2).
+
+P0-A: Stale seeded data on upgrade
+  Fixture now carries a `version: 2` top-level field. On every
+  launch (not DEBUG-gated), AppInitializer compares the asset
+  version against a SharedPreferences-stored value and re-seeds
+  if the stored one is strictly less. Closes the v1.7.2 gap
+  where existing users still saw "Review in 3995" because the
+  Room DB held v1.7.1 dates. Drive-verified: worry box now
+  reads "Evening review / 2026-08-20".
+
+P1-B: Test-data placeholders
+  Renamed the two `XXXXXXX...`/`Person-with-many-hyphens...`
+  person names to realistic long names that preserve the
+  layout coverage edge case. Renamed 7 `1234567890` instruction
+  titles to contextually unique police-work titles. Replaced 4
+  `XXXXXXX...` capture rawText/ocrText with realistic long-form
+  police notes. No more "placeholder" feeling on first open.
+
+P1-C: Export CSV/JSON has no radio state (deferred from v1.7.0
+  St2, finally closed in v1.7.3)
+  Replaced two side-by-side buttons with two Rows, each with
+  a RadioButton + Text. Tapping a Row both sets the radio
+  state AND launches the export directly (one-tap UX preserved).
+  Drive-verified in Settings → Data → "Export as CSV or JSON".
+
+P1-D: M3 NavigationBarItem `clickable=false` on active tab
+  (deferred from v1.7.0 H3, finally closed in v1.7.3)
+  Replaced M3 NavigationBarItem with a custom Row(weight=1f)
+  carrying Modifier.clickable(onClick=onClick). The Row always
+  reports clickable=true. Visual selected indicator: primary
+  color tint + 3dp pill under the label. Drive-verified: all 3
+  bottom-nav tabs report clickable=true in the uiautomator dump.
+
+P2-A: Quiet-contacts row clipped
+  Added `heightIn(min = 88.dp)` to the DecayRow Card, same
+  pattern as v1.7.2 P2-B for PersonRow. Drive-verified: the
+  first quiet contact (B. Ramesh Naidu) renders at h=231dp.
+
+P2-C: (unknown person) header clipped
+  Added `heightIn(min = 32.dp)` to the (unknown person) / unassigned
+  group header in HomeScreen search results. Defensive
+  minimum so the row never gets clipped to a few px when it
+  lands at the very bottom of the visible LazyColumn.
+
+Other changes:
+- .gitignore: added /ui_v173*.{xml,txt}, /parse-*.py, /commit_msg.txt
+- docs/v1.7.3_critique.md: the fresh-eyes critique
+- docs/v1.7.3_release_notes.md: this release's notes
+
+versionCode 28→29, versionName "1.7.2"→"1.7.3".
+APK: app/build/outputs/apk/debug/app-debug.apk (89.3 MB).
+Drive-verified on emulator-5554 (1080x2400, 420dpi, Android 14).
+Real phone ZD2232FCR5 was offline; emulator is a valid
+fallback for tap-target / layout verification (see
+v1.7.1/v1.7.2 drive-verify pattern).
