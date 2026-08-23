@@ -9,6 +9,14 @@ on:
 
 env:
   GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
+  # CI placeholder Supabase values. The unit-test and lint jobs do not
+  # need a real Supabase connection (the test suite uses a fake HTTP
+  # engine and in-memory Room). The assembleDebug job also doesn't
+  # need a real Supabase to compile — only the resulting debug APK
+  # would not connect to a real backend. For production builds, use
+  # the local-properties path or set real values as repository secrets.
+  BATON_SUPABASE_URL: https://ci.placeholder.supabase.co
+  BATON_SUPABASE_ANON_KEY: ci-placeholder-anon-key-not-a-real-secret
 
 jobs:
   unit-test:
