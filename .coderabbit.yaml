@@ -1,0 +1,104 @@
+# CodeRabbit AI configuration
+# Docs: https://docs.coderabbit.ai/getting-started/configure-coderabbit
+
+# Enable reviews. The default behaviour is to skip automatic reviews
+# on repos with fewer than 10 stars (the "Free" plan gate). Override
+# the gate so CodeRabbit does a real review on every PR.
+reviews:
+  # Always show a status comment, even on base branches (e.g. main
+  # when the PR is targeting main). The free plan defaults to "skip
+  # if PR is not from a feature branch"; the override is `false`.
+  review_status: true
+
+  # Don't auto-approve; we want a real review, not a rubber stamp.
+  auto_approve:
+    enabled: false
+
+  # Don't auto-request changes either; we want suggestions, not
+  # workflow blockers.
+  request_changes_workflow: false
+
+  # Path-level filters — match the existing GitHub workflow
+  # `.gitignore` + the docs/asset folders so we don't review the
+  # generated fixture data, the 5-MB banner PNG, or the test
+  # screenshots.
+  path_filters:
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.webp"
+    - "!**/*.mp4"
+    - "!**/*.zip"
+    - "!**/*.aab"
+    - "!**/*.apk"
+    - "!**/.sdd/**"
+    - "!**/build/**"
+    - "!**/.gradle/**"
+    - "!**/app/src/main/assets/synthetic-data.json"
+
+  # PR review profile. CHILL = fewer false positives, slower.
+  # The default "ASSERTIVE" is too noisy on a small solo project.
+  profile: "chill"
+
+  # Tooling. Let CodeRabbit run the unit tests + lint in addition
+  # to the static analysis.
+  tools:
+    enabled:
+      - ast-grep
+      - shellcheck
+      - github-checks
+      - languagetool
+      - biome
+      - hadolint
+      - gitleaks
+    disabled:
+      - "github-actions" # GH Actions are already validated by the
+                          # self-hosted CI (PR runs `testDebugUnitTest`
+                          # + `lintDebug` + `assembleDebug`); no need
+                          # for CodeRabbit to re-run them.
+
+# Per-language tuning
+language:
+  enabled:
+    - en
+  ignore:
+    - ta
+    - hi
+
+# Chat integration. CodeRabbit's chat can use the repo's docs as
+# context. Surface the AI strategy + threat model + critical review
+# so the bot knows the project's privacy posture.
+knowledge_base:
+  opt_out: false
+  code_guidelines:
+    enabled: true
+  learnings:
+    enabled: true
+  issues:
+    enabled: true
+  jira:
+    usage: "auto"
+  linear:
+    usage: "auto"
+  pull_requests:
+    usage: "auto"
+
+# Tone. Solo dev on a private-but-now-public R&D project. Keep the
+# bot's voice friendly, not preachy.
+tone_instructions: "You are reviewing a solo Android developer’s
+  R&D project (Baton, an ADHD-friendly instruction tracker for IPS
+  officers). The codebase uses Kotlin 2.0 / Jetpack Compose / Hilt /
+  Room + SQLCipher / Material 3, and the project is now public on
+  GitHub (Apache 2.0). The author is the only maintainer, ships in
+  small focused PRs, and has explicitly opted-in to public review.
+  Be terse, friendly, and concrete. Cite the file:line for every
+  finding. Do not lecture about style preferences (e.g. ktlint
+  formatting); focus on correctness, security, accessibility, and
+  public-API surface. The author already runs `./gradlew
+  :app:testDebugUnitTest` on every PR (552 tests, 0 failures on
+  v1.9.6) — do not re-suggest unit-test changes unless a specific
+  test is missing or the new code lacks coverage."
+
+# Early-access features. Don't opt in until CodeRabbit ships them
+# as default-on; turning on early-access flags can introduce
+# regressions in the review pipeline.
+early_access: false
