@@ -56,32 +56,6 @@ reviews:
                           # + `lintDebug` + `assembleDebug`); no need
                           # for CodeRabbit to re-run them.
 
-# Per-language tuning
-language:
-  enabled:
-    - en
-  ignore:
-    - ta
-    - hi
-
-# Chat integration. CodeRabbit's chat can use the repo's docs as
-# context. Surface the AI strategy + threat model + critical review
-# so the bot knows the project's privacy posture.
-knowledge_base:
-  opt_out: false
-  code_guidelines:
-    enabled: true
-  learnings:
-    enabled: true
-  issues:
-    enabled: true
-  jira:
-    usage: "auto"
-  linear:
-    usage: "auto"
-  pull_requests:
-    usage: "auto"
-
 # Tone. Solo dev on a private-but-now-public R&D project. Keep the
 # bot's voice friendly, not preachy.
 tone_instructions: "You are reviewing a solo Android developer’s
