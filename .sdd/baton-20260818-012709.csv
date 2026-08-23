@@ -1,6 +1,0 @@
-﻿id,name,designation,station,phone,is_sensitive,created_at,updated_at
-a99b4be8-2e92-4fc8-88a6-690e9fbeb0fb,Inspector_RameshySHO,SHOThanjavur,,,false,2026-08-17T19:46:44.816270Z,2026-08-17T19:46:44.816270Z
-
-id,person_id,direction,status,source,priority,title,raw_text,due_at,captured_at,created_at,updated_at,next_action_at
-
-id,name,kind,color,usage_count,created_at,updated_at
