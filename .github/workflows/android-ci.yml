@@ -17,7 +17,7 @@ env:
 jobs:
   unit-test:
     name: Unit tests (testDebugUnitTest)
-    runs-on: [self-hosted, macos, arm64, baton]
+    runs-on: [self-hosted, macOS, ARM64, baton]
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -73,7 +73,7 @@ jobs:
 
   lint:
     name: Kotlin lint (ktlint + detekt if present)
-    runs-on: [self-hosted, macos, arm64, baton]
+    runs-on: [self-hosted, macOS, ARM64, baton]
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -105,7 +105,7 @@ jobs:
 
   assemble:
     name: Assemble debug APK
-    runs-on: [self-hosted, macos, arm64, baton]
+    runs-on: [self-hosted, macOS, ARM64, baton]
     timeout-minutes: 30
     needs: [unit-test]
     steps:
