@@ -28,10 +28,10 @@ val localProps = Properties().apply {
 // or env vars; the assembleDebug job in CI is not used for shipping.
 val supabaseUrl: String = localProps.getProperty("BATON_SUPABASE_URL", "")
     .ifBlank { providers.gradleProperty("BATON_SUPABASE_URL").getOrElse("") }
-    .ifBlank { providers.environmentVariable("BATON_SUPABASE_URL").getOrElse("") }
+    .ifBlank { System.getenv("BATON_SUPABASE_URL") ?: "" }
 val supabaseAnonKey: String = localProps.getProperty("BATON_SUPABASE_ANON_KEY", "")
     .ifBlank { providers.gradleProperty("BATON_SUPABASE_ANON_KEY").getOrElse("") }
-    .ifBlank { providers.environmentVariable("BATON_SUPABASE_ANON_KEY").getOrElse("") }
+    .ifBlank { System.getenv("BATON_SUPABASE_ANON_KEY") ?: "" }
 if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
     throw GradleException(
         "BATON_SUPABASE_URL and BATON_SUPABASE_ANON_KEY must be set in local.properties " +
