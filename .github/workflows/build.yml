@@ -1,5 +1,14 @@
 name: Baton Android CI
 
+# v1.9.7 (CI-002): CodeRabbit review caught that the workflow had
+# no `permissions` block. Restrict GITHUB_TOKEN to read-only at the
+# top level, and pass `persist-credentials: false` to every
+# `actions/checkout` step so the token isn't written to the local
+# git config (gradle executes repo code on the self-hosted runner
+# and a compromised build could otherwise exfiltrate the token).
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, master, 'm0/**', 'work/**', 'chore/**', 'fix/**', 'docs/**', 'test/**']
@@ -25,6 +34,9 @@ jobs:
         with:
           fetch-depth: 1
           submodules: recursive
+          # v1.9.7: persist-credentials: false — see the top-level
+          # `permissions` block comment for the rationale.
+          persist-credentials: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -87,6 +99,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -100,8 +114,18 @@ jobs:
           echo "ANDROID_SDK_ROOT=$HOME/Library/Android/sdk" >> $GITHUB_ENV
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
 
+      # v1.9.7 (CI-003): CodeRabbit review caught the `|| echo`
+      # below — that swallows every gradle failure (including gradle
+      # itself crashing, SDK download errors, ktlint not installed)
+      # and reports the lint job as green. The intent was "warn on
+      # lint issues but pass on build errors"; the right tool is
+      # `continue-on-error: true` on the lint step, with the upload
+      # step still conditional on `always()`. That way gradle's exit
+      # code is preserved when a real error happens, but ktlint
+      # warnings don't fail the job.
       - name: Run Android lint
-        run: ./gradlew :app:lintDebug --no-daemon -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only || echo "lint warnings present, see report"
+        continue-on-error: true
+        run: ./gradlew :app:lintDebug --no-daemon -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       - name: Upload lint report
         if: always()
@@ -121,6 +145,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
