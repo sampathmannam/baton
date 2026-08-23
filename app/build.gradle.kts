@@ -16,38 +16,10 @@ val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-// Read the Supabase keys from (in priority order):
-//   1. local.properties (gitignored) — what local devs use
-//   2. gradle properties (-P CLI args or gradle.properties) — what
-//      some CI setups use
-//   3. BATON_SUPABASE_URL / BATON_SUPABASE_ANON_KEY env vars — what
-//      the GitHub Actions workflow uses (secrets or placeholders).
-// Without the env-var fallback, unit-test and lint jobs on CI hit a
-// GradleException at configuration time and never run. Production
-// debug/release builds still need a real key from local.properties
-// or env vars; the assembleDebug job in CI is not used for shipping.
-// Read the Supabase keys from (in priority order):
-//   1. local.properties (gitignored) — what local devs use
-//   2. gradle properties (-P CLI args or gradle.properties) — CI fallback
-//   3. BATON_SUPABASE_URL / BATON_SUPABASE_ANON_KEY env vars — CI secrets
-//   4. Hardcoded CI placeholder — last-resort so configuration
-//      never fails for unit-test / lint jobs. The placeholder produces
-//      a debug APK that does not connect to real Supabase; that is fine
-//      for CI since the assembleDebug artifact is not used for shipping.
-val supabaseUrl: String = localProps.getProperty("BATON_SUPABASE_URL", "")
-    .ifBlank { providers.gradleProperty("BATON_SUPABASE_URL").getOrElse("") }
-    .ifBlank { System.getenv("BATON_SUPABASE_URL") ?: "" }
-    .ifBlank { "https://ci.placeholder.supabase.co" }
-val supabaseAnonKey: String = localProps.getProperty("BATON_SUPABASE_ANON_KEY", "")
-    .ifBlank { providers.gradleProperty("BATON_SUPABASE_ANON_KEY").getOrElse("") }
-    .ifBlank { System.getenv("BATON_SUPABASE_ANON_KEY") ?: "" }
-    .ifBlank { "ci-placeholder-anon-key-not-a-real-secret" }
-// Warn (but do not fail) if we ended up with placeholders so the user can see.
-if (supabaseUrl == "https://ci.placeholder.supabase.co" || supabaseAnonKey.startsWith("ci-placeholder-")) {
-    logger.warn("Baton: using CI placeholder Supabase credentials. " +
-        "Set BATON_SUPABASE_URL and BATON_SUPABASE_ANON_KEY in local.properties, " +
-        "as -P flags, or as environment variables for a real build.")
-}
+// CI fix: hardcoded placeholder fallback so unit-test / lint jobs don't fail.
+// See PR #4 for the full story.
+val supabaseUrl: String = localProps.getProperty("BATON_SUPABASE_URL", "https://ci.placeholder.supabase.co")
+val supabaseAnonKey: String = localProps.getProperty("BATON_SUPABASE_ANON_KEY", "ci-placeholder-anon-key-not-a-real-secret")
 
 android {
     namespace = "com.baton.app"
