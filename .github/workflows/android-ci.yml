@@ -98,10 +98,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lint-report
-        path: |
-          app/build/reports/lint-results-debug.html
-          app/build/reports/lint-results-debug.xml
-        retention-days: 14
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          retention-days: 14
 
   assemble:
     name: Assemble debug APK
