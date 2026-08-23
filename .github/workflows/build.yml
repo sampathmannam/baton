@@ -65,7 +65,7 @@ jobs:
       # (MethodCallProxy.apply park). 4.14.1 changelog has the
       # fix. If the hang returns, this is the line to investigate.
       - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       - name: Upload test results
         if: always()
@@ -98,7 +98,7 @@ jobs:
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
 
       - name: Run Android lint
-        run: ./gradlew :app:lintDebug --no-daemon || echo "lint warnings present, see report"
+        run: ./gradlew :app:lintDebug --no-daemon -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only || echo "lint warnings present, see report"
 
       - name: Upload lint report
         if: always()
@@ -132,7 +132,7 @@ jobs:
           test -d "$HOME/Library/Android/sdk" || (echo "::error::No SDK at $HOME/Library/Android/sdk" && exit 1)
 
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace -PBATON_SUPABASE_URL=https://placeholder.supabase.co -PBATON_SUPABASE_ANON_KEY=placeholder-anon-key-for-ci-only
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
