@@ -1,5 +1,0 @@
-v1.5.7: modern app icon for Kaavalan note
-
-Also normalizes the v1.5.6 doc files to ASCII (em-dash -> --,
-ellipsis -> ...) to avoid PowerShell encoding mojibake when
-processed through Get-Content / WriteAllText.
