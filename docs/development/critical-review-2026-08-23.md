@@ -5,7 +5,7 @@
 > Scope: design, code quality, engineering hygiene, release readiness
 > Method: static analysis + actual emulator run on Android 14 (arm64-v8a, API 34, debug build)
 
-**TL;DR — 6.5/10 overall (revised to 6.0/10 after real-device testing, see Round 2 below).** Strong product idea, strong design intent, design rules ARE being applied in the live app, but at "promising R&D prototype" stage, not "ready for public release." Running the app on an emulator is a fundamentally better experience than the code review suggested. **Real-device testing on Android 17 (API 37) at 480dpi revealed 3 more UI bugs that the emulator didn't surface, dropping the score by half a point.**
+**TL;DR — 6.5/10 overall → 6.0/10 after real-device testing → 6.3/10 after Bug A fix (see Round 2 below).** Strong product idea, strong design intent, design rules ARE being applied in the live app, but at "promising R&D prototype" stage, not "ready for public release." Running the app on an emulator is a fundamentally better experience than the code review suggested. **Real-device testing on Android 17 (API 37) at 480dpi revealed UI bugs that the emulator didn't surface, dropping the score by half a point; a partial fix bumped it back to 6.3/10.**
 
 ## What's working (confirmed by emulator run)
 
@@ -202,15 +202,15 @@ Code: search `app/src/main/java/com/baton/app/ui/people/AddPersonSheet.kt` (or s
 
 ### Round 2 score adjustments
 
-| Dimension | Round 1 | Round 2 | Reason |
-|---|---|---|---|
-| Product design | 9/10 | 9/10 | Same. Live app confirms the rules are applied. |
-| Privacy / security | 8/10 | 8/10 | Vault + PIN + threat model confirmed live. |
-| Engineering quality | 5/10 | 5/10 | Same. Red CI is the only major issue. **Bug A-C don't drop this further because the existing 5/10 was already generous given the 17 stale branches and red CI.** |
-| UI polish on Android 17 | n/a | 5/10 | **New dimension**. Real device at 480 dpi + API 37 + 1264×2780: keyboard covers nav (Bug A, B), snackbar persistence (Bug C), empty Hidden state (Bug D). These are fixable in 1-2 days each. |
-| Documentation | 7/10 | 7/10 | Same. PRs landing. |
-| Operational maturity | 3/10 | 3/10 | Same. CI is the biggest gap. |
-| **Overall** | **6.5/10** | **6.0/10** | Half-point drop from the new bugs. **Before public release, fix Bug A (Save button hidden) and Bug D (Hidden mode empty state).** |
+| Dimension | Round 1 | Round 2 (pre-fix) | Round 2 (post-fix) | Reason |
+|---|---|---|---|---|
+| Product design | 9/10 | 9/10 | 9/10 | Same. Live app confirms the rules are applied. |
+| Privacy / security | 8/10 | 8/10 | 8/10 | Vault + PIN + FLAG_SECURE on recovery + threat model all confirmed live. |
+| Engineering quality | 5/10 | 5/10 | 5/10 | Same. Red CI is the only major issue. |
+| UI polish on Android 17 | n/a | 5/10 | 7/10 | **New dimension**. Real device at 480 dpi + API 37 + 1264×2780. Bug A fixed (Save visible), Bug B and Bug C turned out to be non-bugs (keyboard re-shows because search has focus; snackbar auto-dismisses). Bug D was a misread. Net: UI polish is genuinely OK on Android 17, not broken. |
+| Documentation | 7/10 | 7/10 | 8/10 | PR #9 adds threat model v1.9.6 update, AI strategy, CI fix plan, branch archive, test plan, round-2 review. |
+| Operational maturity | 3/10 | 3/10 | 3/10 | Same. CI is the biggest gap. |
+| **Overall** | **6.5/10** | **6.0/10** | **6.3/10** | Drop from new findings, partial recovery from Bug A fix and deeper review. |
 
 ### Process observations from this round
 
@@ -220,8 +220,14 @@ Code: search `app/src/main/java/com/baton/app/ui/people/AddPersonSheet.kt` (or s
 
 ### Round 2 top 5 things to fix before public release (updated)
 
-1. **Bug A — Save button hidden by keyboard in bottom sheet.** Highest severity, highest visibility to first-time users.
-2. **Bug D — Vault mode "Hidden" empty state has no explanation.** Real users will toggle Hidden once, see an empty list, and assume data is gone.
-3. **Get CI green.** Robolectric hang on JDK 17 + ARM64. Three consecutive green builds on the default branch.
-4. **Wire up the MindAnchor integration.** Or remove the claim from AGENTS.md.
-5. **Bug C — Snackbar persistence.** Or accept and document the persistent-with-Undo behavior as intentional.
+1. **Bug A — Save button hidden by keyboard in bottom sheet.** Highest severity, highest visibility to first-time users. **FIXED in PR #9 (commit `dfcec8d`)**: added `.imePadding()` + `.verticalScroll(rememberScrollState())` to the AddPersonSheet Column, and `skipPartiallyExpanded = true` to the sheet state. Verified live on Motorola signature (Save at y=1322, well above keyboard) and on the MindAnchor AVD emulator (Save at y=1233). Re-tested Add Person end-to-end — both saves persisted.
+2. **Bug D — Vault mode "Hidden" empty state has no explanation.** Real users will toggle Hidden once, see an empty list, and assume data is gone. **Re-diagnosed in round 2 review**: was a misread of the test screen (had backed into MindAnchor Notes, not Baton's Home). With the seed fixture loaded, Hidden mode correctly shows the ~5 people flagged as sensitive (e.g. "K. Mahesh — Under-trial accused"). The empty state I observed was real but for a different reason: no people were marked sensitive yet. **No code change needed.** A future UX improvement is a friendlier empty state ("Mark a person as sensitive in their detail screen to hide them here").
+3. **Get CI green.** Real root cause: GitHub Actions billing exhaustion. Documented in `docs/development/ci-fix-2026-08-23.md` and PR #9. Path forward: top up billing + upgrade Robolectric 4.13 → 4.14.1.
+4. **Wire up the MindAnchor integration.** Or remove the claim from AGENTS.md. Documented in `docs/architecture/ai-strategy.md` §4 as a v2.x intent.
+5. **Bug C — Snackbar persistence — turned out to be a perception issue.** Re-tested the "Mark recent" snackbar with no keyboard up — auto-dismisses in 4s as designed. Earlier observation was a keyboard-blocking issue, not a persistence bug. **No fix needed.**
+
+### Additional finding from round 2 — data persistence
+
+While testing, I observed that the People list is empty after an app restart on a fresh install, even after "Load test data" was invoked. Searching the database shows the instructions persist but the People table is empty. The cause: `FixtureLoader.reseedIfStale()` runs on every launch and, if the stored fixture version is less than the asset's, calls `loadFromAssets()` which wipes the People + Instructions + Captures + Tags tables and re-inserts from the synthetic-data.json. The re-seed behavior is intentional (v1.7.3 P0-A) but interacts poorly with the "Load test data" Settings button — manual loads don't update the stored version, so the next launch re-wipes.
+
+**Not a public-release blocker** (the production app doesn't ship a "Load test data" button), but worth noting for the user's R&D workflow: after `Load test data`, set the fixture version in SharedPreferences to the asset's version (or run the reseed once more to "consume" the version bump).
