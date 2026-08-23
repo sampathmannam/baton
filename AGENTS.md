@@ -2,43 +2,66 @@
 
 Baton is a private Android project. This file is the entry point for any AI coding agent (Mavis, Codex, Cursor, Aider, etc.) working in this repo.
 
+> **Before doing anything, read [`docs/PLAN.md`](docs/PLAN.md) for current priorities and [`docs/superpowers/specs/2026-08-10-baton-design.md`](docs/superpowers/specs/2026-08-10-baton-design.md) for the design source of truth.**
+
 ## What this project is
 
-A native Android (Kotlin/Compose) app for an IPS officer with ADHD. It tracks instructions flowing in from superiors and out to subordinates, with on-device AI for capture/extraction, Supabase for sync/auth, and a cloud MCP server for desktop tools.
-
-**Read [`docs/superpowers/specs/2026-08-10-baton-design.md`](docs/superpowers/specs/2026-08-10-baton-design.md) before doing anything.** It is the source of truth for architecture, data model, and design rules.
+A native Android (Kotlin/Compose) app for an IPS officer with ADHD. It tracks instructions flowing in from superiors and out to subordinates, with on-device AI for capture/extraction, Supabase for sync/auth, and a cloud MCP server for desktop tools. Currently at **v1.9.6** with weekly shipping cadence.
 
 ## How to work in this repo
 
-### Module layout (when implemented)
+### Module layout (current — single-module reality)
 
 ```
 baton/
-├── app/                    # Android app (Kotlin + Compose)
-│   ├── src/main/...        # UI + capture + sync
-│   └── src/test/...        # Unit + UI tests
-├── ai/                     # On-device AI module
-│   ├── llama/              # llama.cpp JNI wrapper
-│   ├── whisper/            # Whisper.cpp JNI wrapper
-│   └── ocr/                # ML Kit OCR wrapper
-├── data/                   # Persistence + sync
-│   ├── db/                 # Room/SQLCipher local DB
-│   ├── sync/               # Supabase sync engine
-│   └── mcp-client/         # MCP client (for ingest later)
-├── features/
-│   ├── capture/            # Voice/text/photo capture flow
-│   ├── people/             # Person registry + timeline
-│   ├── brief/              # Morning brief + evening review
-│   ├── nudge/              # AI-drafted nudge flow
-│   └── mcp/                # On-device MCP server (optional local)
-├── shared/
-│   ├── crypto/             # Argon2id + AES-GCM (shared with MindAnchor)
-│   ├── ui/                 # Design system, Compose components
-│   └── time/               # Time formatting, "carried over" logic
-└── server/                 # Supabase project
-    ├── functions/          # Edge Functions (brief scheduler, MCP server)
-    └── migrations/         # Postgres migrations
+├── app/                          # The whole app
+│   ├── src/main/java/com/baton/app/
+│   │   ├── ui/
+│   │   │   ├── home/             # HomeScreen, PersonDetail, AddPerson, NudgeSheet
+│   │   │   ├── today/            # TodayViewModel, Decay, Win, Worry, Brief
+│   │   │   ├── settings/         # SettingsSheet, SettingsViewModel
+│   │   │   ├── auth/             # AuthViewModel
+│   │   │   ├── privacy/          # RecoveryPhrase, ThreatModel, FlagSecure
+│   │   │   ├── components/       # OfflineIndicator, etc.
+│   │   │   ├── theme/            # Color, Theme
+│   │   │   └── util/             # SafeError
+│   │   ├── features/
+│   │   │   ├── capture/          # Voice/text/photo capture, share intake, widget
+│   │   │   ├── onboarding/       # OnboardingViewModel
+│   │   │   ├── vault/            # VaultViewModel
+│   │   │   ├── theme/            # ThemeViewModel
+│   │   │   └── adhd/             # AdhdUxFindingTests (the "rule" test suite)
+│   │   ├── data/
+│   │   │   └── captures/         # SupabaseCaptureRepository
+│   │   ├── di/                   # Hilt modules, DatabaseModule, migrations
+│   │   ├── qa/                   # V156QaTest
+│   │   └── integration/          # FifteenDaySimulationTest
+│   ├── src/test/                 # 72 test files (unit)
+│   └── src/androidTest/          # M0AcceptanceTest, VaultEndToEndTest
+├── supabase/                     # Migrations + Edge Functions
+├── tools/
+│   ├── qa/                       # qa-drive.py + utilities (moved from .sdd/)
+│   └── synthetic-data/           # Test fixture generators
+├── docs/
+│   ├── superpowers/specs/        # Design source of truth
+│   ├── development/sdd-history/  # Pre-1.0 QA reports + dev diary
+│   └── PLAN.md                   # Living project plan
+└── .github/workflows/android-ci.yml
 ```
+
+### Module layout (planned for v2.0 — see PLAN.md §3.1)
+
+```
+baton/
+├── app/                    # Android app (UI + capture + sync)
+├── ai/                     # On-device AI module (llama / whisper / ocr)
+├── data/                   # Persistence + sync (db / sync / mcp-client)
+├── features/               # capture, people, brief, nudge, mcp
+├── shared/                 # crypto, ui, time
+└── server/                 # Supabase project (functions + migrations)
+```
+
+The split is **deferred to v2.0.0-pre1** so we ship v1.9.7 / v1.9.8 / v1.9.9 as a monolith first.
 
 ### Design rules (non-negotiable)
 
@@ -59,7 +82,7 @@ baton/
 - **llama.cpp** + **Qwen 3 1.7B Q4_K_M** as default model (downloaded at first run, cached locally, never in repo)
 - **Whisper.cpp** + base.en / small.en model (downloaded at first run)
 - **ML Kit Text Recognition** for OCR
-- **Supabase** (Postabase + Auth + Storage + Realtime + Edge Functions) for cloud
+- **Supabase** (Postgres + Auth + Storage + Realtime + Edge Functions) for cloud
 - **Gradle Version Catalog** (libs.versions.toml) for dependency management
 
 ### Testing rules
@@ -67,6 +90,7 @@ baton/
 - **Test the user-visible behavior, not the implementation.**
 - **"Finding tests"** — tests that assert conclusions from the design (e.g., "the home screen never shows a red overdue badge") are required for the ADHD UX rules. If a rule exists in this file, there must be a test that fails if the rule is broken.
 - **Reproduce any quoted number.** If you write "5 seconds", there's a benchmark.
+- **CI runs three jobs** on every push: `unit-test`, `lint` (Android Lint, ktlint, detekt if present), `assemble`. **All three must pass** before merge. Currently the unit-test job is red — see [issues](../../issues) and PLAN.md §1.1.
 
 ### Privacy posture
 
@@ -83,25 +107,29 @@ baton/
 - iOS app
 - Wear OS app
 
-These may come in v1.1+.
+These may come in v1.1+ or v2.0+.
 
-## Build commands (planned)
+## Build commands
 
 ```bash
 ./gradlew :app:assembleDebug           # Build debug APK
 ./gradlew :app:testDebugUnitTest       # Run unit tests
-./gradlew :app:lintDebug               # Lint
+./gradlew :app:lintDebug               # Lint (warnings don't fail — see workflow)
 ./gradlew :app:connectedAndroidTest    # Instrumented tests (requires device)
 ```
 
+CI runs the first three in parallel on every push; the third depends on the first.
+
 ## Repo conventions
 
-- **Trunk-based.** Single `main` branch, no long-lived feature branches.
+- **Trunk-based.** Single default branch (currently `m0/skeleton-v1.7.0`, planned to become `main` after the `chore/sync-main-to-v1.9.6` PR merges).
 - **Commit messages:** imperative, present tense ("Add capture flow", not "Added").
 - **PR titles** = commit messages. No `feat:` / `fix:` prefixes unless conventional commits is enforced.
-- **Squash-merge** to `main`. Each commit on `main` should be a logical unit.
+- **Squash-merge** to default branch. Each commit on the default branch should be a logical unit.
+- **Branch protection on default branch:** planned — see PLAN.md §2.1.
 
 ## Related repos
 
-- **MindAnchor** (`github.com/sampathmannam/MindAnchor`) — shares the `app-anchor-crypto` module and provides energy/notification state via MCP.
-- **Rowdy-Baby / CCA** (`github.com/sampathmannam/Rowdy-Baby`) — separate project for crime analytics. Not integrated with Baton in v1.
+- **MindAnchor** (`github.com/sampathmannam/MindAnchor`) — shares the `app-anchor-crypto` module and provides energy/notification state via MCP. Sharing mechanism: TBD — see PLAN.md §3.2 (open question).
+- **Rowdy-Baby / CCA** (`github.com/sampathmannam/Rowdy-Baby`, `/cca`) — separate projects for crime analytics. Not integrated with Baton in v1.
+- **Kaavalan Mobile Forensics** (`github.com/sampathmannam/kaavalan-mobile-forensics`) — separate project, shares the Tamil/IPS context.
