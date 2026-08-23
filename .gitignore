@@ -141,3 +141,4 @@ tmp/
 *.disabled
 *.bak
 test_summary.txt
+.sdd/
