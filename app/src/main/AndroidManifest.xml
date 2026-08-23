@@ -178,6 +178,40 @@
                 android:resource="@xml/baton_capture_widget_info" />
         </receiver>
 
+        <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery expansion.
+             The Today widget opens the Today screen and shows a
+             small badge with the open-instruction count. The
+             count is hard-coded to "—" in v1.9.0 (a v2.x wires the
+             badge to the Room query that backs the Today screen).
+             The receiver is the standard Glance receiver pattern. -->
+        <receiver
+            android:name=".features.widget.BatonTodayWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_today_description">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/baton_today_widget_info" />
+        </receiver>
+
+        <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery
+             expansion. The Decay widget opens the Today screen
+             and shows a small badge with the quiet-contacts
+             count. Same "—" placeholder as the Today widget. -->
+        <receiver
+            android:name=".features.widget.BatonDecayWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_decay_description">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/baton_decay_widget_info" />
+        </receiver>
+
         <!-- v1.6.1: voice capture foreground service. The user
              taps the mic icon in the NoteBar; the service starts
              the system SpeechRecognizer (which does its own

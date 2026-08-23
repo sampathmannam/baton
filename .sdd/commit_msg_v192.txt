@@ -1,0 +1,36 @@
+v1.9.2 (Drive-verify polish): DecayRow card layout + Today bottom-nav clipping
+
+Two UI issues surfaced on the first real-device drive-verify
+of v1.9.1 (ZD2232FCR5, Android 17, 1264x2780 @ 480dpi).
+
+1. DecayRow card layout was cramped. The Mark recent
+   TextButton + the ReachOutPill were laid out as siblings
+   in the parent Row, taking ~250dp of horizontal space on
+   a 1080px device. That squeezed the left text column to
+   ~600dp, forcing names like "B. Ramesh Naidu" to wrap to
+   2 lines and the designation to its own line. The cards
+   looked cramped and unbalanced.
+
+   Fix: stack the right-side controls in their own
+   right-aligned Column with Arrangement.spacedBy(4.dp);
+   cap the name to 2 lines and the designation to 1 line
+   (ellipsized). The left text column now gets the full
+   available width and the name stays on one line. Total
+   card height grows from ~88dp to ~110dp, still well
+   within the LazyColumn item budget.
+
+2. TodayScreen LazyColumn clipped the last card behind the
+   bottom nav. The bottom nav (Home / Today / Settings) is
+   rendered by MainActivity OUTSIDE the Scaffold, so the
+   Scaffold's `padding` parameter does not account for it.
+   Without a 96dp bottom buffer the last card in the
+   LazyColumn (e.g. "K. Magesh" in the Decay list) was
+   clipped by the bottom nav at the end of the scroll.
+
+   Fix: bump the LazyColumn's bottom contentPadding from
+   8dp to 96dp so the scroll ends with a full nav-height
+   of empty space below the last card. 96dp matches the
+   v1.6.4 bottom-nav bottom-padding constant.
+
+No public-API or schema changes; versionCode 33 -> 34.
+The first user-facing drive-verify of v1.9.1.

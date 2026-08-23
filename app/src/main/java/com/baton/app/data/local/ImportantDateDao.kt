@@ -32,6 +32,16 @@ interface ImportantDateDao {
     @Query("SELECT * FROM important_date WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ImportantDateEntity?
 
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#5): hard-delete every
+     * important-date whose `createdAt` (ISO-8601) is
+     * lexicographically less than the supplied
+     * [cutoffIso]. Used by the daily retention sweep.
+     * Returns the row count.
+     */
+    @Query("DELETE FROM important_date WHERE createdAt < :cutoffIso")
+    suspend fun deleteOlderThan(cutoffIso: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(date: ImportantDateEntity)
 
@@ -43,4 +53,12 @@ interface ImportantDateDao {
 
     @Query("DELETE FROM important_date WHERE personId = :personId")
     suspend fun deleteForPerson(personId: String)
+
+    // v1.8.0 (PROD-READINESS-P0-#1): full snapshot for the
+    // BackupManager. Same shape as PersonDao.snapshot / TagDao
+    // / etc -- one-shot read of every row for serialisation to
+    // JSON. The `ORDER BY` is stable (by id) so two consecutive
+    // snapshots produce the same byte stream.
+    @Query("SELECT * FROM important_date ORDER BY id ASC")
+    suspend fun snapshot(): List<ImportantDateEntity>
 }

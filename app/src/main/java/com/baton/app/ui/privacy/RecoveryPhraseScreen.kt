@@ -18,7 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -98,7 +98,7 @@ fun RecoveryPhraseScreen(
                         onClose()
                     }) {
                         Icon(
-                            Icons.Default.ArrowBack,
+                            Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.recovery_phrase_back),
                         )
                     }
@@ -140,6 +140,7 @@ private fun DisplayStep(
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
 ) {
     val clipboard = LocalClipboardManager.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -201,6 +202,46 @@ private fun DisplayStep(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.recovery_phrase_copy))
+                }
+                // v1.8.0 (PROD-READINESS-P1-#2): the
+                // "Save as PDF" row. Generates an A4
+                // recovery sheet in cacheDir and hands
+                // it to the system share sheet. The
+                // user can save to Google Drive, print,
+                // or AirDrop. Lives next to the existing
+                // "Copy" button so the two export
+                // options are co-located.
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        val file = com.baton.app.ui.privacy.RecoveryPdfGenerator.generate(
+                            context = ctx,
+                            phraseWords = state.phrase,
+                        )
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            ctx,
+                            ctx.packageName + ".fileprovider",
+                            file,
+                        )
+                        val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "application/pdf"
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        ctx.startActivity(
+                            android.content.Intent.createChooser(send, "Save recovery sheet").apply {
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.recovery_phrase_save_pdf))
                 }
             }
         }

@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -38,6 +39,7 @@ import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.nudge.NudgeDraft
 import com.baton.app.data.nudge.NudgeDraftGenerator
 import com.baton.app.data.person.Person
+import com.baton.app.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,9 +80,9 @@ fun NudgeSheet(
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Draft nudge", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.action_draft_nudge), style = MaterialTheme.typography.headlineSmall)
             Text(
-                text = "Edit before sending. The draft is local; the message itself goes through WhatsApp or SMS, not Baton.",
+                text = stringResource(R.string.nudge_edit_before_sending),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -109,9 +111,9 @@ fun NudgeSheet(
                         label = {
                             Text(
                                 when (tone) {
-                                    com.baton.app.data.nudge.Tone.POLITE -> "Polite"
-                                    com.baton.app.data.nudge.Tone.URGENT -> "Urgent"
-                                    com.baton.app.data.nudge.Tone.CASUAL -> "Casual"
+                                    com.baton.app.data.nudge.Tone.POLITE -> stringResource(R.string.nudge_tone_polite)
+                                    com.baton.app.data.nudge.Tone.URGENT -> stringResource(R.string.nudge_tone_urgent)
+                                    com.baton.app.data.nudge.Tone.CASUAL -> stringResource(R.string.nudge_tone_casual)
                                 },
                             )
                         },
@@ -130,27 +132,29 @@ fun NudgeSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(160.dp),
-                    label = { Text("Message") },
+                    label = { Text(stringResource(R.string.nudge_message_label)) },
                 )
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
                             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            cm.setPrimaryClip(ClipData.newPlainText("Baton nudge", text))
+                            val clipboardLabel = context.getString(R.string.nudge_clipboard_label)
+                            cm.setPrimaryClip(ClipData.newPlainText(clipboardLabel, text))
                             scope.launch { viewModel.markSent(current.id, "COPY") }
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f),
-                    ) { Text("Copy") }
+                    ) { Text(stringResource(R.string.nudge_action_copy)) }
                     Button(
                         onClick = {
                             val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(android.content.Intent.EXTRA_TEXT, text)
                             }
+                            val chooserTitle = context.getString(R.string.nudge_share_chooser_title)
                             context.startActivity(
-                                android.content.Intent.createChooser(intent, "Send nudge")
+                                android.content.Intent.createChooser(intent, chooserTitle)
                             )
                             // v1.1: "WHATSAPP" is misleading because
                             // the share intent can route to any
@@ -159,13 +163,13 @@ fun NudgeSheet(
                             onDismiss()
                         },
                         modifier = Modifier.weight(1f),
-                    ) { Text("Share") }
+                    ) { Text(stringResource(R.string.nudge_action_share)) }
                 }
                 TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             } else {
-                Text("Generating draft…", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.nudge_generating), style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(16.dp))
         }

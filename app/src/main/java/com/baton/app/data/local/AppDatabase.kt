@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import com.baton.app.data.local.entities.AppStateEntity
+import com.baton.app.data.local.entities.AuditChainEventEntity
 import com.baton.app.data.local.entities.CaptureEntity
 import com.baton.app.data.local.entities.ImportantDateEntity
 import com.baton.app.data.local.entities.InstructionEntity
@@ -15,6 +16,7 @@ import com.baton.app.data.local.entities.PersonLinkEntity
 import com.baton.app.data.local.entities.SyncConflictEntity
 import com.baton.app.data.local.entities.SyncQueueEntity
 import com.baton.app.data.local.entities.TagEntity
+import com.baton.app.data.user.UserEntity
 
 /**
  * Baton local database. Mirrors the six Supabase tables the
@@ -94,6 +96,7 @@ import com.baton.app.data.local.entities.TagEntity
         PersonEntity::class,
         InstructionEntity::class,
         CaptureEntity::class,
+        AuditChainEventEntity::class,
         SyncQueueEntity::class,
         SyncConflictEntity::class,
         TagEntity::class,
@@ -103,8 +106,14 @@ import com.baton.app.data.local.entities.TagEntity
         InstructionFtsEntity::class,
         ImportantDateEntity::class,
         PersonLinkEntity::class,
+        UserEntity::class,
     ],
-    version = 13,
+    // v1.8.0 (PROD-READINESS-P2-#3 + #4): v14 adds the
+    // audit_chain_events table; v1.8.0 also adds the
+    // users table. The chain is a forward-only append;
+    // the users table starts with one row (the device
+    // owner). No destructive migration needed.
+    version = 15,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -120,6 +129,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun instructionFtsDao(): InstructionFtsDao
     abstract fun importantDateDao(): ImportantDateDao
     abstract fun personLinkDao(): PersonLinkDao
+    abstract fun auditChainEventDao(): AuditChainEventDao
+    abstract fun userDao(): com.baton.app.data.user.UserDao
 
     companion object {
         const val NAME = "baton.db"
@@ -370,6 +381,72 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_instructions_vaultMode` " +
                         "ON `instructions`(`vaultMode`)",
+                )
+            }
+        }
+
+        /**
+         * v1.8.0 (PROD-READINESS-P2-#4): the v13 -> v14
+         * migration adds the `audit_chain_events` table.
+         * The chain is forward-only append; no data
+         * migration needed for upgrades (the chain
+         * starts empty and grows on each subsequent
+         * state change). v12 -> v13 had already added
+         * the `vaultMode` column.
+         */
+        val MIGRATION_13_14: Migration = object : Migration(13, 14) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `audit_chain_events` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                        `tableName` TEXT NOT NULL,
+                        `rowId` TEXT NOT NULL,
+                        `kind` TEXT NOT NULL,
+                        `payload` TEXT NOT NULL,
+                        `signingKey` TEXT NOT NULL,
+                        `createdAtMs` INTEGER NOT NULL,
+                        `prevHash` TEXT NOT NULL,
+                        `thisHash` TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_audit_chain_events_tableName_rowId` " +
+                        "ON `audit_chain_events`(`tableName`, `rowId`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_audit_chain_events_createdAtMs` " +
+                        "ON `audit_chain_events`(`createdAtMs`)",
+                )
+            }
+        }
+
+        /**
+         * v1.8.0 (PROD-READINESS-P2-#3): the v14 -> v15
+         * migration adds the `users` table. The table
+         * starts empty on upgrade; the v1.8.0
+         * [com.baton.app.data.user.UserBootstrap] inserts
+         * the single device-owner row on the first
+         * observation. The unique index on `deviceOwner =
+         * 1` enforces "exactly one device owner".
+         */
+        val MIGRATION_14_15: Migration = object : Migration(14, 15) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `users` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `displayName` TEXT NOT NULL,
+                        `role` TEXT NOT NULL,
+                        `deviceOwner` INTEGER NOT NULL DEFAULT 0,
+                        `createdAt` TEXT NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_users_deviceOwner` " +
+                        "ON `users`(`deviceOwner`) WHERE `deviceOwner` = 1",
                 )
             }
         }

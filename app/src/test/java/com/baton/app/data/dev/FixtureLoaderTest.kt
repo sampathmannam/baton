@@ -72,8 +72,17 @@ class FixtureLoaderTest {
     private fun mockContext(): Context {
         val assets = mockk<AssetManager>()
         every { assets.open(any()) } returns ByteArrayInputStream(fixtureJson.toByteArray())
+        val sharedPrefs = io.mockk.mockk<android.content.SharedPreferences>(relaxed = true)
         val ctx = mockk<Context>()
         every { ctx.assets } returns assets
+        // v1.7.3 (P0-A): the version-gated reseed in
+        // FixtureLoader reads + writes the fixture
+        // version in SharedPreferences. Mock the
+        // SharedPreferences.getString() call so the
+        // loader sees a "no version yet" state and
+        // does the full clear+insert path.
+        every { ctx.getSharedPreferences(any<String>(), any<Int>()) } returns sharedPrefs
+        every { sharedPrefs.getString(any(), any()) } returns null
         return ctx
     }
 

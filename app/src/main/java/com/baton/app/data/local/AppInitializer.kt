@@ -53,7 +53,6 @@ class AppInitializer @Inject constructor(
     @ApplicationContext private val context: Context,
     private val securePreferences: com.baton.app.data.auth.SecurePreferences,
     private val fixtureLoader: com.baton.app.data.dev.FixtureLoader,
-    private val personDao: PersonDao,
     @com.baton.app.di.ApplicationScope private val appScope: kotlinx.coroutines.CoroutineScope,
 ) {
 
@@ -127,16 +126,29 @@ class AppInitializer @Inject constructor(
         // → "Load test data" or "Clear & reload" after the
         // first frame paints.
         //
-        // if (com.baton.app.BuildConfig.DEBUG) {
-        //     appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-        //         val isEmpty = runCatching { personDao.count() == 0 }.getOrDefault(false)
-        //         if (isEmpty) {
-        //             runCatching { fixtureLoader.loadFromAssets() }
-        //                 .onSuccess { report -> ... }
-        //                 .onFailure { e -> ... }
-        //         }
-        //     }
-        // }
+        // v1.7.3 (P0-A): replaced the isEmpty auto-load with a
+        // version-gated reseed. The fixture asset now carries a
+        // top-level `version` field; on every launch we compare
+        // it against the stored version in SharedPreferences. If
+        // the stored version is strictly less, we re-seed in a
+        // background coroutine. This is the path that closes the
+        // v1.7.2 gap where existing users' Room DBs still had
+        // the v1.7.1 worry-box dates (year 3995). Runs on every
+        // build (not DEBUG-gated) because the bug affects all
+        // users who upgraded from v1.7.1; for private R&D with a
+        // single user, the trade-off is right. If the stored
+        // version equals the asset version, this is a no-op.
+        appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { fixtureLoader.reseedIfStale() }
+                .onSuccess { report ->
+                    if (report != null) {
+                        Log.i(TAG, "auto-reseeded fixture: $report")
+                    }
+                }
+                .onFailure { e ->
+                    Log.e(TAG, "auto-reseed failed: ${e.message}")
+                }
+        }
         appStartRan = true
     }
 

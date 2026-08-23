@@ -67,15 +67,215 @@ android {
         // to content). (8) PersonList / search-results
         // LazyColumns now use horizontal contentPadding so
         // rows have full-width click hit-targets.
-        // versionCode 21 (one above v1.6.2's 20), versionName
-        // "1.6.3".
-        versionCode = 21
-        versionName = "1.6.3"
+        // v1.7.2: versionCode 28, versionName "1.7.2".
+        // v1.7.1 fresh-eyes critique came back at 6.5/10.
+        // v1.7.2 is a single-ship monolith that closes the new
+        // P0 + P1 items and the two carry-over debts from the
+        // v1.7.0 critique:
+        //   P0-A (worry box "Review in 719163 days"): the
+        //     synthetic fixture's reviewAtEpochDay values mapped
+        //     to year 3995, so the Worry box rendered "Review
+        //     in 719163 days (3995-08-21)" on the default Today
+        //     view. v1.7.2 caps the days display to year-only
+        //     when >365 days out, and tightens the fixture so
+        //     the dated worries use days 3..21 from today.
+        //   P1-B (Home last row clipped): when a person row
+        //     has no designation + station, the inner Column
+        //     collapses to just the name TextView. On a 7-row
+        //     initial viewport the 7th row's name was clipped
+        //     to h=14. v1.7.2 adds a minHeight=88.dp on the
+        //     PersonRow so empty-subtitle rows are still
+        //     readable.
+        //   P1-C (PersonDetail header duplicated): the
+        //     TopAppBar title showed the person's name AND the
+        //     body's PersonHeader showed the name again. The
+        //     TopAppBar is now just a chevron back icon; the
+        //     body's PersonHeader is the single source of
+        //     truth.
+        //   P1-D (Today search person = no-op): tapping a
+        //     person result on Today did nothing (comment said
+        //     "search is read-only on Today"). Now routes to
+        //     onOpenPerson, matching the Home behaviour.
+        //   P1-F (Settings "Free" badge): the TagKind.FREE
+        //     section header rendered as the bare word "Free"
+        //     — a developer term that leaked into the user-
+        //     facing UI. Now renders as "Your tags" for the
+        //     FREE kind.
+        //   Debt-1: TagPicker.kt's Color(0xFF6F6F6F) literal
+        //     replaced with BatonColors.KindNeutralLight.
+        //   Debt-2: Erase all data confirmation dialog now
+        //     requires the user to type "ERASE" before the
+        //     confirm button enables (was: single-tap
+        //     irreversible action).
+        // Bugfix release; no public-surface changes (version
+        // bump because the v1.7.1 → v1.7.2 changes are
+        // user-visible: worry box dates, home row height,
+        // person-detail header, today search, settings tag
+        // section label, and erase confirmation flow).
+        // v1.7.1: versionCode 27, versionName "1.7.1".
+        // v1.7.0 fresh-eyes critique came back at 4.5/10
+        // (down from v1.6.8's 6.5 because the v1.6.8 nav
+        // fix was incomplete). v1.7.1 is a single-ship
+        // monolith that closes every P0 and P1 from that
+        // critique:
+        //   P0 nav (H1+H2, H3, H4): the system 3-button
+        //     gesture-nav hit area overlaps the bottom
+        //     NavigationBar — Today/Settings taps on the
+        //     Home screen were captured by the system
+        //     recents button and the user was dropped into
+        //     a background app (BSA for Dummies on
+        //     ZD2232FCR5). v1.6.4's 48dp extra bottom
+        //     padding was JUST barely enough; the
+        //     extended touch area reaches another 30-50dp
+        //     above the visible buttons. Bumped to 96dp.
+        //   P1 data (T1, T4, T5, P1): synthetic data
+        //     duplicates ("B. Srinivas" x2, "Whitespace
+        //     Edge" x2) and placeholder strings
+        //     (AAAA..., XXX..., "Station-with-a-very-
+        //     long-name-...") dominated the top of the
+        //     People list. Renamed the duplicates to be
+        //     unique and demoted the placeholders so the
+        //     top of the list shows realistic names.
+        //   P1 UI (T3, Q1, St1): the count badge in
+        //     PersonRow now shows " 3 open" (visible
+        //     label, not just a digit). The NoteBar
+        //     capture buttons (Photo, Voice) now have
+        //     visible "Photo" / "Voice" labels under
+        //     the icons. The Settings sheet now has a
+        //     visible Close X button in the top-right
+        //     (was: scrim-tap / swipe-down only).
+        // Bugfix release; no public-surface changes.
+        // v1.7.0: versionCode 26, versionName "1.7.0". Closes
+        // the three gaps flagged by the v1.6.8 fresh-eyes
+        // critique (6.5/10):
+        //   A. Real-user test: 1-page structured handoff in
+        //      docs/v1.7.0_user_test.md (the test itself is a
+        //      30-minute observation, not code).
+        //   B. Backup story: encrypted local export/import
+        //      was already built (VaultExporter/Importer with
+        //      Argon2id KDF + AES-256-GCM). v1.7.0 is the first
+        //      release to actually exercise it on a real
+        //      device round trip (export → wipe → import →
+        //      verify counts match). Previously: code path
+        //      existed since v1.5.0 but no APK on a phone had
+        //      used it.
+        //   C. Search: bar + debounce + FTS4 + person filter
+        //      were already wired into Home + Today. v1.7.0
+        //      closes the remaining gap — tapping an instruction
+        //      in search results now opens the InstructionDetailSheet
+        //      directly (used to navigate to the person). Lifts
+        //      InstructionDetailSheet into ui/components/ so
+        //      Home + Today share one implementation.
+        // No new public surface; ship as v1.7.0 (not v1.6.9)
+        // because C changes the search-result tap behaviour
+        // — it's a user-visible contract change worth its own
+        // minor bump.
+        // v1.7.4: versionCode 30, versionName "1.7.4". Closes
+        // the UI critique of v1.7.3's People search result:
+        // P1-A unbounded subtitle Text that broke hyphenated
+        // words mid-character ("mobi|le-screens") and
+        // truncated without ellipsis ("...Waran"); P1-C
+        // last row clipped behind the Quick note bar.
+        // v1.7.3: versionCode 29, versionName "1.7.3". Closes
+        // the v1.7.3 fresh-eyes critique: P0-A stale seeded
+        // data on upgrade, P1-B test-data placeholders, P1-C
+        // Export CSV/JSON radio, P1-D M3 NavigationBarItem
+        // clickable=false on active tab, P2-A quiet-contacts row
+        // clip, P2-C (unknown person) header clip.
+        // v1.8.0: versionCode 31, versionName "1.8.0". Closes
+        // the production-readiness Phase 1 P0s + P1s +
+        // Phase 2 P0 #1..#7: backup+restore, dedup,
+        // retention, audit chain, branding, eFIR bridge,
+        // role model. Phase 1 audit found 3 P0 + 3 P1 were
+        // pre-existing closures; only 5 P0 + 3 P1 needed
+        // fresh work.
+        // v1.9.4: versionCode 36, versionName "1.9.4".
+        // "Compact cards" release. The v1.9.3 fix
+        // removed the visible gap below the bottom nav,
+        // but the DecayRow card layout was still
+        // ~292px tall because the v1.9.2 fix stacked
+        // the "Mark recent" button above the
+        // "Quiet a while" pill in a right-aligned
+        // Column. On a 1264x2780 device, only 3 full
+        // DecayRow cards + a partial 4th fit on the
+        // visible Today screen, with a partial card
+        // clipping at the bottom. The user reported
+        // "UI should use the screen properly". v1.9.4
+        // flips the right-side controls back to
+        // horizontal siblings (the v1.8.0 layout)
+        // while keeping the v1.9.2 `maxLines` caps on
+        // the name (2 lines) + designation (1 line),
+        // both ellipsized. The name + designation
+        // + days-quiet column is bounded to ~3 lines,
+        // so a ~420dp right column leaves ~800dp for
+        // the name and designation — enough for any
+        // realistic Indian-police name. Card height
+        // drops from ~292px back to ~210px, the
+        // screen shows 4-5 full DecayRow cards
+        // instead of 3, and the bottom of the scroll
+        // is no longer a partial card. Bugfix release;
+        // no public-API or schema changes. versionCode
+        // 35 -> 36. The third drive-verify polish
+        // in this cycle (v1.9.2: stack controls;
+        // v1.9.3: remove 192dp gap; v1.9.4: keep
+        // stack fix, drop the visual gap; flip back
+        // to horizontal controls because the stack
+        // wasted too much vertical space).
+        // v1.9.5: versionCode 37, versionName "1.9.5".
+        // The fourth drive-verify polish. The
+        // v1.9.4 horizontal-sibling layout still
+        // left the "Mark recent" TextButton eating
+        // ~80dp of horizontal space, which forced
+        // the days-quiet text to ellipsize as
+        // "haven't touched in 93 d..." instead of
+        // the full "haven't touched in 93 days".
+        // v1.9.5 drops the TextButton entirely and
+        // moves the "Mark recent" affordance to:
+        //  1. Swipe-right past a 96dp threshold
+        //     (Material 3 standard list-item
+        //     side-effect action)
+        //  2. Long-press → ModalBottomSheet with
+        //     "Mark as recent" + "Cancel" actions
+        // The status pill (ReachOutPill) is the
+        // only right-side control. Left column
+        // gets the full available width so
+        // "haven't touched in 93 days" renders
+        // without ellipsis. 6+ full DecayRow
+        // cards visible on the Today screen
+        // (was 5 in v1.9.4). Bugfix release;
+        // no public-API or schema changes.
+        // versionCode 36 -> 37.
+        versionCode = 38
+        versionName = "1.9.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        // v1.8.0 (PROD-READINESS-P2-#6): the brand-name and
+        // brand-department build-config fields. A pilot
+        // build (e.g. TNeGA / CCPS) overrides these via
+        // `gradle -Pbrand.name="TNeGA CCPS" -Pbrand.dept="..."`;
+        // the defaults are the R&D "Kaavalan note" brand
+        // so a plain `./gradlew assembleDebug` produces
+        // the v1.8.0 default. The Settings "About" row
+        // reads BRAND_NAME so the user-visible label
+        // tracks the build that produced the APK.
+        buildConfigField(
+            "String",
+            "BRAND_NAME",
+            "\"${project.findProperty("brand.name") ?: "Kaavalan note"}\"",
+        )
+        buildConfigField(
+            "String",
+            "BRAND_DEPARTMENT",
+            "\"${project.findProperty("brand.dept") ?: ""}\"",
+        )
+        buildConfigField(
+            "String",
+            "BRAND_ICON",
+            "\"${project.findProperty("brand.icon") ?: "ic_launcher"}\"",
+        )
     }
 
     signingConfigs {
@@ -135,6 +335,38 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    // v1.9.1 (PROD-READINESS-P3-P1-#5 + honest
+    // deployability): per-ABI splits for release builds.
+    // The v1.9.0 universal release APK was 71.3 MB
+    // (R8 + shrinkResources enabled, but all four ABIs
+    // arm64-v8a / armeabi-v7a / x86 / x86_64 bundled).
+    // Most of the size is the per-ABI lib/ subtree
+    // (SQLCipher, OkHttp, ktor, supabase-kt native
+    // shims, CameraX, ML Kit). Splitting per ABI drops
+    // each per-architecture APK to ~35-40 MB on disk;
+    // the App Bundle (.aab) lets Google Play deliver
+    // the right ABI per device, so the user-installed
+    // size is the per-ABI number.
+    //
+    // v1.9.1 trade-off: the splits config is added
+    // here so `./gradlew :app:assembleRelease` emits
+    // 4 APKs (one per ABI). The full App Bundle
+    // (`./gradlew :app:bundleRelease` -> .aab) is
+    // documented in `docs/play-store-listing.md` as
+    // the Play-Store submission artifact; the splits
+    // here are also useful for sideloading a single
+    // per-ABI APK to a tester. v1.9.1 does NOT change
+    // the debug build (still universal; debug never
+    // ships to users).
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
         }
     }
 }
@@ -236,6 +468,16 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.mockk)
+    // v1.8.0 (PROD-READINESS-P0-#7): the androidTest source
+    // set needs the Compose UI test rule + the Hilt testing
+    // annotation. The previous build was missing these — the
+    // existing M0AcceptanceTest.kt and VaultEndToEndTest.kt
+    // imported them but did not compile. Adding the deps here
+    // unblocks both the existing tests and the new
+    // CaptureHappyPathTest.
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)
 }

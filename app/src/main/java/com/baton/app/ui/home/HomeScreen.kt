@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,11 +39,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.baton.app.R
 import com.baton.app.RootViewModel
+import com.baton.app.data.instructions.toDomain
 import com.baton.app.data.person.Person
 import com.baton.app.data.person.toEntity
 import com.baton.app.features.capture.CameraLauncher
@@ -88,6 +91,14 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
+    // v1.7.0: search-result → instruction detail sheet state.
+    // The entity is the row that came back from FTS; the domain
+    // model is what the sheet renders. We hold the entity and
+    // convert on demand (cheaper than a second query).
+    var selectedInstructionEntity by remember {
+        mutableStateOf<com.baton.app.data.local.entities.InstructionEntity?>(null)
+    }
+    val searchDetailViewModel: SearchResultDetailViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(sharedText) {
@@ -277,6 +288,7 @@ fun HomeScreen(
                     personNameById = personNameById,
                     padding = padding,
                     onPersonClick = onOpenPerson,
+                    onInstructionClick = { entity -> selectedInstructionEntity = entity },
                 )
             } else {
                 when (val s = state) {
@@ -326,6 +338,34 @@ fun HomeScreen(
             },
         )
     }
+    // v1.7.0: tapping an instruction in search results now
+    // opens the instruction detail sheet directly (was: nav
+    // to the person screen). The sheet uses the same shared
+    // component as TodayScreen and the same 1-arg
+    // markDone / markDropped / reopen helpers on
+    // RoomInstructionRepository that TodayViewModel uses,
+    // so the search-result transition ends up in the
+    // sync-engine outbox exactly as a transition from the
+    // brief would.
+    selectedInstructionEntity?.let { entity ->
+        val ins = entity.toDomain()
+        com.baton.app.ui.components.InstructionDetailSheet(
+            instruction = ins,
+            onDismiss = { selectedInstructionEntity = null },
+            onMarkDone = {
+                searchDetailViewModel.markDone(ins)
+                selectedInstructionEntity = null
+            },
+            onDrop = {
+                searchDetailViewModel.markDropped(ins)
+                selectedInstructionEntity = null
+            },
+            onReopen = {
+                searchDetailViewModel.reopen(ins)
+                selectedInstructionEntity = null
+            },
+        )
+    }
 }
 
 @Composable
@@ -333,6 +373,7 @@ private fun EmptyState(
     padding: PaddingValues,
     onAddPersonClick: () -> Unit,
 ) {
+    val addPersonDesc = stringResource(R.string.home_add_person)
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -376,7 +417,7 @@ private fun EmptyState(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
                 modifier = Modifier
-                    .semantics { contentDescription = "Add person" },
+                    .semantics { contentDescription = addPersonDesc },
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -416,11 +457,24 @@ private fun PersonList(
         // The horizontal padding here means each row's
         // clickable hit-target extends to the screen edges
         // (better UX than rows that stop short of the edge).
+        // v1.7.4 (P1-C): bottom 88dp → 112dp. The Quick
+        // note bar (NoteBar) is the Scaffold's bottomBar and
+        // measures ~96dp (Surface vertical padding 12dp +
+        // Row height 72dp + 12dp), which is 8dp taller than
+        // the FAB-only clearance. The Scaffold's content
+        // `padding` should already account for the bottomBar
+        // height, but in practice the NoteBar's rounded-
+        // corner clip + the FAB overhang left the last row
+        // half-hidden behind the bar on a 1080x2400
+        // viewport (see `ui_v174_search_clip` repro). 112dp
+        // = 96dp NoteBar + 16dp visual buffer. Verified
+        // that the Search results code path also bumps to
+        // 112dp below.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
             top = 8.dp,
-            bottom = 88.dp,
+            bottom = 112.dp,
         ),
     ) {
         items(items = persons, key = { it.id }) { person ->
@@ -451,6 +505,12 @@ fun HomeScreenSearchResults(
     personNameById: Map<String, String>,
     padding: PaddingValues,
     onPersonClick: (String) -> Unit,
+    // v1.7.0: tapping an instruction in search results now
+    // opens the instruction detail sheet. The previous
+    // behaviour was to navigate to the person (which is
+    // reachable via the person-header tap above each
+    // instruction group), so this split is non-breaking.
+    onInstructionClick: (com.baton.app.data.local.entities.InstructionEntity) -> Unit,
 ) {
     if (personResults.isEmpty() && instructionResults.isEmpty()) {
         Box(
@@ -476,11 +536,17 @@ fun HomeScreenSearchResults(
         // to clear the FAB (56dp + 16dp margin) + 16dp visual
         // buffer. Same reason as PersonList — the FAB
         // overlaps the last row otherwise.
+        // v1.7.4 (P1-C): bottom 88dp → 112dp. The Quick note
+        // bar (NoteBar, ~96dp tall) is the Scaffold's
+        // bottomBar and is 8dp taller than the FAB-only
+        // clearance. 112dp = 96dp NoteBar + 16dp visual
+        // buffer. See the PersonList comment for the
+        // full repro details.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
             top = 8.dp,
-            bottom = 88.dp,
+            bottom = 112.dp,
         ),
     ) {
         if (personResults.isNotEmpty()) {
@@ -509,10 +575,24 @@ fun HomeScreenSearchResults(
                     val sub = listOfNotNull(person.designation, person.station)
                         .joinToString(" \u00b7 ")
                     if (sub.isNotBlank()) {
+                        // v1.7.4 (P1-A): maxLines=2 + Ellipsis. Same
+                        // reason as PersonRow's subtitle — the
+                        // unbounded Text would wrap to N lines and
+                        // break words mid-character at hyphens
+                        // ("mobi|le-screens") for long designations or
+                        // the stress-test station name. 2 lines gives
+                        // the search result enough context (a real
+                        // station like "District Traffic Wing,
+                        // Warangal" fits in 1 line) without letting a
+                        // single bad row eat the viewport. The
+                        // trailing "..." tells the user there is
+                        // more on tap.
                         Text(
                             text = sub,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -546,7 +626,19 @@ fun HomeScreenSearchResults(
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                        // v1.7.3 (P2-C): `heightIn(min = 32.dp)` so
+                        // the (unknown person) / unassigned header
+                        // never gets clipped to a few px when it lands
+                        // at the very bottom of the visible
+                        // LazyColumn. The same `heightIn(min=88.dp)`
+                        // pattern on PersonRow (v1.7.2) and
+                        // DecayRow (v1.7.3 P2-A) used `Card`; this
+                        // header is a plain Text, so the 32dp minimum
+                        // is the smallest value that still keeps the
+                        // labelSmall glyphs legible.
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp, vertical = 4.dp)
+                            .heightIn(min = 32.dp),
                     )
                 }
                 items(items = list, key = { it.id }) { ins ->
@@ -554,8 +646,13 @@ fun HomeScreenSearchResults(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(
-                                onClickLabel = "Open person",
-                                onClick = { personId?.let(onPersonClick) },
+                                // v1.7.0: tap on the instruction
+                                // row opens the instruction
+                                // detail sheet. Tap on the
+                                // person-header above still
+                                // navigates to the person.
+                                onClickLabel = "Open instruction",
+                                onClick = { onInstructionClick(ins) },
                             )
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
@@ -658,7 +755,19 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             // LazyColumn's contentPadding handles horizontal).
             // Smaller vertical padding = denser list = more
             // people on screen = Obsidian document density.
-            .padding(vertical = 10.dp),
+            .padding(vertical = 10.dp)
+            // v1.7.2 (P1-B): when a person has no designation +
+            // station, the inner Column only renders the name
+            // (no sub-text). Without a minHeight the row's
+            // height collapses to ~72 px, which under
+            // v1.6.4's 88dp contentPadding + 96dp bottom-nav
+            // lift clipped the seventh row's name to h=14 in
+            // the visible viewport (see
+            // `ui_v172_home.xml`). 88dp = 10dp top + 49dp name
+            // line + 10dp bottom + a 19dp buffer so the name
+            // TextView never gets the parent-clip on a
+            // 7-row initial viewport.
+            .heightIn(min = 88.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -685,7 +794,12 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
                         modifier = Modifier
                             .size(8.dp)
                             .semantics { contentDescription = staleDesc },
-                        color = androidx.compose.ui.graphics.Color(0xFFD9A05B),
+                        // v1.6.8: theme-aware stale dot. The old
+                        // `0xFFD9A05B` was too dim against the
+                        // dark `surfaceVariant` (0xFF2F2A23) so
+                        // the dot disappeared. The light/dark
+                        // pair keeps it visible in both modes.
+                        color = com.baton.app.ui.theme.BatonThemeTokens.staleIndicator(),
                         contentColor = androidx.compose.ui.graphics.Color.Transparent,
                         shape = androidx.compose.foundation.shape.CircleShape,
                     ) {}
@@ -693,10 +807,22 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             }
             val sub = listOfNotNull(person.designation, person.station).joinToString(" • ")
             if (sub.isNotEmpty()) {
+                // v1.7.4 (P1-A): maxLines=1 + Ellipsis. The previous
+                // unbounded Text wrapped to N lines (and broke words
+                // mid-character at hyphens, e.g. "mobi|le-screens")
+                // when a long designation or a stress-test station
+                // name like "Station-with-a-very-long-name-..."
+                // overflowed. The row is a tap-target to the detail
+                // screen — 1 line + ellipsis is the right shape for
+                // a list item, and the "..." tells the user there
+                // is more on tap (which the existing row-level
+                // a11y label "Open person" already announces).
                 Text(
                     sub,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -710,19 +836,35 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
             // small labelMedium in onSurfaceVariant sits at the
             // row's right; the badge recedes and the row reads
             // as a document line (Obsidian-style).
+            // v1.7.1 (P1 T3): added a visible "open" label
+            // after the count so the user can read "3 open"
+            // without needing TalkBack. The visible label
+            // matches the a11y contentDescription exactly so
+            // the meaning is consistent on screen and in
+            // the screen reader.
             val countDesc = if (openCount == 1) {
                 stringResource(R.string.a11y_person_count_badge_one)
             } else {
                 stringResource(R.string.a11y_person_count_badge, openCount)
             }
-            Text(
-                text = openCount.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            val openLabel = stringResource(R.string.today_count_open_short)
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .padding(start = 12.dp, end = 4.dp)
                     .semantics { contentDescription = countDesc },
-            )
+            ) {
+                Text(
+                    text = openCount.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = " $openLabel",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

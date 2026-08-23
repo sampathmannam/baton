@@ -86,5 +86,22 @@ object AppModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient = OkHttpClient()
+
+    /**
+     * v1.8.0 (PROD-READINESS-P2-#4): the audit-chain
+     * signing key. v1.8.0 binds a fixed device-scoped
+     * UUID ("anonymous-device-v1"); a pilot with a real
+     * auth provider overrides this to return the
+     * user's JWT `sub` claim so events are signed by
+     * the user, not the device. The v1.8.0 trade-off is
+     * "every device's chain is self-contained" which
+     * is correct for the local-only build (the chain
+     * never leaves the device) and acceptable for
+     * the pilot scope (each user = each device).
+     */
+    @Provides
+    @Singleton
+    fun provideSigningKeyProvider(): com.baton.app.data.audit.SigningKeyProvider =
+        com.baton.app.data.audit.SigningKeyProvider { "anonymous-device-v1" }
 }
 

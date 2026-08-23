@@ -55,4 +55,12 @@ interface InstructionTagDao {
     // non-empty table too.)
     @Query("DELETE FROM instruction_tags")
     suspend fun deleteAll()
+
+    // v1.8.0 (PROD-READINESS-P0-#1): full snapshot for the
+    // BackupManager. The existing per-instruction and per-tag
+    // observers are Flow-based and not usable from a one-shot
+    // backup snapshot. The composite primary key is the natural
+    // order so two snapshots are stable.
+    @Query("SELECT * FROM instruction_tags ORDER BY instructionId ASC, tagId ASC")
+    suspend fun snapshotAll(): List<InstructionTagCrossRef>
 }

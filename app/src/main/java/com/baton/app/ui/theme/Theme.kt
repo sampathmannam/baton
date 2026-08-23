@@ -8,7 +8,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -62,7 +61,15 @@ fun BatonTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colourScheme.background.toArgb()
+            // v1.6.7: statusBarColor is deprecated in R+ (and a hard
+            // deprecation in Android 15 / API 35). With
+            // enableEdgeToEdge() in MainActivity the system bar
+            // colour is now driven by the content's surface colour
+            // (Material 3's windowInsets handling); the previous
+            // explicit setStatusBarColor call is no longer needed
+            // and the WindowInsetsController below is the supported
+            // way to switch the status-bar icon tint for the
+            // current theme.
             WindowCompat.getInsetsController(window, view)
                 .isAppearanceLightStatusBars = !darkTheme
         }

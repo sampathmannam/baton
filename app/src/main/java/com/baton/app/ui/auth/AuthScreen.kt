@@ -23,11 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.baton.app.R
 
 /**
  * Sign-in / sign-up screen.
@@ -60,10 +62,10 @@ fun AuthScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Kaavalan note", style = MaterialTheme.typography.displaySmall)
+        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displaySmall)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "Welcome back",
+            stringResource(R.string.auth_welcome_back),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -121,7 +123,7 @@ private fun EntryPanel(
     OutlinedTextField(
         value = email,
         onValueChange = { email = it },
-        label = { Text("Email") },
+        label = { Text(stringResource(R.string.auth_email_label)) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         modifier = Modifier.fillMaxWidth(),
@@ -133,11 +135,14 @@ private fun EntryPanel(
         enabled = !isSubmitting && email.isNotBlank(),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(if (isSubmitting) "Sending..." else "Continue with email")
+        Text(
+            if (isSubmitting) stringResource(R.string.auth_sending)
+            else stringResource(R.string.auth_continue_with_email)
+        )
     }
     Spacer(modifier = Modifier.height(8.dp))
     Text(
-        "We'll email you a one-time code. No password needed.",
+        stringResource(R.string.auth_otp_explainer),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -168,7 +173,7 @@ private fun EntryPanel(
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
-            label = { Text("Password") },
+            label = { Text(stringResource(R.string.auth_password_label)) },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -184,16 +189,25 @@ private fun EntryPanel(
                 enabled = !isSubmitting && email.isNotBlank() && password.isNotBlank(),
                 modifier = Modifier.weight(1f),
             ) {
-                Text(if (isSignUp) "Create account" else "Sign in")
+                Text(
+                    if (isSignUp) stringResource(R.string.auth_create_account)
+                    else stringResource(R.string.auth_sign_in)
+                )
             }
             TextButton(onClick = { isSignUp = !isSignUp }) {
-                Text(if (isSignUp) "Sign in" else "Create")
+                Text(
+                    if (isSignUp) stringResource(R.string.auth_sign_in)
+                    else stringResource(R.string.auth_create)
+                )
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
     TextButton(onClick = { showPassword = !showPassword }) {
-        Text(if (showPassword) "Hide password sign-in" else "Use password instead")
+        Text(
+            if (showPassword) stringResource(R.string.auth_hide_password)
+            else stringResource(R.string.auth_use_password)
+        )
     }
 }
 
@@ -214,7 +228,7 @@ private fun OtpVerifyPanel(
     var code by remember { mutableStateOf("") }
 
     Text(
-        "We sent a code to",
+        stringResource(R.string.auth_code_sent),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -227,7 +241,7 @@ private fun OtpVerifyPanel(
     OutlinedTextField(
         value = code,
         onValueChange = { code = it.filter(Char::isDigit).take(8) },
-        label = { Text("6-digit code") },
+        label = { Text(stringResource(R.string.auth_code_label)) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         modifier = Modifier.fillMaxWidth(),
@@ -239,7 +253,10 @@ private fun OtpVerifyPanel(
         enabled = !isSubmitting && code.length >= 6,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(if (isSubmitting) "Verifying..." else "Verify")
+        Text(
+            if (isSubmitting) stringResource(R.string.auth_verifying)
+            else stringResource(R.string.auth_verify)
+        )
     }
     if (errorMessage != null) {
         Spacer(modifier = Modifier.height(12.dp))
@@ -252,10 +269,10 @@ private fun OtpVerifyPanel(
     Spacer(modifier = Modifier.height(16.dp))
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(onClick = onResend, enabled = !isSubmitting) {
-            Text("Resend code")
+            Text(stringResource(R.string.auth_resend_code))
         }
         TextButton(onClick = onUsePasswordInstead) {
-            Text("Use password instead")
+            Text(stringResource(R.string.auth_use_password))
         }
     }
 }

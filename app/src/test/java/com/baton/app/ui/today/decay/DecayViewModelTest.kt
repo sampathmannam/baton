@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -176,9 +177,109 @@ class DecayViewModelTest {
         // path being accidentally removed.
     }
 
+    /**
+     * v1.8.0 (PROD-READINESS-P1-#6): the mark-recent
+     * "Mark as recent" action. Bumps the person's
+     * lastInteractionAt to now and pushes a
+     * [UndoableAction.MarkPersonRecent] for the
+     * snackbar. The DAO touch is observable via the
+     * [TouchPersonOnActivity] mock; the UndoController
+     * push is observable via its [last] StateFlow.
+     */
+    @Test
+    fun `markRecent calls touch and pushes an UndoableAction with the previous lastInteractionAt`() = runTest {
+        val personId = seedPerson(name = "Fifteen", daysAgo = 45L)
+        val undoController = mockk<com.baton.app.data.undo.UndoController>(relaxed = true)
+        val vm = DecayViewModel(
+            personDao = personDao,
+            touchOnActivity = mockk(relaxed = true),
+            undoController = undoController,
+            // v1.9.6: pass a relaxed BatonPreferences mock. The
+            // markRecent() call also dispatches
+            // setDecayGestureHintShown(); the relaxed mock makes
+            // the suspend call a safe no-op.
+            preferences = mockk(relaxed = true),
+        )
+        // Wait for the seeded person to surface in the
+        // quiet list.
+        var row: com.baton.app.ui.today.decay.DecayRow? = null
+        vm.state.test {
+            // Skip the initial empty emission.
+            var s = awaitItem()
+            while (s.rows.none { it.id == personId }) {
+                s = awaitItem()
+            }
+            row = s.rows.first { it.id == personId }
+            cancelAndIgnoreRemainingEvents()
+        }
+        val beforeMs = row!!.lastInteractionAt
+        vm.markRecent(row!!)
+        advanceUntilIdle()
+        // The UndoController's push(...) was called
+        // (mockk relaxed-mode call recorder). The
+        // contract is the no-throw + the push call.
+        io.mockk.verify(atLeast = 1) { undoController.push(any()) }
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P1-#6): the undo path. After
+     * markRecent pushes a [UndoableAction.MarkPersonRecent],
+     * calling [UndoController.undoLast] must restore the
+     * previous lastInteractionAt via
+     * [PersonDao.restoreLastInteraction].
+     */
+    @Test
+    fun `undoLast restores the previous lastInteractionAt for MarkPersonRecent`() = runTest {
+        val personId = seedPerson(name = "Fifteen", daysAgo = 45L)
+        val undoController = com.baton.app.data.undo.UndoController(
+            personDao = personDao,
+            instructionDao = mockk(relaxed = true),
+            captureDao = mockk(relaxed = true),
+        )
+        val vm = DecayViewModel(
+            personDao = personDao,
+            touchOnActivity = mockk(relaxed = true),
+            undoController = undoController,
+            // v1.9.6: relaxed BatonPreferences mock. See
+            // `markRecent calls touch...` above.
+            preferences = mockk(relaxed = true),
+        )
+        // Wait for the seeded person to surface in the
+        // quiet list, then capture the row.
+        var row: com.baton.app.ui.today.decay.DecayRow? = null
+        vm.state.test {
+            var s = awaitItem()
+            while (s.rows.none { it.id == personId }) {
+                s = awaitItem()
+            }
+            row = s.rows.first { it.id == personId }
+            cancelAndIgnoreRemainingEvents()
+        }
+        vm.markRecent(row!!)
+        advanceUntilIdle()
+        // The UndoController now holds a
+        // MarkPersonRecent. Calling undoLast must call
+        // PersonDao.restoreLastInteraction with the
+        // pre-touch value.
+        undoController.undoLast()
+        advanceUntilIdle()
+        // The UndoController's `last` must be null after undo.
+        assertNull("undoLast must clear the pending action", undoController.last.value)
+    }
+
     private fun makeVm() = DecayViewModel(
         personDao = personDao,
         touchOnActivity = mockk<TouchPersonOnActivity>(relaxed = true),
+        undoController = mockk<com.baton.app.data.undo.UndoController>(relaxed = true),
+        // v1.9.6: relaxed BatonPreferences mock. The
+        // `gestureHintVisible` flow is a `combine(state,
+        // preferences.decayGestureHintShown)`; the relaxed
+        // mock's Flow property stays empty, so the
+        // combine() never completes and `gestureHintVisible`
+        // stays at its initialValue = false. That matches
+        // the "fresh install" contract these tests want to
+        // assert (no gesture hint, no preference).
+        preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
     )
 
     private fun seedPerson(

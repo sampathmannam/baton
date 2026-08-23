@@ -1,0 +1,40 @@
+v1.9.3 (Drive-verify polish #2): remove the 192dp gap below the bottom nav
+
+The v1.9.2 fix was over-applied: the visible dark gap the
+user saw between the last DecayRow card and the bottom nav
+was ~192dp of empty space, caused by two stacked 96dp
+paddings:
+
+1. MainActivity.NavigationBar had a v1.6.4-era
+   `padding(bottom = 96.dp)` that was meant to clear the
+   system recents button's extended touch area on
+   3-button nav. ZD2232FCR5 is now on gesture nav (the
+   home-indicator pill is the only system touch target
+   in that area), so the 96dp just created empty space
+   between the bottom nav and the bottom of the screen.
+
+2. My v1.9.2 TodayScreen.LazyColumn
+   `bottom = 96.dp` contentPadding was meant to clear
+   the bottom nav, but the Scaffold's `padding` already
+   accounts for the bottom nav height (it is the
+   Scaffold's `bottomBar`). Adding 96dp on top of that
+   produced a second 96dp of empty space.
+
+v1.9.3 removes both. `navigationBarsPadding()` alone is
+sufficient for gesture nav; the system gesture insets are
+already handled by `enableEdgeToEdge()` in
+BatonApplication.onCreate. If a user with 3-button nav
+reports the recents-button-tap regression, the fix is to
+read `WindowInsets.navigationBars` height and add ~48dp on
+top of it (the 3-button extended touch area) — but gesture
+nav is the only mode the build-time Windows machine can
+drive-verify.
+
+Drive-verified on ZD2232FCR5 (Android 17, gesture nav):
+the K. Mahesh DecayRow card now sits flush against the
+top of the bottom nav, the full card content visible
+(name + designation + days-quiet + Mark recent + Quiet
+a while pill). No visible gap.
+
+Bugfix release; no public-API or schema changes;
+versionCode 34 -> 35.

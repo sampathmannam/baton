@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -27,9 +29,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -80,6 +86,14 @@ fun CaptureSheet(
     val isVoiceRecording by VoiceCaptureState.isRecording.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    // v1.8.0 (PROD-READINESS-P0-#4): one-shot info Snackbar
+    // host. Distinct from the inline `state.error` Row because
+    // the past-date case is a successful save with a caveat,
+    // not a failure. The Snackbar overlays the sheet content
+    // and auto-dismisses on its own timer; the user does not
+    // have to ack it to continue.
+    val snackbarHostState = remember { SnackbarHostState() }
+
     // M1-T6: collect calendar events from the VM and launch
     // them via the Activity context. The Channel is buffered
     // so a config change between save + launch doesn't drop
@@ -87,6 +101,18 @@ fun CaptureSheet(
     LaunchedEffect(viewModel) {
         viewModel.calendarIntents.collect { event ->
             context.startActivity(CalendarGate.toIntent(event))
+        }
+    }
+
+    // v1.8.0 (PROD-READINESS-P0-#4): collect one-shot info
+    // messages (e.g. "That date is already past — note saved
+    // without a calendar reminder.") and surface them via
+    // the Snackbar. The Channel is buffered so a config
+    // change between save + showSnackbar doesn't drop the
+    // message.
+    LaunchedEffect(viewModel) {
+        viewModel.infoMessages.collect { message ->
+            snackbarHostState.showSnackbar(message)
         }
     }
 
@@ -118,6 +144,31 @@ fun CaptureSheet(
             onAddFreeTag = viewModel::onAddFreeTag,
             onSaveRaw = viewModel::onSaveRaw,
             onOpenAddPerson = onOpenAddPerson,
+        )
+    }
+
+    // v1.8.0 (PROD-READINESS-P0-#4): the Snackbar host sits
+    // INSIDE the bottom sheet so the message is co-located
+    // with the save action it caveats. Using a Box wrapper
+    // would clip the Snackbar to the sheet bounds; placing
+    // the host as a sibling of the ModalBottomSheet keeps it
+    // in the same Composable hierarchy but the ModalBottomSheet
+    // already constrains us to the sheet bounds, which is what
+    // we want.
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier
+            .imePadding()
+            .navigationBarsPadding(),
+    ) { data ->
+        Snackbar(
+            snackbarData = data,
+            // v1.8.0: no action button. The message is a
+            // caveat ("saved, but...") not a question.
+            // Auto-dismiss is fine; the user just saved and
+            // can move on.
+            containerColor = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
         )
     }
 }
@@ -257,13 +308,14 @@ private fun CaptureTextField(
     isSaving: Boolean,
     onTextChanged: (String) -> Unit,
 ) {
+    val captureNoteTextDesc = stringResource(R.string.a11y_capture_note_text)
     OutlinedTextField(
         value = text,
         onValueChange = onTextChanged,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 96.dp, max = 200.dp)
-            .semantics { contentDescription = "Capture note text" },
+            .semantics { contentDescription = captureNoteTextDesc },
         label = { Text(stringResource(R.string.capture_sheet_text_label)) },
         placeholder = { Text(stringResource(R.string.capture_sheet_text_placeholder)) },
         shape = RoundedCornerShape(12.dp),
@@ -276,10 +328,11 @@ private fun AddToCalendarRow(
     addToCalendar: Boolean,
     onAddToCalendarChange: (Boolean) -> Unit,
 ) {
+    val addToCalendarDesc = stringResource(R.string.a11y_add_to_calendar)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics { contentDescription = "Add to calendar" },
+            .semantics { contentDescription = addToCalendarDesc },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -373,6 +426,7 @@ private fun PrimaryAction(
  */
 @Composable
 private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
+    val addPersonDesc = stringResource(R.string.home_add_person)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -395,7 +449,7 @@ private fun NoPeopleCard(onOpenAddPerson: () -> Unit) {
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = "Add person" },
+                    .semantics { contentDescription = addPersonDesc },
             ) {
                 Text(stringResource(R.string.home_add_person))
             }

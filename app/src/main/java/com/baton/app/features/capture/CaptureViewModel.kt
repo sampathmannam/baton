@@ -97,6 +97,13 @@ class CaptureViewModel @Inject constructor(
      * the Save success path ([onSaveRaw]). Unlike [dismissSheet],
      * this clears the SavedStateHandle-backed fields so a process
      * death + relaunch does not restore a stale draft.
+     *
+     * v1.8.0 (PROD-READINESS-P0-#2): the dedup fingerprint +
+     * timestamp are NOT wiped here — they are the "did we
+     * recently save this?" signal that survives a process death
+     * and protects against a duplicate-save loop. The next save
+     * with a different draft will not match the fingerprint and
+     * will save normally.
      */
     fun clearDraft() {
         savedStateHandle.remove<String>(KEY_TEXT)
@@ -109,6 +116,34 @@ class CaptureViewModel @Inject constructor(
         const val KEY_TEXT = "capture.text"
         const val KEY_MODE = "capture.mode"
         const val KEY_SELECTED_TAG_IDS = "capture.selectedTagIds"
+        // v1.8.0 (PROD-READINESS-P0-#2): fingerprint of the last
+        // successful save (sha1 of text|mode|sortedTagIds). On a
+        // process death + relaunch, the VM compares the current
+        // draft's fingerprint to this value; a match means the
+        // user is being asked to re-save the same note that was
+        // already persisted. The dedup window is
+        // [DEDUP_WINDOW_MS] (30s) — long enough to cover a
+        // process death on a typical save path, short enough that
+        // a user who genuinely wants to re-save the same note 5
+        // minutes later can.
+        const val KEY_LAST_SAVED_FINGERPRINT = "capture.lastSavedFingerprint"
+        const val KEY_LAST_SAVED_AT_MS = "capture.lastSavedAtMs"
+        const val DEDUP_WINDOW_MS = 30_000L
+    }
+
+    /**
+     * v1.8.0 (PROD-READINESS-P0-#2): the dedup helper. Computes a
+     * deterministic fingerprint of a draft (text + mode + sorted
+     * tag IDs). Two drafts with the same fingerprint are
+     * considered the same user intent.
+     */
+    private fun fingerprintOf(
+        text: String,
+        mode: CaptureMode,
+        selectedTagIds: Set<String>,
+    ): String {
+        val sortedTags = selectedTagIds.sorted().joinToString(",")
+        return "$text|$mode|$sortedTags".hashCode().toString()
     }
 
     /**
@@ -143,6 +178,19 @@ class CaptureViewModel @Inject constructor(
      */
     internal val calendarIntentsChannel: Channel<CalendarEventData> = Channel(capacity = Channel.BUFFERED)
     val calendarIntents: Flow<CalendarEventData> = calendarIntentsChannel.receiveAsFlow()
+
+    /**
+     * v1.8.0 (PROD-READINESS-P0-#4): one-shot info messages for
+     * non-error user-facing feedback (e.g. "That date is already
+     * past — note saved without a calendar reminder."). Distinct
+     * from the inline `error` on the state because the past-date
+     * case is a successful save with a caveat, not a failure.
+     * The Composable collects this and surfaces it as a Snackbar
+     * / inline notice. The [Channel] buffers the message so a
+     * config change (rotation) doesn't drop it.
+     */
+    internal val infoChannel: Channel<String> = Channel(capacity = Channel.BUFFERED)
+    val infoMessages: Flow<String> = infoChannel.receiveAsFlow()
 
     init {
         // M3-T7: keep `availableTags` warm. The user picks from
@@ -328,6 +376,28 @@ class CaptureViewModel @Inject constructor(
             }
             return
         }
+        // v1.8.0 (PROD-READINESS-P0-#2): the crash-recovery
+        // dedup guard. If a previous save of the same draft
+        // (text + mode + tags) completed within the dedup
+        // window, this is the user being asked to re-save
+        // after a process death between [create] and
+        // [clearDraft]. Surface a one-shot info message and
+        // clear the draft so the user isn't stuck in a loop.
+        val currentFingerprint = fingerprintOf(
+            text = current.text,
+            mode = current.mode,
+            selectedTagIds = current.selectedTagIds,
+        )
+        val lastFingerprint = savedStateHandle.get<String>(KEY_LAST_SAVED_FINGERPRINT)
+        val lastSavedAtMs = savedStateHandle.get<Long>(KEY_LAST_SAVED_AT_MS) ?: 0L
+        val nowMs = System.currentTimeMillis()
+        if (lastFingerprint == currentFingerprint && lastSavedAtMs > 0L && (nowMs - lastSavedAtMs) < DEDUP_WINDOW_MS) {
+            infoChannel.trySend(
+                "Already saved before the app closed — clearing the draft."
+            )
+            clearDraft()
+            return
+        }
         _state.update { it.copy(isSaving = true, error = null) }
         viewModelScope.launch {
             val rawText = current.text.trim()
@@ -352,13 +422,35 @@ class CaptureViewModel @Inject constructor(
                     captureRepository.create(rawText = rawText, mode = current.mode)
                 }
                 if (current.addToCalendar) {
-                    val event = CalendarGate.buildEventData(
+                    val result = CalendarGate.buildEventData(
                         title = title,
                         description = rawText,
                         dueAt = null,
                     )
-                    if (event != null) {
-                        calendarIntentsChannel.trySend(event)
+                    when (result) {
+                        is CalendarEventResult.Event -> {
+                            calendarIntentsChannel.trySend(result.data)
+                        }
+                        is CalendarEventResult.Skipped -> {
+                            // v1.8.0 (PROD-READINESS-P0-#4): the only
+                            // user-actionable skip reason is IN_PAST
+                            // (the date the LLM or future Edit flow
+                            // supplied resolved to a past timestamp).
+                            // The note IS saved; the calendar event
+                            // was not. Tell the user so they don't
+                            // wonder why their calendar is empty.
+                            if (result.reason == SkipReason.IN_PAST) {
+                                infoChannel.trySend(
+                                    "That date is already past — note saved without a calendar reminder."
+                                )
+                            }
+                            // The v1.6.1 fall-throughs (MISSING /
+                            // UNPARSEABLE) were collapsed into a
+                            // single Skipped variant for the v1.8.0
+                            // contract; the VM does not surface
+                            // them because the event still fires
+                            // (begin = now).
+                        }
                     }
                 }
                 if (current.selectedTagIds.isNotEmpty()) {
@@ -369,6 +461,15 @@ class CaptureViewModel @Inject constructor(
                         )
                     }
                 }
+                // v1.8.0 (PROD-READINESS-P0-#2): record the
+                // dedup fingerprint + timestamp BEFORE clearing
+                // the draft. The next onSaveRaw (or a process-death
+                // + relaunch) consults these to detect a
+                // duplicate-save attempt. The clearDraft() call
+                // below also wipes these keys, so a fresh
+                // start-of-session has no last-saved state.
+                savedStateHandle[KEY_LAST_SAVED_FINGERPRINT] = currentFingerprint
+                savedStateHandle[KEY_LAST_SAVED_AT_MS] = System.currentTimeMillis()
                 // v1.4 (F-09): success path wipes the in-flight draft.
                 clearDraft()
             }.onFailure { e ->

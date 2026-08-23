@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,8 +19,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
@@ -32,10 +36,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -52,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -76,13 +83,50 @@ fun SettingsSheet(
     onVaultImport: () -> Unit = {},
     onOpenRecoveryPhrase: () -> Unit = {},
     onOpenThreatModel: () -> Unit = {},
+    onOpenSyncConflicts: () -> Unit = {},
+    // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
+    // the Drive backup / restore rows use
+    // [rememberLauncherForActivityResult]
+    // inside the Settings sheet directly.
+    // The MainActivity callbacks for the
+    // drive / restore are no-ops (the
+    // sheet's launchers fire the system
+    // file picker).
+    // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+    // update channel + crash log rows are
+    // handled by the sheet's own VM.
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val signingOut by viewModel.signingOut.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
+    val syncConflictCount by viewModel.syncConflictCount.collectAsStateWithLifecycle()
+    // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+    // in-app update channel. The "Check for
+    // updates" row in the Settings sheet
+    // calls [viewModel.checkForUpdates]
+    // directly. The result is exposed via
+    // [SettingsViewModel.updateCheckResult]
+    // and rendered as a snackbar via
+    // [LaunchedEffect] below.
+    val updateCheckInProgress by viewModel.updateCheckInProgress.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        viewModel.updateCheckResult.collect { info ->
+            val msg = when (info) {
+                is com.baton.app.data.update.UpdateChecker.UpdateInfo.UpToDate ->
+                    "You are on the latest version"
+                is com.baton.app.data.update.UpdateChecker.UpdateInfo.UpdateAvailable ->
+                    "Baton ${info.latestVersion} is available. You are on ${info.currentVersion}."
+                is com.baton.app.data.update.UpdateChecker.UpdateInfo.Unavailable ->
+                    "Could not reach the update server. Try again later."
+            }
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
     val appVersion = viewModel.appVersion
     // v1.6.1: the "Models" section is gone. The on-device
     // LLM and the whisper.cpp voice model are both removed.
@@ -103,6 +147,15 @@ fun SettingsSheet(
     var fixtureLoading by remember { mutableStateOf(false) }
     var fixtureLoadReport by remember { mutableStateOf<com.baton.app.data.dev.FixtureLoader.LoadReport?>(null) }
     var fixtureLoadError by remember { mutableStateOf<String?>(null) }
+
+    // v1.7.3 (P1-C): selected plain-export format. CSV by default
+    // (preserves the v1.7.2 behaviour). The radio group in the
+    // Data section lets the user see which format will be used
+    // before tapping Export. State is local to the sheet — the
+    // selection does not persist across sheet reopens (the user
+    // re-chooses each time, which is the right default for a
+    // destructive action: "did I really mean JSON this time?").
+    var selectedPlainFormat by remember { mutableStateOf("csv") }
 
     val csvLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv"),
@@ -126,6 +179,48 @@ fun SettingsSheet(
             }
         }
     }
+    // v1.9.0 (PROD-READINESS-P3-P1-#8): the
+    // "Back up to Google Drive" launcher.
+    // The system file picker shows Google
+    // Drive, Dropbox, local storage, etc.
+    // The user picks a folder; the app
+    // copies the latest cached backup to
+    // the chosen content:// URI.
+    val driveBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val latest = viewModel.backupManager.listBackups()
+                    .maxByOrNull { it.lastModified() }
+                if (latest != null) {
+                    runCatching {
+                        com.baton.app.data.export.DriveBackup.writeToUri(ctx, latest, uri)
+                    }
+                }
+            }
+        }
+    }
+    // v1.9.0 (PROD-READINESS-P3-P1-#9): the
+    // "Restore from backup" launcher. The
+    // user picks a backup file; the app
+    // reads it into a temp file and
+    // applies it to the local DB.
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val tempFile = runCatching {
+                    com.baton.app.data.export.DriveBackup.readFromUri(ctx, uri)
+                }.getOrNull() ?: return@launch
+                runCatching {
+                    viewModel.backupManager.restore(tempFile)
+                    tempFile.delete()
+                }
+            }
+        }
+    }
     // v2.0 T3-1: deniable-vault dialogs. The three state vars
     // drive the "set PIN" / "enter PIN to unlock" / "confirm
     // switch to hidden" flows. They are mutually exclusive
@@ -142,6 +237,15 @@ fun SettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
+        // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+        // snackbar host for the update-check
+        // result. The host is rendered at the
+        // bottom of the sheet (above the
+        // content) so the snackbar appears as
+        // an overlay on the sheet.
+        androidx.compose.material3.SnackbarHost(
+            hostState = snackbarHostState,
+        )
         // v1.6.2: the Settings sheet is now longer (the
         // Developer section + its Load test data button were
         // added in v1.6.2). On a small screen the previous
@@ -158,10 +262,33 @@ fun SettingsSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = stringResource(R.string.settings_title),
-                style = MaterialTheme.typography.headlineSmall,
-            )
+            // v1.7.1 (P1 St1): a visible Close button in the
+            // top-right of the sheet. ModalBottomSheet
+            // supports scrim-tap and swipe-down dismissal,
+            // but neither affordance is discoverable on a
+            // first read — the sheet covers the bottom nav
+            // so the user has no other visual cue. The X
+            // button is a tappable icon at the top-right
+            // of the title row.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = onDismiss,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.settings_close),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             TagsSection(
                 tags = tags,
@@ -319,33 +446,57 @@ fun SettingsSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Button(
-                    onClick = {
-                        plainExportError = null
-                        plainExportOk = false
-                        csvLauncher.launch("baton-${ts()}.csv")
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
+                // v1.7.3 (P1-C): radio + label tappable as a unit.
+                // The Row's onClick toggles the selected format AND
+                // launches the export directly so the previous
+                // "one-tap to export" UX is preserved. The
+                // RadioButton is just a visible indicator of the
+                // current selection; tap-the-row to switch + export.
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            plainExportError = null
+                            plainExportOk = false
+                            selectedPlainFormat = "csv"
+                            csvLauncher.launch("baton-${ts()}.csv")
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(stringResource(R.string.plain_export_csv))
+                    RadioButton(
+                        selected = selectedPlainFormat == "csv",
+                        onClick = null,  // Row handles the click
+                    )
+                    Text(
+                        text = stringResource(R.string.plain_export_csv),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
-                Button(
-                    onClick = {
-                        plainExportError = null
-                        plainExportOk = false
-                        jsonLauncher.launch("baton-${ts()}.json")
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            plainExportError = null
+                            plainExportOk = false
+                            selectedPlainFormat = "json"
+                            jsonLauncher.launch("baton-${ts()}.json")
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(stringResource(R.string.plain_export_json))
+                    RadioButton(
+                        selected = selectedPlainFormat == "json",
+                        onClick = null,
+                    )
+                    Text(
+                        text = stringResource(R.string.plain_export_json),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 }
             }
             if (plainExportOk) {
@@ -360,6 +511,173 @@ fun SettingsSheet(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            // v1.8.0 (PROD-READINESS-P0-#1): the "Back up now"
+            // row. Tapping it enqueues a one-shot [BackupWorker]
+            // that writes a JSON snapshot to the app's private
+            // filesDir. The work is async; the user gets a
+            // confirmation message and can keep using the app.
+            // The daily periodic schedule (separate row in the
+            // v1.8.0 release notes; here it just shows the
+            // current status) is also wired in
+            // [com.baton.app.BatonApplication.onCreate] via
+            // [WorkManagerInitializer.scheduleBackup].
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        viewModel.backupNow()
+                        plainExportOk = true
+                        plainExportError = null
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Back up now",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "(writes to app storage)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (plainExportOk) {
+                Text(
+                    text = "Backup queued. The file will appear in the app's private storage.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#3): the
+            // "Check for updates" row. The tap
+            // calls [viewModel.checkForUpdates]
+            // directly; the result is surfaced
+            // via the [updateCheckInProgress] +
+            // [snackbarHostState] state at the top
+            // of the Settings sheet.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !updateCheckInProgress) {
+                        viewModel.checkForUpdates()
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = if (updateCheckInProgress) "Checking…"
+                           else "Check for updates",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "v${appVersion.name}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#8) +
+            // v1.9.1 honest re-label: the row was
+            // labelled "Back up to Google Drive" in
+            // v1.9.0 but the implementation uses the
+            // system file picker (SAF) and never talks
+            // to Google Drive directly. The user CAN
+            // pick a Drive folder via the system
+            // picker, but they can also pick local
+            // storage, Dropbox, OneDrive, etc. The
+            // label now reads "Save backup to a
+            // folder..." with a subtitle that lists
+            // the destinations. The tap launches the
+            // system file picker via
+            // [driveBackupLauncher] (declared near
+            // the top of the Settings sheet).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        driveBackupLauncher.launch(
+                            "baton-backup-" +
+                                java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                                    .format(java.util.Date()) + ".json",
+                        )
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_drive_backup),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_drive_backup_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#9) +
+            // v1.9.1 string resource extraction: the
+            // v1.9.0 row had a hardcoded
+            // "Restore from backup" + "(on a new device)"
+            // pair. Moved to string resources so the
+            // same translations path as the save row
+            // above applies (Tamil + Hindi already
+            // shipped in v1.8.0).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        restoreBackupLauncher.launch(arrayOf("application/json"))
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_drive_restore),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_drive_restore_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.8.0 (PROD-READINESS-P2-#2): the
+            // "Sync conflicts" row. The row is
+            // visible only when the count is
+            // greater than zero — the v1.5.0
+            // vault-mode build has no cloud sync
+            // so the table is always empty. A
+            // future cloud-sync build surfaces
+            // this row the moment the SyncEngine
+            // logs a conflict.
+            if (syncConflictCount > 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenSyncConflicts() }
+                        .padding(vertical = 8.dp, horizontal = 4.dp)
+                        .semantics {
+                            contentDescription =
+                                "Sync conflicts, $syncConflictCount to resolve"
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Sync conflicts",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "$syncConflictCount to resolve",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
 
@@ -386,6 +704,150 @@ fun SettingsSheet(
                     appVersion.code,
                 ),
             )
+            // v1.9.0 (PROD-READINESS-P3-P1-#4): the
+            // support row. Tapping it opens the
+            // system email composer with a
+            // pre-filled subject (Baton {version}
+            // support) and body (version + device
+            // + Android). The row uses
+            // [androidx.compose.ui.platform.LocalContext]
+            // for the Intent; the handler chain
+            // (mailto: → Gmail / Outlook / system
+            // default) is whatever the user has
+            // installed.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_SENDTO,
+                        ).apply {
+                            data = android.net.Uri.parse(
+                                "mailto:" + ctx.getString(R.string.settings_support_email) +
+                                    "?subject=" + java.net.URLEncoder.encode(
+                                        ctx.getString(
+                                            R.string.settings_support_email_subject,
+                                            appVersion.name,
+                                        ),
+                                        "UTF-8",
+                                    ) +
+                                    "&body=" + java.net.URLEncoder.encode(
+                                        ctx.getString(
+                                            R.string.settings_support_email_body,
+                                            appVersion.name,
+                                            appVersion.code,
+                                            android.os.Build.MANUFACTURER + " " +
+                                                android.os.Build.MODEL,
+                                            "Android " + android.os.Build.VERSION.RELEASE,
+                                        ),
+                                        "UTF-8",
+                                    ),
+                            )
+                        }
+                        ctx.startActivity(intent)
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp)
+                    .semantics {
+                        contentDescription = ctx.getString(R.string.settings_support_email_cd)
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_support),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_support_email),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v1.9.0 (PROD-READINESS-P3-P1-#1): the
+            // "Share crash log" row, visible only
+            // when a crash log exists from a
+            // previous session. Tapping it opens
+            // the system share intent with the
+            // log file as the attachment. After
+            // share, the row disappears (the
+            // log is cleared so the user isn't
+            // pestered to share it again on the
+            // next launch).
+            val mostRecentCrash = remember { com.baton.app.ui.util.CrashLog.mostRecent(ctx) }
+            if (mostRecentCrash != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                ctx,
+                                ctx.packageName + ".fileprovider",
+                                mostRecentCrash,
+                            )
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_SEND,
+                            ).apply {
+                                type = "text/plain"
+                                putExtra(
+                                    android.content.Intent.EXTRA_SUBJECT,
+                                    ctx.getString(
+                                        R.string.crash_log_share_subject,
+                                    ),
+                                )
+                                putExtra(
+                                    android.content.Intent.EXTRA_TEXT,
+                                    ctx.getString(
+                                        R.string.crash_log_share_body,
+                                        appVersion.name,
+                                        appVersion.code,
+                                    ),
+                                )
+                                putExtra(
+                                    android.content.Intent.EXTRA_STREAM,
+                                    uri,
+                                )
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            ctx.startActivity(
+                                android.content.Intent.createChooser(
+                                    intent,
+                                    ctx.getString(R.string.crash_log_share),
+                                ),
+                            )
+                            com.baton.app.ui.util.CrashLog.clear(ctx)
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.crash_log_share),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.crash_log_title),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            // v1.8.0 (PROD-READINESS-P2-#6): the
+            // per-build branding rows. BRAND_NAME +
+            // BRAND_DEPARTMENT come from gradle
+            // properties at build time. The R&D
+            // default build (no -Pbrand.* flags)
+            // shows "Kaavalan note" and "—".
+            val branding = com.baton.app.BrandingConfig.get()
+            AboutRow(
+                label = stringResource(R.string.settings_brand_name),
+                value = branding.appName,
+            )
+            if (branding.hasDepartment) {
+                AboutRow(
+                    label = stringResource(R.string.settings_brand_department),
+                    value = branding.department,
+                )
+            }
             // Tier 0.6: the "On this phone" row now
             // shows both the row counts and the on-disk
             // size in MB. The values are rendered as a
@@ -399,14 +861,17 @@ fun SettingsSheet(
             AboutRow(
                 label = stringResource(R.string.settings_storage),
                 value = buildString {
-                    append(
-                        stringResource(
-                            R.string.settings_storage_value,
-                            storage.peopleCount,
-                            storage.instructionCount,
-                            storage.tagCount,
-                        ),
-                    )
+                    // v1.6.6 P1: per-segment pluralization.
+                    // The previous single stringResource call
+                    // hard-coded "people" / "instructions" /
+                    // "tags" so it could not read "1 person" /
+                    // "1 instruction" / "1 tag". Build from
+                    // individual pluralStringResource calls.
+                    append(pluralStringResource(R.plurals.count_people, storage.peopleCount, storage.peopleCount))
+                    append(stringResource(R.string.count_connector_comma))
+                    append(pluralStringResource(R.plurals.count_instructions, storage.instructionCount, storage.instructionCount))
+                    append(stringResource(R.string.count_connector_comma))
+                    append(pluralStringResource(R.plurals.count_tags, storage.tagCount, storage.tagCount))
                     append('\n')
                     append(
                         stringResource(
@@ -506,14 +971,25 @@ fun SettingsSheet(
                 }
                 fixtureLoadReport?.let { report ->
                     Spacer(Modifier.height(8.dp))
+                    // v1.6.6 P1: per-segment pluralization.
+                    // The previous single stringResource call
+                    // used 4 %d args and could not read "1
+                    // person" / "1 instruction" / "1 capture" /
+                    // "1 tag". Build the "Loaded N people, N
+                    // instructions, ..." sentence from
+                    // individual pluralStringResource calls.
                     Text(
-                        text = stringResource(
-                            R.string.settings_dev_loaded,
-                            report.persons,
-                            report.instructions,
-                            report.captures,
-                            report.tags,
-                        ),
+                        text = buildString {
+                            append(stringResource(R.string.settings_dev_loaded_prefix))
+                            append(pluralStringResource(R.plurals.count_people, report.persons, report.persons))
+                            append(stringResource(R.string.count_connector_comma))
+                            append(pluralStringResource(R.plurals.count_instructions, report.instructions, report.instructions))
+                            append(stringResource(R.string.count_connector_comma))
+                            append(pluralStringResource(R.plurals.count_captures, report.captures, report.captures))
+                            append(stringResource(R.string.count_connector_comma))
+                            append(pluralStringResource(R.plurals.count_tags, report.tags, report.tags))
+                            append('.')
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -578,11 +1054,33 @@ fun SettingsSheet(
     // backup in vault mode. The dialog uses neutral wording
     // ("Erase") instead of "Delete" / "Destroy" to match the
     // no-shame tone the rest of the app uses.
+    //
+    // v1.7.2 (Debt-2): the confirm button is disabled until the
+    // user types "ERASE" in the text field. The previous v1.5.1
+    // dialog was a single-tap irreversible action - the user
+    // could lose every person/instruction/tag with a single
+    // misclick on the "Erase" button. The typed-confirmation
+    // pattern is the standard safe-by-default for destructive
+    // actions (matching GitHub's "type the repo name to delete",
+    // AWS's "type 'delete' to confirm", and others).
     if (showEraseConfirmation) {
+        var eraseTyped by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showEraseConfirmation = false },
             title = { Text(stringResource(R.string.settings_erase_confirm_title)) },
-            text = { Text(stringResource(R.string.settings_erase_confirm_body)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_erase_confirm_body))
+                    Spacer(Modifier.size(12.dp))
+                    androidx.compose.material3.OutlinedTextField(
+                        value = eraseTyped,
+                        onValueChange = { eraseTyped = it },
+                        label = { Text(stringResource(R.string.settings_erase_confirm_typed_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -591,6 +1089,7 @@ fun SettingsSheet(
                             viewModel.signOut()
                         }
                     },
+                    enabled = eraseTyped == "ERASE",
                 ) {
                     Text(stringResource(R.string.settings_erase_confirm_yes))
                 }
@@ -859,12 +1358,16 @@ private fun StuckOutboxCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "$count stuck outbox ${if (count == 1) "entry" else "entries"}",
+                    text = if (count == 1) {
+                        stringResource(R.string.settings_sync_stuck_one, count)
+                    } else {
+                        stringResource(R.string.settings_sync_stuck_other, count)
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "Failed to sync after multiple retries. Retry to put them back in the queue.",
+                    text = stringResource(R.string.settings_sync_error_retries),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -877,7 +1380,7 @@ private fun StuckOutboxCard(
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
             ) {
-                Text("Retry")
+                Text(stringResource(R.string.settings_sync_retry))
             }
         }
     }
@@ -896,14 +1399,14 @@ private fun TagsSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Tags",
+                text = stringResource(R.string.settings_section_tags),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
             AssistChip(
                 onClick = { composing = !composing },
-                label = { Text("+ #tag") },
+                label = { Text(stringResource(R.string.settings_tags_add_chip)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Add,
@@ -919,7 +1422,7 @@ private fun TagsSection(
                     value = text,
                     onValueChange = { text = it },
                     singleLine = true,
-                    placeholder = { Text("new-tag") },
+                    placeholder = { Text(stringResource(R.string.settings_tags_placeholder)) },
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 40.dp),
@@ -932,12 +1435,12 @@ private fun TagsSection(
                         composing = false
                     },
                     enabled = text.isNotBlank(),
-                ) { Text("Add") }
+                ) { Text(stringResource(R.string.settings_tags_add_button)) }
             }
         }
         if (tags.isEmpty()) {
             Text(
-                text = "No tags yet. They'll show up here as you create instructions.",
+                text = stringResource(R.string.settings_tags_empty),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -946,21 +1449,44 @@ private fun TagsSection(
                 val list = tags.filter { it.kind == kind }
                 if (list.isEmpty()) null else kind to list
             }
-            LazyColumn(
+            // v1.6.6 P0 crash fix: the outer Settings sheet uses
+            // `Column.verticalScroll(rememberScrollState())`. Nesting a
+            // `LazyColumn` inside a vertically-scrollable parent throws
+            // `IllegalStateException: Vertically scrollable component was
+            // measured with an infinity maximum height constraints` at
+            // launch. The tag list is small (a handful of tags per kind,
+            // 3 kinds) and the outer scroll already provides viewport
+            // behaviour, so a plain Column.forEach is the correct pattern
+            // here. If the tag list grows to dozens-per-kind we can revisit
+            // by moving the LazyColumn out of the sheet (e.g. a dedicated
+            // "Manage tags" screen).
+            Column(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 groups.forEach { (kind, list) ->
-                    item {
-                        Text(
-                            text = kind.name.lowercase()
-                                .replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
+                    // v1.7.2 (P1-F): the FREE kind (user-authored
+                    // tags) was rendering its section header as the
+                    // bare word "Free" — a developer term that
+                    // leaks into the user-facing UI. The user has
+                    // no context for what "Free" means here. The
+                    // other kinds (PERSON, DESIGNATION, CASE, etc.)
+                    // read as nouns the user already knows, so we
+                    // leave them alone and only special-case FREE
+                    // to "Your tags" so the section reads as the
+                    // user's own tag pile.
+                    val sectionLabel = when (kind) {
+                        TagKind.FREE -> "Your tags"
+                        else -> kind.name.lowercase()
+                            .replaceFirstChar { it.uppercase() }
                     }
-                    items(items = list, key = { it.id }) { tag ->
+                    Text(
+                        text = sectionLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    list.forEach { tag ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth(),
