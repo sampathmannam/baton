@@ -85,6 +85,10 @@ class SettingsVaultPinTest {
             securePreferences = securePreferences,
             preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
             plainExporter = mockk<com.baton.app.data.export.PlainExporter>(relaxed = true),
+            // v2.0.1: the importer is the inverse of the
+            // exporter. The vault-pin tests don't touch
+            // the import path; a relaxed mock is sufficient.
+            plainImporter = mockk<com.baton.app.data.export.PlainImporter>(relaxed = true),
             backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
             updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
             fixtureLoader = mockk<com.baton.app.data.dev.FixtureLoader>(relaxed = true),

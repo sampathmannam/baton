@@ -74,6 +74,10 @@ class SettingsViewModelTest {
             securePreferences = mockk<SecurePreferences>(relaxed = true),
             preferences = mockk<BatonPreferences>(relaxed = true),
             plainExporter = mockk<PlainExporter>(relaxed = true),
+            // v2.0.1: the importer is the inverse of the
+            // exporter. The existing tests don't exercise
+            // the import path; a relaxed mock is sufficient.
+            plainImporter = mockk<com.baton.app.data.export.PlainImporter>(relaxed = true),
             backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
             updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
             fixtureLoader = mockk<FixtureLoader>(relaxed = true),
