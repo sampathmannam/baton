@@ -122,6 +122,25 @@ object DatabaseModule {
             // versions had no outbox in production use, so there
             // was nothing to preserve).
             .addMigrations(
+                // v2.1.0 (PM rating): the v2-v7 → v8 best-effort
+                // migrations. See the MIGRATION_2_3..MIGRATION_7_8
+                // definitions in AppDatabase.kt for the full
+                // rationale. The honest answer: I do not have
+                // the exact v3-v7 schema, so the migrations
+                // are defensive (try-catch around each step).
+                // A pre-v8 user whose v15-schema mismatches the
+                // migration result will see a Room
+                // `IllegalStateException` and the
+                // `DatabasePreflight` will surface a "Database
+                // error" banner. That's no worse than the
+                // v2.0.x `fallbackToDestructiveMigrationFrom`
+                // (which silently wiped the data).
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7,
+                AppDatabase.MIGRATION_7_8,
                 MIGRATION_8_9,
                 AppDatabase.MIGRATION_9_10,
                 AppDatabase.MIGRATION_10_11,
@@ -130,21 +149,6 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_13_14,
                 AppDatabase.MIGRATION_14_15,
             )
-            // v2.0.0 (drop Supabase): the v2 → v7 destructive
-            // migrations are now a **data-loss bug**, not a
-            // convenience. In v1.x the post-destruct re-fill
-            // from Supabase covered the loss; in v2.0.0 there
-            // is no remote. The release notes for v2.0.0 call
-            // this out: "v2.0.0 is a breaking change for
-            // pre-v8 users — back up your data via Settings →
-            // Export before updating."
-            //
-            // A future v2.x could replace this list with real
-            // Migration objects (the schema at v3 was persons +
-            // instructions + captures; v4–v7 added a handful
-            // of columns). For v2.0.0 the honest answer is:
-            // upgrade from v2-v7 = wipe.
-            .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
     }
 
