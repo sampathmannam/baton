@@ -91,7 +91,7 @@ import java.time.temporal.ChronoUnit
  * "Last saved: 2 min ago" subtitle that does need
  * per-widget state.
  */
-class BatonQuickNoteWidget : GlanceAppWidget() {
+class KaavalanQuickNoteWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val db = EntryPointAccessors.fromApplication(
@@ -294,7 +294,7 @@ class BatonQuickNoteWidget : GlanceAppWidget() {
 /**
  * v1.9.11: Hilt entry point that exposes the [AppDatabase] to
  * the Glance widget. Same pattern as the existing
- * [BatonExtraWidgets.WidgetEntryPoint] but kept here so the
+ * [KaavalanExtraWidgets.WidgetEntryPoint] but kept here so the
  * Quick Note widget doesn't depend on the gallery's
  * internals (the gallery may grow in v1.9.12+; the Quick
  * Note widget should remain standalone).
@@ -308,6 +308,6 @@ internal interface QuickNoteWidgetEntryPoint {
 /**
  * Manifest-declared receiver. Standard Glance pattern.
  */
-class BatonQuickNoteWidgetReceiver : GlanceAppWidgetReceiver() {
+class KaavalanQuickNoteWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = BatonQuickNoteWidget()
 }

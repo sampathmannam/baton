@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit
  * build had one widget (the Capture widget — single tap to
  * open the capture sheet). v1.9.0 adds two more:
  *
- *  - [BatonTodayWidget] — opens the Today screen. The widget
+ *  - [KaavalanTodayWidget] — opens the Today screen. The widget
  *    surface shows the count of open instructions (the
  *    number is the same one the Today screen's "open"
  *    counter surfaces; the widget refreshes on
@@ -75,7 +75,7 @@ import java.util.concurrent.TimeUnit
  * small UI surface; the data it shows is in the app's
  * private SQLCipher DB.
  */
-class BatonTodayWidget : GlanceAppWidget() {
+class KaavalanTodayWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val db = EntryPointAccessors.fromApplication(
@@ -125,8 +125,8 @@ class BatonTodayWidget : GlanceAppWidget() {
     }
 }
 
-class BatonTodayWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = BatonTodayWidget()
+class KaavalanTodayWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = KaavalanTodayWidget()
 }
 
 class BatonDecayWidget : GlanceAppWidget() {

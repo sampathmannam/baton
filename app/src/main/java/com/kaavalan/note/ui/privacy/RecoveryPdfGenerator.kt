@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter
  * the system share sheet.
  *
  * **Why a PDF and not just a text file.** The paper-friendly
- * layout (large word numbers, monospace, clear "Baton
+ * layout (large word numbers, monospace, clear "Kaavalan note
  * recovery" header) is the v1.8.0 trade-off over the
  * plain-text export that the existing hold-to-reveal already
  * supports. A paper backup is the only thing that survives
@@ -91,7 +91,7 @@ object RecoveryPdfGenerator {
         val margin = 36f  // 0.5 inch
         var y = margin + 22f
 
-        canvas.drawText("Baton — Recovery Sheet", margin, y, titlePaint)
+        canvas.drawText("Kaavalan note — Recovery Sheet", margin, y, titlePaint)
         y += 18f
         canvas.drawText(
             "Generated: ${LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)}",

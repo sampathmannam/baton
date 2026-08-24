@@ -47,10 +47,10 @@ class BriefNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     companion object {
-        const val CHANNEL_ID = kaavalan-note_brief"
+        const val CHANNEL_ID = "kaavalan-note_brief"
         const val CHANNEL_NAME = "Daily brief"
         const val NOTIFICATION_ID = 1001
-        const val UNIQUE_WORK_NAME = kaavalan-note_daily_brief"
+        const val UNIQUE_WORK_NAME = "kaavalan-note_daily_brief"
     }
 
     fun ensureChannel() {

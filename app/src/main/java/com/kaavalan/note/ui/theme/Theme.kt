@@ -13,26 +13,26 @@ import androidx.core.view.WindowCompat
 
 /**
  * Tier 1.4 (v2.0): the light scheme was a placeholder
- * (BatonColors.Background) before this commit. The calm
+ * (KaavalanNoteColors.Background) before this commit. The calm
  * palette (the same tokens the dark scheme uses) now backs
  * the light scheme too. No red anywhere.
  */
-private val BatonLightScheme = lightColorScheme(
-    primary = BatonColors.Primary,
-    onPrimary = BatonColors.OnPrimary,
-    background = BatonColors.Background,
-    onBackground = BatonColors.OnSurface,
-    surface = BatonColors.Surface,
-    onSurface = BatonColors.OnSurface,
-    surfaceVariant = BatonColors.SurfaceVariant,
-    onSurfaceVariant = BatonColors.OnSurfaceMuted,
-    outline = BatonColors.Outline,
-    outlineVariant = BatonColors.OutlineMuted,
+private val KaavalanNoteLightScheme = lightColorScheme(
+    primary = KaavalanNoteColors.Primary,
+    onPrimary = KaavalanNoteColors.OnPrimary,
+    background = KaavalanNoteColors.Background,
+    onBackground = KaavalanNoteColors.OnSurface,
+    surface = KaavalanNoteColors.Surface,
+    onSurface = KaavalanNoteColors.OnSurface,
+    surfaceVariant = KaavalanNoteColors.SurfaceVariant,
+    onSurfaceVariant = KaavalanNoteColors.OnSurfaceMuted,
+    outline = KaavalanNoteColors.Outline,
+    outlineVariant = KaavalanNoteColors.OutlineMuted,
 )
 
-private val BatonDarkScheme = darkColorScheme(
-    primary = BatonColors.Primary,
-    onPrimary = BatonColors.OnPrimary,
+private val KaavalanNoteDarkScheme = darkColorScheme(
+    primary = KaavalanNoteColors.Primary,
+    onPrimary = KaavalanNoteColors.OnPrimary,
     background = Color(0xFF1A1714),
     onBackground = Color(0xFFEFEAE0),
     surface = Color(0xFF24201B),
@@ -52,11 +52,11 @@ private val BatonDarkScheme = darkColorScheme(
  * without an app restart.
  */
 @Composable
-fun BatonTheme(
+fun KaavalanNoteTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colourScheme = if (darkTheme) BatonDarkScheme else BatonLightScheme
+    val colourScheme = if (darkTheme) KaavalanNoteDarkScheme else KaavalanNoteLightScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -76,7 +76,7 @@ fun BatonTheme(
     }
     MaterialTheme(
         colorScheme = colourScheme,
-        typography = BatonTypography,
+        typography = KaavalanNoteTypography,
         content = content,
     )
 }

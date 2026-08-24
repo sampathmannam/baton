@@ -108,7 +108,7 @@ class BackupManager @Inject constructor(
             put("instruction_tags", instructionTags.toInstructionTagJsonArray())
         }
         val ts = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-        val file = File(backupDir, kaavalan-note-backup-$ts.json")
+        val file = File(backupDir, "kaavalan-note-backup-$ts.json")
         file.writeText(root.toString(2))
         pruneOldBackups()
         return file

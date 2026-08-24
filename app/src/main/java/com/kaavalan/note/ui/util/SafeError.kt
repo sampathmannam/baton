@@ -25,7 +25,7 @@ import java.io.IOException
  * of them: "Local storage error" + the default text.
  *
  * **What this is NOT.** It is not a general-purpose error
- * mapper. It maps throwables the Baton codebase actually
+ * mapper. It maps throwables the Kaavalan note codebase actually
  * throws. Add new branches only when a new throwable class
  * becomes a real user-facing failure mode.
  */

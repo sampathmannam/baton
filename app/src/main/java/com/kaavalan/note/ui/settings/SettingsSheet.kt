@@ -136,7 +136,7 @@ fun SettingsSheet(
                 is com.kaavalan.note.data.update.UpdateChecker.UpdateInfo.UpToDate ->
                     "You are on the latest version"
                 is com.kaavalan.note.data.update.UpdateChecker.UpdateInfo.UpdateAvailable ->
-                    "Baton ${info.latestVersion} is available. You are on ${info.currentVersion}."
+                    "Kaavalan note ${info.latestVersion} is available. You are on ${info.currentVersion}."
                 is com.kaavalan.note.data.update.UpdateChecker.UpdateInfo.Unavailable ->
                     "Could not reach the update server. Try again later."
             }
@@ -633,7 +633,7 @@ fun SettingsSheet(
                             plainExportError = null
                             plainExportOk = false
                             selectedPlainFormat = "csv"
-                            csvLauncher.launch(kaavalan-note-${ts()}.csv")
+                            csvLauncher.launch("kaavalan-note-${ts()}.csv")
                         }
                         .padding(vertical = 8.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -656,7 +656,7 @@ fun SettingsSheet(
                             plainExportError = null
                             plainExportOk = false
                             selectedPlainFormat = "json"
-                            jsonLauncher.launch(kaavalan-note-${ts()}.json")
+                            jsonLauncher.launch("kaavalan-note-${ts()}.json")
                         }
                         .padding(vertical = 8.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -732,7 +732,7 @@ fun SettingsSheet(
             // The daily periodic schedule (separate row in the
             // v1.8.0 release notes; here it just shows the
             // current status) is also wired in
-            // [com.kaavalan.note.BatonApplication.onCreate] via
+            // [com.kaavalan.note.KaavalanApplication.onCreate] via
             // [WorkManagerInitializer.scheduleBackup].
             Row(
                 modifier = Modifier
@@ -868,7 +868,7 @@ fun SettingsSheet(
             // v1.9.0 (PROD-READINESS-P3-P1-#4): the
             // support row. Tapping it opens the
             // system email composer with a
-            // pre-filled subject (Baton {version}
+            // pre-filled subject (Kaavalan note {version}
             // support) and body (version + device
             // + Android). The row uses
             // [androidx.compose.ui.platform.LocalContext]

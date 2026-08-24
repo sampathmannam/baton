@@ -12,7 +12,7 @@ import com.kaavalan.note.R
  * Tier 0.2 (cleanup + ship-the-built): the quick-settings tile.
  *
  * This is the v1.6.0 rewrite of the v1.5.7
- * `BatonCaptureTileService`. The legacy implementation was
+ * `KaavalanCaptureTileService`. The legacy implementation was
  * correct in shape but had three v1.6-relevant issues:
  *
  *  1. The tile label was read from `R.string.tile_label`
@@ -57,7 +57,7 @@ import com.kaavalan.note.R
  * system-level permission that requires no runtime ask. The
  * user adds the tile from the system shade.
  */
-class BatonTileService : TileService() {
+class KaavalanTileService : TileService() {
 
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onStartListening() {

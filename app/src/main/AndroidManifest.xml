@@ -202,7 +202,7 @@
              MainActivity). The receiver is a GlanceAppWidgetReceiver
              that wraps the KaavalanCaptureWidget Glance composable. -->
         <receiver
-            android:name=".features.capture.BatonCaptureWidgetReceiver"
+            android:name=".features.capture.KaavalanCaptureWidgetReceiver"
             android:exported="true"
             android:label="@string/tier0_widget_label">
             <intent-filter>

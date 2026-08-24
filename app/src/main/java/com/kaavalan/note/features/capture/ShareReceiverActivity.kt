@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
  *    one ShareReceiverActivity alive -- a second share intent
  *    re-uses the existing instance via [onNewIntent].
  *  - **Translucent, no UI shown**: the manifest theme is
- *    `Theme.Baton.Translucent.NoDisplay`. The user never
+ *    `Theme.KaavalanNote.Translucent.NoDisplay`. The user never
  *    sees a flash of the activity; the system just runs the
  *    code, forwards the payload to MainActivity, and the
  *    MainActivity's Compose tree takes over.

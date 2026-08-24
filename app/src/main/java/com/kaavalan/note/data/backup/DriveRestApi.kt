@@ -76,7 +76,7 @@ class DriveRestApi(
             append("\"parents\":[\"appDataFolder\"]")
             append("}")
         }
-        val boundary = kaavalan-note-drive-${System.nanoTime()}"
+        val boundary = "kaavalan-note-drive-${System.nanoTime()}"
         val body = buildMultipartBody(boundary, metadata, fileName, content)
 
         val response: HttpResponse = httpClient.post(

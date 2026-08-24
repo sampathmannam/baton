@@ -11,7 +11,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Tier 1.1 (v2.0): Hilt module for the .baton-vault feature.
+ * Tier 1.1 (v2.0): Hilt module for the .kaavalan-note-vault feature.
  *
  * The Hilt graph already provides [com.kaavalan.note.data.local.AppDatabase]
  * (via [DatabaseModule.provideDatabase]) and the per-feature

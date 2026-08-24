@@ -35,7 +35,7 @@ import javax.inject.Singleton
  * **Encryption (M3-T1).** The DB is now opened through SQLCipher
  * with a 32-byte passphrase generated on first launch by
  * [SecurePreferences.databasePassphrase] and persisted in
- * EncryptedSharedPreferences. The on-disk `baton.db` file is
+ * EncryptedSharedPreferences. The on-disk `kaavalan-note.db` file is
  * unreadable without that passphrase. The M2 unencrypted DB is
  * wiped on the M2 -> M3 transition (handled by
  * [com.kaavalan.note.data.local.AppInitializer] on first run).
@@ -195,7 +195,7 @@ object DatabaseModule {
      * and is not exposed to a Room callback. To kill the warnings
      * entirely we'd need a custom openHelper that sets the pragma
      * before keying, which is a SQLCipher-Android library
-     * limitation, not a Baton bug. The pragma is still correct
+     * limitation, not a Kaavalan note bug. The pragma is still correct
      * (no later mlock attempts are made on the same connection
      * after [onOpen] sets the flag), and the encryption is
      * unchanged. The remaining warnings are a known cosmetic

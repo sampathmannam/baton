@@ -25,7 +25,7 @@ import com.kaavalan.note.R
  * v1.6.0: a single hand-drawn empty-state illustration with
  * a one-line headline and (optional) body. The illustrations
  * are monochrome line drawings stored in `res/drawable/`,
- * tinted to [BatonAccentColor] so they inherit the theme
+ * tinted to [KaavalanAccentColor] so they inherit the theme
  * without per-screen theming.
  *
  * **Why illustrations at all.** The red-dot critique and
@@ -39,7 +39,7 @@ import com.kaavalan.note.R
  * **Why monochrome + accent tint.** Three constraints
  * converge:
  *   1. The app has a single accent colour (see
- *      [BatonAccentColor]). Decorative content must
+ *      [KaavalanAccentColor]). Decorative content must
  *      use it or be neutral.
  *   2. Material 3 has a `surface` colour but no "empty
  *      state" colour. Using `primary` would compete with
@@ -74,7 +74,7 @@ fun EmptyStateIllustration(
             painter = painterResource(illustration),
             contentDescription = null,
             modifier = Modifier.size(96.dp),
-            colorFilter = ColorFilter.tint(BatonAccentColor),
+            colorFilter = ColorFilter.tint(KaavalanAccentColor),
         )
         Spacer(Modifier.height(16.dp))
         // v1.6.0 typography rule: a single weight change at

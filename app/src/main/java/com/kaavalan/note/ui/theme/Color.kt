@@ -7,17 +7,17 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
 /**
- * Baton design tokens. Per spec §3: no red "overdue" colour anywhere.
+ * Kaavalan note design tokens. Per spec §3: no red "overdue" colour anywhere.
  * "Quiet" / "stale" surfaces use a soft amber, not red.
  *
  * v1.6.8: added Light/Dark pairs for the colors that were wrong
  * on the dark surface (`KindBlue`, `KindWarm`, `KindNeutral`,
  * `StaleIndicator`). The pairs are exposed via the
- * `BatonKind*()` and `BatonStale()` composable accessors below
+ * `KaavalanKind*()` and `KaavalanStale()` composable accessors below
  * which read from `MaterialTheme.colorScheme` to pick the
  * right one for the current theme.
  */
-object BatonColors {
+object KaavalanNoteColors {
     // Primary — calm, not aggressive
     val Primary = Color(0xFF4A6FA5)
     val OnPrimary = Color(0xFFFFFFFF)
@@ -66,40 +66,40 @@ object BatonColors {
 
 /**
  * v1.6.8: theme-aware accessors. Use these from a Composable
- * instead of reading the `BatonColors.KindXxxLight` constants
+ * instead of reading the `KaavalanNoteColors.KindXxxLight` constants
  * directly so the colour flips when the user switches themes.
  */
-object BatonThemeTokens {
+object KaavalanNoteThemeTokens {
     @Composable
     @ReadOnlyComposable
     fun kindBlue(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.KindBlueDark
+        KaavalanNoteColors.KindBlueDark
     } else {
-        BatonColors.KindBlueLight
+        KaavalanNoteColors.KindBlueLight
     }
 
     @Composable
     @ReadOnlyComposable
     fun kindWarm(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.KindWarmDark
+        KaavalanNoteColors.KindWarmDark
     } else {
-        BatonColors.KindWarmLight
+        KaavalanNoteColors.KindWarmLight
     }
 
     @Composable
     @ReadOnlyComposable
     fun kindNeutral(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.KindNeutralDark
+        KaavalanNoteColors.KindNeutralDark
     } else {
-        BatonColors.KindNeutralLight
+        KaavalanNoteColors.KindNeutralLight
     }
 
     @Composable
     @ReadOnlyComposable
     fun staleIndicator(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.StaleIndicatorDark
+        KaavalanNoteColors.StaleIndicatorDark
     } else {
-        BatonColors.StaleIndicatorLight
+        KaavalanNoteColors.StaleIndicatorLight
     }
 }
 

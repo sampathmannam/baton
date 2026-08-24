@@ -106,7 +106,7 @@ class VoiceCaptureService : Service() {
         }
         val recognizer = SpeechRecognizer.createSpeechRecognizer(this).also {
             speechRecognizer = it
-            it.setRecognitionListener(BatonRecognitionListener())
+            it.setRecognitionListener(KaavalanRecognitionListener())
         }
         val listenIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
@@ -254,7 +254,7 @@ class VoiceCaptureService : Service() {
      * capture; the system service does all of that
      * internally.
      */
-    private inner class BatonRecognitionListener : RecognitionListener {
+    private inner class KaavalanRecognitionListener : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {}
         override fun onBeginningOfSpeech() {}
         override fun onRmsChanged(rmsdB: Float) {}
@@ -304,7 +304,7 @@ class VoiceCaptureService : Service() {
     }
 
     companion object {
-        private const val TAG = "BatonVoice"
+        private const val TAG = "KaavalanNoteVoice"
 
         // v1.6.1: belt-and-suspenders teardown timeout. If
         // the system SpeechRecognizer never fires its final

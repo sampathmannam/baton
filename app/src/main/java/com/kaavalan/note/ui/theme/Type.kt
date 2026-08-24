@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.sp
  */
 private val DefaultFont = FontFamily.Default
 
-val BatonTypography = Typography(
+val KaavalanNoteTypography = Typography(
     displaySmall = TextStyle(
         fontFamily = DefaultFont,
         fontWeight = FontWeight.Light,

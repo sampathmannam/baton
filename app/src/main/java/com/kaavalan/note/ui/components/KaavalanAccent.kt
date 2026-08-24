@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * v1.6.0: the Baton signature accent. A single 2dp dot, line,
+ * v1.6.0: the Kaavalan note signature accent. A single 2dp dot, line,
  * or left-edge tag that appears ONCE per screen as a quiet
  * signal of identity. The audit (§4.8) and the red-dot
  * critique both call out the lack of "an opinion about
@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
  *   3. **Use the accent for *identity*, not for *emphasis*.**
  *      A red error message is not the accent — that's a
  *      different colour (and we don't ship red anyway).
- *      The accent is the "this is Baton" mark, not the
+ *      The accent is the "this is Kaavalan note" mark, not the
  *      "this is important" mark.
  *   4. **Hide when there's nothing to identify.** The dot
  *      is omitted on screens that already have a strong
@@ -43,17 +43,17 @@ import androidx.compose.ui.unit.dp
  *      capture sheet, the icon). Restraint over consistency.
  *
  * Variants:
- *   - [BatonAccentDot]   — a 2dp dot, used for inline identity
+ *   - [KaavalanAccentDot]   — a 2dp dot, used for inline identity
  *     on text-heavy rows.
- *   - [BatonAccentLine]  — a 2dp left-edge tag, used as the
+ *   - [KaavalanAccentLine]  — a 2dp left-edge tag, used as the
  *     "active row" indicator on lists.
- *   - [BatonAccentBar]   — a 2dp horizontal bar, used at the
+ *   - [KaavalanAccentBar]   — a 2dp horizontal bar, used at the
  *     top of section cards.
- *   - [BatonAccentLeftTag] — a 2dp vertical strip wrapping
+ *   - [KaavalanAccentLeftTag] — a 2dp vertical strip wrapping
  *     content, used for "active row" highlights.
  */
 @Composable
-fun BatonAccentDot(
+fun KaavalanAccentDot(
     modifier: Modifier = Modifier,
     size: Dp = 2.dp,
 ) {
@@ -61,12 +61,12 @@ fun BatonAccentDot(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(BatonAccentColor),
+            .background(KaavalanAccentColor),
     )
 }
 
 @Composable
-fun BatonAccentLine(
+fun KaavalanAccentLine(
     modifier: Modifier = Modifier,
     height: Dp = 24.dp,
     width: Dp = 2.dp,
@@ -75,23 +75,23 @@ fun BatonAccentLine(
         modifier = modifier
             .width(width)
             .height(height)
-            .background(BatonAccentColor),
+            .background(KaavalanAccentColor),
     )
 }
 
 @Composable
-fun BatonAccentBar(
+fun KaavalanAccentBar(
     modifier: Modifier = Modifier,
 ) {
     Spacer(
         modifier = modifier
             .height(2.dp)
-            .background(BatonAccentColor),
+            .background(KaavalanAccentColor),
     )
 }
 
 @Composable
-fun BatonAccentLeftTag(
+fun KaavalanAccentLeftTag(
     modifier: Modifier = Modifier,
     height: Dp = 16.dp,
     content: @Composable () -> Unit,
@@ -101,7 +101,7 @@ fun BatonAccentLeftTag(
             modifier = Modifier
                 .width(2.dp)
                 .fillMaxHeight()
-                .background(BatonAccentColor),
+                .background(KaavalanAccentColor),
         )
         Box(modifier = Modifier.padding(start = 8.dp)) {
             content()
@@ -122,8 +122,8 @@ fun BatonAccentLeftTag(
  * palette. Dark-mode equivalent is [0xFF4FB3AC], brighter
  * to clear the AA-contrast bar against the dark surface.
  */
-val BatonAccentLight: Color = Color(0xFF1F6F6A)
-val BatonAccentDark: Color = Color(0xFF4FB3AC)
+val KaavalanAccentLight: Color = Color(0xFF1F6F6A)
+val KaavalanAccentDark: Color = Color(0xFF4FB3AC)
 
 /**
  * The accent colour, picked at composition time based on the
@@ -132,6 +132,6 @@ val BatonAccentDark: Color = Color(0xFF4FB3AC)
  * service) so the Composable can be used in tight rows
  * without recomposition concerns.
  */
-val BatonAccentColor: Color
+val KaavalanAccentColor: Color
     @Composable
-    get() = if (isSystemInDarkTheme()) BatonAccentDark else BatonAccentLight
+    get() = if (isSystemInDarkTheme()) KaavalanAccentDark else KaavalanAccentLight

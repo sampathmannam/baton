@@ -45,7 +45,7 @@ import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.R
 import com.kaavalan.note.data.captures.CaptureMode
 import com.kaavalan.note.data.captures.CaptureRepository
-import com.kaavalan.note.ui.theme.BatonTheme
+import com.kaavalan.note.ui.theme.KaavalanNoteTheme
 import com.kaavalan.note.ui.util.SafeError
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,7 +59,7 @@ import javax.inject.Inject
  * v1.9.10: the entry-point activity for the **Quick Note** home-screen
  * widget.
  *
- * The widget (see [BatonQuickNoteWidget]) is a single "+ Quick note"
+ * The widget (see [KaavalanQuickNoteWidget]) is a single "+ Quick note"
  * button. The button does NOT open the main app — the user's complaint
  * was "instead of opening the app". Instead, this fullscreen Compose
  * activity launches with a single [androidx.compose.material3.OutlinedTextField]
@@ -74,7 +74,7 @@ import javax.inject.Inject
  * shows up immediately in the app's Home → Recent Captures feed; the
  * existing v1.9.9 atomic-create guarantees the row + sync-queue
  * entry are committed together (or both rolled back on process
- * death). No Supabase call — Baton's offline-first threat model means
+ * death). No Supabase call — app's offline-first threat model means
  * the capture lives in the local SQLCipher DB until the next sync
  * window.
  *
@@ -300,7 +300,7 @@ private fun stringResource(resId: Int): String =
     androidx.compose.ui.res.stringResource(resId)
 
 /**
- * Refresh the [BatonQuickNoteWidget] after a save so the next
+ * Refresh the [KaavalanQuickNoteWidget] after a save so the next
  * `provideGlance` invocation reflects the latest capture (e.g.
  * a "Last saved: just now" subtitle, when the widget grows
  * that field in v1.9.11). For v1.9.10 the widget is stateless
@@ -309,16 +309,16 @@ private fun stringResource(resId: Int): String =
  * pure additive change.
  *
  * **Why a coroutine block.** [GlanceAppWidgetManager.getGlanceIds]
- * and the per-id [BatonQuickNoteWidget.update] are both suspend
+ * and the per-id [KaavalanQuickNoteWidget.update] are both suspend
  * functions. We call this from [LaunchedEffect] which is a
  * coroutine scope, so we don't need to launch our own.
  */
 private suspend fun refreshQuickNoteWidget(context: android.content.Context) {
     val mgr = GlanceAppWidgetManager(context)
-    val glanceIds = mgr.getGlanceIds(BatonQuickNoteWidget::class.java)
+    val glanceIds = mgr.getGlanceIds(KaavalanQuickNoteWidget::class.java)
     if (glanceIds.isEmpty()) return
     glanceIds.forEach { id ->
-        runCatching { BatonQuickNoteWidget().update(context, id) }
+        runCatching { KaavalanQuickNoteWidget().update(context, id) }
     }
 }
 

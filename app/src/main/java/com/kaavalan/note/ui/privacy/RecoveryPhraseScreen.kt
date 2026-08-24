@@ -151,7 +151,7 @@ private fun DisplayStep(
     // 12 words don't sit in the system clipboard
     // indefinitely. The ClipData the [setPrimaryClip]
     // call below wrote has a known label
-    // ("Baton recovery phrase") and the same package
+    // ("Kaavalan note recovery phrase") and the same package
     // (this app), so we can identify + clear it
     // safely without wiping the user's other
     // clipboard content.
@@ -160,7 +160,7 @@ private fun DisplayStep(
             val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val current = cm.primaryClip
             if (current != null &&
-                current.description?.label == "Baton recovery phrase"
+                current.description?.label == "Kaavalan note recovery phrase"
             ) {
                 // Android 13+ supports clearPrimaryClip;
                 // on older versions the best we can do is
@@ -241,7 +241,7 @@ private fun DisplayStep(
                         // clipboard indefinitely.
                         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         val phrase = state.phrase.joinToString(" ")
-                        val clip = ClipData.newPlainText("Baton recovery phrase", phrase)
+                        val clip = ClipData.newPlainText("Kaavalan note recovery phrase", phrase)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             val extras = PersistableBundle().apply {
                                 putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)

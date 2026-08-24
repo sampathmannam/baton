@@ -125,7 +125,7 @@ class MorningBriefWorker @AssistedInject constructor(
     }
 
     companion object {
-        const val CHANNEL_ID = kaavalan-note_morning_brief"
+        const val CHANNEL_ID = "kaavalan-note_morning_brief"
         const val NOTIFICATION_ID = 1002
     }
 }

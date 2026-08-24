@@ -16,7 +16,7 @@ import javax.inject.Singleton
  * v2.0 Tier 2 (§2.7, §2.9): thin ContentResolver wrapper over
  * `CalendarContract.Events`. Two methods:
  *  - [upcomingBatonEvents] — return events in the next 15 min
- *    whose title or description mentions a Baton's person name
+ *    whose title or description mentions a app's person name
  *    (case-insensitive). Used by the "Brief me before a meeting"
  *    card.
  *  - [findCandidateForPerson] — return the next event in the
@@ -25,7 +25,7 @@ import javax.inject.Singleton
  *
  * **Privacy boundary.** The cursor is `.use { }`'d so it's
  * closed on every code path. The list of matched events is held
- * only in memory (never persisted), and the list of Baton's
+ * only in memory (never persisted), and the list of Kaavalan note's
  * people is lowercased once per call and discarded.
  *
  * **Permission gate.** If [Manifest.permission.READ_CALENDAR]
@@ -49,7 +49,7 @@ class CalendarBriefSource @Inject constructor(
 
     /**
      * List events in the next [windowMs] milliseconds that
-     * reference any of the user's Baton's people. Returns
+     * reference any of the user's app's people. Returns
      * sorted by start time ASC. Returns an empty list if the
      * permission is not held.
      */
@@ -133,6 +133,6 @@ data class CalendarEvent(
     val title: String,
     val startMs: Long,
     val endMs: Long?,
-    /** Lowercased name of the Baton's person that matched. */
+    /** Lowercased name of the app's person that matched. */
     val matchedPersonLower: String,
 )
