@@ -103,6 +103,28 @@
             </intent-filter>
         </activity>
 
+        <!-- v2.1.0 (PM rating): the Google Drive OAuth
+             callback. Google redirects to
+             `baton://oauth-callback?code=...` after the
+             user signs in + grants the `drive.appdata`
+             scope. The activity is a transparent
+             overlay that catches the intent, extracts
+             the code, and exchanges it for an access +
+             refresh token. -->
+        <activity
+            android:name=".features.auth.OAuthCallbackActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="baton"
+                    android:host="oauth-callback" />
+            </intent-filter>
+        </activity>
+
         <!-- Tier 0.3: share target. The user picks Baton from
              another app's share sheet; the alias forwards the
              shared text (or the OCR'd text from a shared image)

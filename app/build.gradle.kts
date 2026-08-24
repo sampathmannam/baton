@@ -470,6 +470,17 @@ dependencies {
     implementation(libs.camerax.camera.lifecycle)
     implementation(libs.camerax.camera.view)
     implementation(libs.mlkit.text.recognition)
+    // v2.1.0 (PM rating): Google Drive backup. The
+    // preferred path is GoogleSignInClient (Play Services
+    // Auth) for a one-tap sign-in. The fallback path
+    // (when Play Services is not available) is a
+    // Custom Tabs OAuth flow via androidx.browser.
+    // The `play-services-auth` dep is conditional on
+    // `googleSignInAvailable = true` (see below); for the
+    // v2.1.0 build the Custom Tabs path is the
+    // default since the offline cache doesn't have
+    // play-services-auth.
+    implementation(libs.androidx.browser)
 
     // Tier 0.1: Jetpack Glance for the home-screen / lock-screen
     // capture widget. The Glance composable API + a

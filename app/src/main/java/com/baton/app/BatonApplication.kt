@@ -103,6 +103,14 @@ class BatonApplication : Application(), Configuration.Provider {
         // retention sweep is also scheduled. Same
         // KEEP-on-re-enqueue idempotency as the backup.
         com.baton.app.data.work.WorkManagerInitializer.scheduleRetention(this)
+        // v2.1.0 (PM rating): the daily Google Drive
+        // backup is scheduled when the user has signed
+        // in to Google. The Settings sheet's "Sign
+        // in" CTA flips a SharedPreferences flag, and
+        // the next cold start of [BatonApplication]
+        // checks the flag and conditionally schedules
+        // the worker. Same KEEP-on-re-enqueue idempotency.
+        com.baton.app.data.work.WorkManagerInitializer.scheduleDriveBackup(this)
     }
 
     /**

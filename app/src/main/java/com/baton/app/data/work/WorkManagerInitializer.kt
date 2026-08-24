@@ -271,4 +271,55 @@ object WorkManagerInitializer {
             request,
         )
     }
+
+    /**
+     * v2.1.0 (PM rating): the daily Google Drive
+     * backup schedule. Mirrors the [scheduleBackup]
+     * pattern. The worker is the
+     * [com.baton.app.data.backup.DriveBackupWorker];
+     * the constraints are the same
+     * (`BATTERY_NOT_LOW` — the user is in the middle
+     * of something; we don't want the Drive upload
+     * to drain the battery).
+     */
+    fun scheduleDriveBackup(context: Context) {
+        val request = PeriodicWorkRequestBuilder<
+            com.baton.app.data.backup.DriveBackupWorker
+        >(
+            DRIVE_BACKUP_PERIODIC_INTERVAL_HOURS, TimeUnit.HOURS,
+        )
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiresBatteryNotLow(true)
+                    .build(),
+            )
+            .build()
+        get(context).enqueueUniquePeriodicWork(
+            DRIVE_BACKUP_PERIODIC_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    /**
+     * v2.1.0 (PM rating): the one-shot "Back up now"
+     * enqueue. Called by the Settings sheet's
+     * "Back up now" button (the worker re-uses the
+     * passphrase stored in
+     * [com.baton.app.data.auth.SecurePreferences]).
+     */
+    fun enqueueDriveBackupNow(context: Context) {
+        val request = OneTimeWorkRequestBuilder<
+            com.baton.app.data.backup.DriveBackupWorker
+        >().build()
+        get(context).enqueueUniqueWork(
+            DRIVE_BACKUP_ONE_SHOT_NAME,
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    private const val DRIVE_BACKUP_PERIODIC_NAME = "baton-drive-backup-periodic"
+    private const val DRIVE_BACKUP_ONE_SHOT_NAME = "baton-drive-backup-now"
+    private const val DRIVE_BACKUP_PERIODIC_INTERVAL_HOURS = 24L
 }

@@ -110,6 +110,63 @@ class SecurePreferences @Inject constructor(
     fun hasDatabasePassphrase(): Boolean = prefs.contains(KEY_DB_PASSPHRASE)
 
     /**
+     * v2.1.0 (PM rating): the Google Drive backup
+     * tokens. The refresh token is the long-lived
+     * credential that survives process death; the
+     * access token is short-lived (~1h) and is cached
+     * in-memory in [GoogleOAuthClient]. The expiry is
+     * the epoch-millis at which the cached access
+     * token must be refreshed.
+     *
+     * These are stored in [SecurePreferences] (not
+     * plain SharedPreferences) because the refresh
+     * token is a long-lived credential that can
+     * impersonate the user on Drive.
+     */
+    fun setGoogleRefreshToken(token: String) {
+        prefs.edit().putString(KEY_GOOGLE_REFRESH_TOKEN, token).apply()
+    }
+
+    fun getGoogleRefreshToken(): String? = prefs.getString(KEY_GOOGLE_REFRESH_TOKEN, null)
+
+    fun setGoogleAccessTokenExpiry(epochMillis: Long) {
+        prefs.edit().putLong(KEY_GOOGLE_ACCESS_EXPIRY, epochMillis).apply()
+    }
+
+    fun getGoogleAccessTokenExpiry(): Long = prefs.getLong(KEY_GOOGLE_ACCESS_EXPIRY, 0L)
+
+    fun clearGoogleTokens() {
+        prefs.edit()
+            .remove(KEY_GOOGLE_REFRESH_TOKEN)
+            .remove(KEY_GOOGLE_ACCESS_EXPIRY)
+            .apply()
+    }
+
+    /**
+     * v2.1.0 (PM rating): the SHA-256 hash of the
+     * passphrase used to encrypt the Google Drive
+     * backup blob. The passphrase itself is the
+     * user's 12-word recovery phrase; we never store
+     * the phrase in clear. The hash is the actual
+     * key material the worker feeds to
+     * [com.baton.app.data.backup.BackupCrypto].
+     *
+     * Set once on the first manual "Back up now". The
+     * daily [com.baton.app.data.backup.DriveBackupWorker]
+     * reads this and re-uses it for every subsequent
+     * auto-backup. The user can rotate the passphrase
+     * (which forces the next backup to be encrypted
+     * with the new hash); the old backups on Drive
+     * remain decryptable with their old hash.
+     */
+    fun setBackupEncryptionKeyHash(hash: String) {
+        prefs.edit().putString(KEY_BACKUP_KEY_HASH, hash).apply()
+    }
+
+    fun getBackupEncryptionKeyHash(): String? =
+        prefs.getString(KEY_BACKUP_KEY_HASH, null)
+
+    /**
      * v2.0 T3-1: the SHA-256 hash of the user's vault PIN, stored
      * as a hex string. `null` means the user has not set a PIN
      * yet; in that case the Settings UI prompts them to set one
@@ -171,6 +228,19 @@ class SecurePreferences @Inject constructor(
     companion object {
         private const val FILE_NAME = "baton_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase_v1"
+        // v2.1.0 (PM rating): the Google Drive backup
+        // tokens. See [setGoogleRefreshToken] /
+        // [getGoogleRefreshToken] /
+        // [setGoogleAccessTokenExpiry] /
+        // [getGoogleAccessTokenExpiry] /
+        // [clearGoogleTokens].
+        private const val KEY_GOOGLE_REFRESH_TOKEN = "google_refresh_token_v1"
+        private const val KEY_GOOGLE_ACCESS_EXPIRY = "google_access_expiry_v1"
+        // v2.1.0: the SHA-256 hash of the user's
+        // backup passphrase. Set on first manual
+        // "Back up now"; the daily worker reads it
+        // for every subsequent auto-backup.
+        private const val KEY_BACKUP_KEY_HASH = "backup_key_hash_v1"
         private const val PASSPHRASE_BYTES = 32
         // v2.0 T3-1: vault PIN hash. Hex string, 64 chars
         // (SHA-256 = 32 bytes). Key name includes a `_v1` to
