@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -46,7 +47,7 @@ class DispatchViewModel @Inject constructor(
 
     fun refreshRoster() {
         viewModelScope.launch {
-            val people: List<Person> = personRepository.fetchAll()
+            val people: List<Person> = personRepository.observeAll().first()
             val roster = RosterBuilder.build(people)
             _state.update { it.copy(roster = roster, recipientCount = computeRecipients(it.audience, roster)) }
         }

@@ -3,6 +3,7 @@ package com.kaavalan.note.ui.hierarchy
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -16,8 +17,13 @@ import com.kaavalan.note.data.instructions.Instruction
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.ui.home.TagCount
 
-@Composable
-fun HomeHierarchySections(outgoing: List<Instruction>, incoming: List<Instruction>, popularTags: List<TagCount>, onTagClick: (String) -> Unit, onInstructionClick: (Instruction) -> Unit) {
+fun LazyListScope.homeHierarchySections(
+    outgoing: List<Instruction>,
+    incoming: List<Instruction>,
+    popularTags: List<TagCount>,
+    onTagClick: (String) -> Unit,
+    onInstructionClick: (Instruction) -> Unit,
+) {
     if (outgoing.isEmpty() && incoming.isEmpty() && popularTags.isEmpty()) return
     if (popularTags.isNotEmpty()) {
         item { Text(stringResource(R.string.hierarchy_section_tags), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
@@ -55,7 +61,7 @@ fun HomeHierarchySections(outgoing: List<Instruction>, incoming: List<Instructio
 @Composable
 fun HomeHierarchyAwarePersonList(persons: List<Person>, openCountByPersonId: Map<String, Int>, stalePersonIds: Set<String>, outgoing: List<Instruction>, incoming: List<Instruction>, popularTags: List<TagCount>, padding: PaddingValues, onPersonClick: (String) -> Unit, onTagClick: (String) -> Unit, onInstructionClick: (Instruction) -> Unit) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 112.dp)) {
-        HomeHierarchySections(outgoing = outgoing, incoming = incoming, popularTags = popularTags, onTagClick = onTagClick, onInstructionClick = onInstructionClick)
+        homeHierarchySections(outgoing = outgoing, incoming = incoming, popularTags = popularTags, onTagClick = onTagClick, onInstructionClick = onInstructionClick)
         items(persons) { person ->
             PersonRowSimple(person = person, openCount = openCountByPersonId[person.id] ?: 0, isStale = person.id in stalePersonIds, onClick = { onPersonClick(person.id) })
         }

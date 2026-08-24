@@ -297,17 +297,12 @@ fun HomeScreen(
                         onAddPersonClick = { showAddPerson = true },
                     )
                     HomeUiState.Loading -> LoadingSkeleton(padding)
-                    is HomeUiState.Loaded -> com.kaavalan.note.ui.hierarchy.HomeHierarchyAwarePersonList(
+                    is HomeUiState.Loaded -> PersonList(
                         persons = s.persons,
                         openCountByPersonId = s.openCountByPersonId,
                         stalePersonIds = s.stalePersonIds,
-                        outgoing = s.outgoingOpen,
-                        incoming = s.incomingOpen,
-                        popularTags = s.popularTags,
                         padding = padding,
                         onPersonClick = onOpenPerson,
-                        onTagClick = { /* TODO: navigate to #tag screen in v2.x */ },
-                        onInstructionClick = { /* TODO: open detail sheet in v2.x */ },
                     )
                     is HomeUiState.Error -> ErrorState(s.message, padding)
                 }
