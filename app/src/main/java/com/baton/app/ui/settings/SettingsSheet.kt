@@ -763,6 +763,80 @@ fun SettingsSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            // v1.9.9 (A10 audit fix): the "Report a
+            // problem" row. Always visible. One tap
+            // opens the email composer via `mailto:`
+            // with the most recent crash log (if any)
+            // embedded in the body. Distinct from
+            // the "Support" row (general question) and
+            // the conditional "Share crash log" row
+            // (system share sheet, file attached). See
+            // [com.baton.app.ui.util.ReportProblemIntent]
+            // for the three flows and why they coexist.
+            //
+            // The resource lookups happen here (Compose
+            // composable scope) rather than inside the
+            // helper because the project's Robolectric
+            // tests run without `includeAndroidResources`
+            // (see the
+            // [com.baton.app.ui.util.ReportProblemIntent]
+            // docstring for the rationale). The helper
+            // takes plain strings so it's testable.
+            val supportEmail = stringResource(R.string.settings_support_email)
+            val reportSubjectTemplate = stringResource(
+                R.string.settings_report_problem_subject,
+            )
+            val reportBodyNoCrashTemplate = stringResource(
+                R.string.settings_report_problem_body_no_crash,
+            )
+            val reportBodyWithCrashTemplate = stringResource(
+                R.string.settings_report_problem_body_with_crash,
+            )
+            val hasCrashLog = remember {
+                com.baton.app.ui.util.CrashLog.mostRecent(ctx) != null
+            }
+            // The [semantics] block runs in a non-composable
+            // lambda, so the [stringResource] for the
+            // content description must be resolved here.
+            val reportProblemCd = stringResource(
+                R.string.settings_report_problem_cd,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val bodyTemplate = if (hasCrashLog) {
+                            reportBodyWithCrashTemplate
+                        } else {
+                            reportBodyNoCrashTemplate
+                        }
+                        ctx.startActivity(
+                            com.baton.app.ui.util.ReportProblemIntent.build(
+                                context = ctx,
+                                appVersion = appVersion,
+                                subjectTemplate = reportSubjectTemplate,
+                                bodyTemplate = bodyTemplate,
+                                supportEmail = supportEmail,
+                            ),
+                        )
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp)
+                    .semantics {
+                        contentDescription = reportProblemCd
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_report_problem),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_report_problem_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             // v1.9.0 (PROD-READINESS-P3-P1-#1): the
             // "Share crash log" row, visible only
             // when a crash log exists from a

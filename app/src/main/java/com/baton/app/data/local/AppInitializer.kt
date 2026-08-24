@@ -2,6 +2,8 @@ package com.baton.app.data.local
 
 import android.content.Context
 import android.util.Log
+import androidx.annotation.VisibleForTesting
+import com.baton.app.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -61,6 +63,44 @@ class AppInitializer @Inject constructor(
 
     @Volatile
     private var signOutRan: Boolean = false
+
+    /**
+     * v1.9.9 (A6 audit fix): the synthetic-data fixture is a
+     * **debug-only** feature (see [com.baton.app.data.dev.FixtureLoader]
+     * class docstring: "Not exposed in release builds."). The
+     * Settings → Developer → "Load test data" menu is gated on
+     * `BuildConfig.DEBUG`, but the auto-reseed on every app
+     * start (this class) was NOT. A release-build user who
+     * never touched the debug menu had `storedFixtureVersion=0`
+     * and `asset.version=2`; the very first launch ran
+     * [FixtureLoader.reseedIfStale], which cleared all 6
+     * tables (persons / instructions / instructions_fts /
+     * captures / tags / instruction_tags) before re-inserting
+     * the fixture. Net effect: the user opened the app, all
+     * their real casework was gone, and the synthetic fixture
+     * (designed to find UI bugs on a 12-row sample) replaced
+     * it. Subsequent launches were a no-op because
+     * `storedFixtureVersion` had been updated to the asset
+     * version — but the damage was already done on launch #1.
+     *
+     * The fix gates the auto-reseed on `BuildConfig.DEBUG`. A
+     * release-build app's first launch no longer touches the
+     * user's data. The v1.7.1→v1.7.2 migration scenario that
+     * justified the original "runs on every build" comment is
+     * irrelevant in v1.9.9: that migration was two years
+     * ago, the synthetic-data dates it was fixing were
+     * explicitly debug-fixture data (no real user ever had
+     * "year 3995" worry-box dates), and a release-build user
+     * would not benefit from the auto-update because they
+     * never loaded the fixture in the first place.
+     *
+     * The [isDebugBuild] indirection is a
+     * [VisibleForTesting] hook so a unit test can verify the
+     * release-build contract without recompiling against the
+     * `release` variant.
+     */
+    @VisibleForTesting
+    internal var isDebugBuild: Boolean = BuildConfig.DEBUG
 
     fun runOnAppStart() {
         // v1.2.1 (BUG-DATA-021 + BUG-DATA-023): guard against
@@ -133,21 +173,24 @@ class AppInitializer @Inject constructor(
         // the stored version is strictly less, we re-seed in a
         // background coroutine. This is the path that closes the
         // v1.7.2 gap where existing users' Room DBs still had
-        // the v1.7.1 worry-box dates (year 3995). Runs on every
-        // build (not DEBUG-gated) because the bug affects all
-        // users who upgraded from v1.7.1; for private R&D with a
-        // single user, the trade-off is right. If the stored
-        // version equals the asset version, this is a no-op.
-        appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching { fixtureLoader.reseedIfStale() }
-                .onSuccess { report ->
-                    if (report != null) {
-                        Log.i(TAG, "auto-reseeded fixture: $report")
+        // the v1.7.1 worry-box dates (year 3995). v1.9.9 (A6):
+        // gated on [isDebugBuild] so release builds do not
+        // touch the user's data on first launch. The
+        // `Run on every build (not DEBUG-gated)` rationale from
+        // v1.7.3 was wrong for production: see the
+        // [isDebugBuild] docstring for the failure mode.
+        if (isDebugBuild) {
+            appScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { fixtureLoader.reseedIfStale() }
+                    .onSuccess { report ->
+                        if (report != null) {
+                            Log.i(TAG, "auto-reseeded fixture: $report")
+                        }
                     }
-                }
-                .onFailure { e ->
-                    Log.e(TAG, "auto-reseed failed: ${e.message}")
-                }
+                    .onFailure { e ->
+                        Log.e(TAG, "auto-reseed failed: ${e.message}")
+                    }
+            }
         }
         appStartRan = true
     }

@@ -37,6 +37,7 @@ class RoomInstructionRepositoryTest {
         )
 
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            db = mockk(relaxed = true),
             dao = dao,
             ftsDao = mockk(relaxed = true),
             syncQueueDao = mockk(relaxed = true),
@@ -68,6 +69,7 @@ class RoomInstructionRepositoryTest {
         )
 
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            db = mockk(relaxed = true),
             dao = dao,
             ftsDao = mockk(relaxed = true),
             syncQueueDao = mockk(relaxed = true),
@@ -93,6 +95,7 @@ class RoomInstructionRepositoryTest {
         val syncQueueDao = mockk<com.baton.app.data.local.SyncQueueDao>(relaxed = true)
         val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            db = mockk(relaxed = true),
             dao = dao,
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
@@ -130,6 +133,7 @@ class RoomInstructionRepositoryTest {
         val syncQueueDao = mockk<com.baton.app.data.local.SyncQueueDao>(relaxed = true)
         val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            db = mockk(relaxed = true),
             dao = dao,
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
@@ -162,6 +166,7 @@ class RoomInstructionRepositoryTest {
         val syncQueueDao = mockk<com.baton.app.data.local.SyncQueueDao>(relaxed = true)
         val syncEngine = mockk<com.baton.app.data.local.SyncEngine>(relaxed = true)
         val repo = com.baton.app.data.instructions.RoomInstructionRepository(
+            db = mockk(relaxed = true),
             dao = dao,
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
