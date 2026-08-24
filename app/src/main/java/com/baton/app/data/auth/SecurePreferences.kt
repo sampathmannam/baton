@@ -110,6 +110,38 @@ class SecurePreferences @Inject constructor(
     fun hasDatabasePassphrase(): Boolean = prefs.contains(KEY_DB_PASSPHRASE)
 
     /**
+     * v2.0.2 (PM rating): the database-corruption flag. Set
+     * to `true` by [AppInitializer] when the first DAO
+     * query throws (the DB file is unreadable — wrong
+     * passphrase after a Keystore reset, or a corrupt
+     * file after a force-stop during a write). The
+     * Settings sheet reads the flag on every open and
+     * surfaces a "Database error — tap to erase and
+     * start fresh" banner with a one-tap path to the
+     * "Erase all data" flow.
+     *
+     * **Why a flag, not a thrown exception.** The
+     * first DAO call happens deep in Compose's
+     * recomposition path. Throwing from there would
+     * crash the activity. Setting a flag and rendering
+     * a recovery CTA is a controlled way to surface the
+     * error to the user.
+     *
+     * **Reset.** [runOnAppStart] resets the flag to
+     * `false` at the start of every launch; it only
+     * gets re-set if the preflight `SELECT 1` throws.
+     */
+    fun markDatabaseCorrupt() {
+        prefs.edit().putBoolean(KEY_DB_CORRUPT, true).apply()
+    }
+
+    fun clearDatabaseCorrupt() {
+        prefs.edit().remove(KEY_DB_CORRUPT).apply()
+    }
+
+    fun isDatabaseCorrupt(): Boolean = prefs.getBoolean(KEY_DB_CORRUPT, false)
+
+    /**
      * v2.0 T3-1: the SHA-256 hash of the user's vault PIN, stored
      * as a hex string. `null` means the user has not set a PIN
      * yet; in that case the Settings UI prompts them to set one
@@ -171,6 +203,9 @@ class SecurePreferences @Inject constructor(
     companion object {
         private const val FILE_NAME = "baton_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase_v1"
+        // v2.0.2 (PM rating): the database-corruption
+        // flag. See [markDatabaseCorrupt] / [isDatabaseCorrupt].
+        private const val KEY_DB_CORRUPT = "db_corrupt_v1"
         private const val PASSPHRASE_BYTES = 32
         // v2.0 T3-1: vault PIN hash. Hex string, 64 chars
         // (SHA-256 = 32 bytes). Key name includes a `_v1` to

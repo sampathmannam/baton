@@ -283,6 +283,19 @@ class SettingsViewModel @Inject constructor(
     val stuckOutboxCount: StateFlow<Int> = MutableStateFlow(0)  // v2.0.0: no sync engine
         .asStateFlow()
 
+    /**
+     * v2.0.2 (PM rating): the database-corruption banner
+     * state. `true` when [com.baton.app.data.local.DatabasePreflight]
+     * detected a runtime DB open failure on the last
+     * launch (wrong passphrase, corrupt file, etc.).
+     * The Settings sheet reads this and surfaces a
+     * "Database error — tap to erase and start fresh"
+     * banner with a one-tap path to [eraseAllLocalData].
+     */
+    val databaseCorrupt: StateFlow<Boolean> = MutableStateFlow(
+        securePreferences.isDatabaseCorrupt(),
+    ).asStateFlow()
+
 
 
 
@@ -478,9 +491,7 @@ class SettingsViewModel @Inject constructor(
 
     val appVersion: AppVersion = AppVersion(
 
-
         name = BuildConfig.VERSION_NAME,
-
 
         code = BuildConfig.VERSION_CODE,
 
