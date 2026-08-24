@@ -66,7 +66,7 @@ The split is **deferred to v2.0.0-pre1** so we ship v1.9.7 / v1.9.8 / v1.9.9 as 
 ### Design rules (non-negotiable)
 
 - **Never introduce a "red overdue" badge or streak counter.** Use "carried over" framing.
-- **No API calls to third-party AI.** On-device LLM only (llama.cpp + GGUF).
+- **No API calls to third-party AI for inference.** The only AI in v1.9.6 is on-device ML Kit OCR (see `docs/architecture/ai-strategy.md` for the full story). **Voice capture is the exception:** it uses `android.speech.SpeechRecognizer`, which is a *system* service and **may use Google cloud depending on the device and the user's Google account settings.** This is documented in `docs/threat-model.md` §8.2 as a v1.x privacy trade-off. If a future v2.x ships a fully on-device speech path, the rule tightens; until then, the rule is "no third-party AI for inference *except the system speech recogniser*".
 - **No analytics, no telemetry, no crash reporting that sends data off-device.** Local logs only.
 - **The single note bar is the primary input.** Don't add a separate "New task" form.
 - **Tabs = 3.** Home (people), Today (brief), Settings. No more.
@@ -79,9 +79,8 @@ The split is **deferred to v2.0.0-pre1** so we ship v1.9.7 / v1.9.8 / v1.9.9 as 
 - **Hilt** for DI, **Room + SQLCipher** for local DB
 - **WorkManager** for background jobs (brief generation, sync, stale detection)
 - **Coroutines + Flow** for async, **kotlinx.serialization** for JSON
-- **llama.cpp** + **Qwen 3 1.7B Q4_K_M** as default model (downloaded at first run, cached locally, never in repo)
-- **Whisper.cpp** + base.en / small.en model (downloaded at first run)
-- **ML Kit Text Recognition** for OCR
+- **ML Kit Text Recognition v2** (Latin script) for photo OCR. **This is the only AI in v1.9.6.** See `docs/architecture/ai-strategy.md` §1. (The v1.5.x llama.cpp + Whisper.cpp stack was removed in v1.6.1 — see the strategy doc for the why.)
+- **Android system `SpeechRecognizer`** for voice capture. On-device variant is requested via `EXTRA_PREFER_OFFLINE`; actual on-device vs cloud is a device-dependent property the app cannot enforce. See `docs/threat-model.md` §8.2.
 - **Supabase** (Postgres + Auth + Storage + Realtime + Edge Functions) for cloud
 - **Gradle Version Catalog** (libs.versions.toml) for dependency management
 
@@ -94,8 +93,8 @@ The split is **deferred to v2.0.0-pre1** so we ship v1.9.7 / v1.9.8 / v1.9.9 as 
 
 ### Privacy posture
 
-- The user's data is police work. The bar is "no third-party AI ever sees it."
-- AI provider = llama.cpp on-device. Period.
+- The user's data is police work. The bar is "no third-party AI ever sees it" — *with the documented exception of the system speech recogniser* (see Design rules above).
+- AI provider for inference: **ML Kit on-device OCR** is the only production AI. The v1.5.x llama.cpp on-device LLM was removed in v1.6.1; the v1.9.6 reality is documented in `docs/architecture/ai-strategy.md`.
 - Cloud storage = Supabase, encrypted in transit + at rest, with the option to mark items "sensitive" → local-only.
 - No analytics, no telemetry, no crash reporting that sends data off-device.
 
