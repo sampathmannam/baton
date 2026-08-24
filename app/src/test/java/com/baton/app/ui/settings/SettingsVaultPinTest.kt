@@ -89,6 +89,11 @@ class SettingsVaultPinTest {
             // exporter. The vault-pin tests don't touch
             // the import path; a relaxed mock is sufficient.
             plainImporter = mockk<com.baton.app.data.export.PlainImporter>(relaxed = true),
+            // v2.1.0 (PM rating): the Google Drive backup
+            // + OAuth client. The vault-pin tests don't
+            // exercise the Drive flow; relaxed mocks.
+            driveBackupManager = mockk<com.baton.app.data.backup.DriveBackupManager>(relaxed = true),
+            googleOAuthClient = mockk<com.baton.app.data.backup.GoogleOAuthClient>(relaxed = true),
             backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
             updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
             fixtureLoader = mockk<com.baton.app.data.dev.FixtureLoader>(relaxed = true),

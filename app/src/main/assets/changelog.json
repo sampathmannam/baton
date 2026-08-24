@@ -1,6 +1,19 @@
 {
   "changelog": [
     {
+      "version": "2.1.0",
+      "code": 45,
+      "date": "2026-08-24",
+      "highlights": [
+        "Google Drive backup: WhatsApp-style. The local DB stays on the device; a backup goes to your Google Drive's hidden app folder; you can restore on a new device. Backups are encrypted with a key derived from your 12-word recovery phrase BEFORE upload — Google cannot read the bytes.",
+        "Daily auto-backup: a WorkManager job runs every 24h, encrypts the latest snapshot, and uploads to Drive. The passphrase is set once on first manual backup.",
+        "SQLCipher preflight is now a full read + write + read round-trip (catches the 'write silently corrupts' case that the v2.0.2 SELECT-1 missed).",
+        "Removed the pre-v8 destructive migration. Users upgrading from v1.7.x or earlier will still see data preservation through the new 6 explicit MIGRATION_2_3..MIGRATION_7_8.",
+        "Settings → Google Drive backup section: 'Sign in with Google' / 'Back up now' / 'Restore from backup' / 'Sign out'. The OAuth flow uses AndroidX Browser Custom Tabs (no play-services-auth dep needed).",
+        "521 unit tests pass; :app:assembleDebug builds clean."
+      ]
+    },
+    {
       "version": "2.0.2",
       "code": 44,
       "date": "2026-08-24",

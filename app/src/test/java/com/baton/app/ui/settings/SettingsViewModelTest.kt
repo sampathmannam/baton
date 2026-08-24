@@ -86,6 +86,11 @@ class SettingsViewModelTest {
             // cloud sync), but the DAO is still in the schema
             // and the VM still observes it. Relaxed mock.
             syncConflictDao = mockk<SyncConflictDao>(relaxed = true),
+            // v2.1.0 (PM rating): the Google Drive backup
+            // + OAuth client. The existing tests don't
+            // exercise the Drive flow; relaxed mocks.
+            driveBackupManager = mockk<com.baton.app.data.backup.DriveBackupManager>(relaxed = true),
+            googleOAuthClient = mockk<com.baton.app.data.backup.GoogleOAuthClient>(relaxed = true),
             // v2.1.0 (PM rating): the database-health flag.
             // The existing tests don't exercise the preflight
             // path; a relaxed mock is sufficient.

@@ -459,6 +459,27 @@
     <string name="settings_db_error_title">Database error</string>
     <string name="settings_db_error_body">Baton could not open the local database. The most likely cause is a corrupt file after a force-stop. Tap "Erase and restart" to wipe the local data; you can then restore from a backup.</string>
     <string name="settings_db_error_action">Erase and restart</string>
+    <!-- v2.1.0 (PM rating): the Google Drive backup
+         surface. "like WhatsApp" — the local DB stays
+         on the device; a backup goes to Google Drive;
+         the user can restore on a new device. -->
+    <string name="settings_drive_title">Google Drive backup</string>
+    <string name="settings_drive_signed_in_as">Signed in as %1$s</string>
+    <string name="settings_drive_sign_in">Sign in with Google</string>
+    <string name="settings_drive_sign_out">Sign out</string>
+    <string name="settings_drive_back_up_now">Back up now</string>
+    <string name="settings_drive_restore">Restore from backup</string>
+    <string name="settings_drive_explainer">Backups are stored in your Google Drive\'s hidden app folder. They are encrypted with a key derived from your recovery phrase before upload — Google cannot read the bytes.</string>
+    <string name="settings_drive_passphrase_prompt">Enter your 12-word recovery phrase to encrypt the backup</string>
+    <string name="settings_drive_passphrase_hint">Recovery phrase (12 words, space-separated)</string>
+    <string name="settings_drive_restore_passphrase_prompt">Enter the 12-word recovery phrase that was used to encrypt the backup</string>
+    <string name="settings_drive_restore_dialog_title">Choose a backup to restore</string>
+    <string name="settings_drive_no_backups">No backups found in your Google Drive.</string>
+    <string name="settings_drive_restore_success">Restored %1$d rows from Google Drive.</string>
+    <string name="settings_drive_restore_failed">Couldn\'t restore. Check the passphrase and try again.</string>
+    <string name="settings_drive_back_up_success">Backed up to Google Drive.</string>
+    <string name="settings_drive_back_up_failed">Backup failed. Tap to retry.</string>
+    <string name="settings_drive_signed_out">Signed in to Google.</string>
     <string name="recovery_phrase_title">Recovery phrase</string>
     <string name="recovery_phrase_back">Back</string>
     <string name="recovery_phrase_subtitle">These 12 words are the master key for your data. Write them down on paper, in order. Do not screenshot. If this phone is lost, the phrase is the only way to recover.</string>
@@ -700,12 +721,10 @@
          to Drive" rows are removed (they implied a Google
          Sign-In flow that does not exist). The "Working" / "Failed"
          states are kept (they are status messages, not promises). -->
-    <string name="settings_drive_backup">Save backup to a folder…</string>
     <string name="settings_drive_backup_subtitle">Pick a folder (Drive, local storage, Dropbox, etc.)</string>
     <string name="settings_drive_backup_signed_in">Last saved on %1$s</string>
     <string name="settings_drive_backup_working">Saving…</string>
     <string name="settings_drive_backup_failed">Save failed: %1$s</string>
-    <string name="settings_drive_restore">Restore from backup</string>
     <string name="settings_drive_restore_subtitle">Pick a backup file (on a new device, or after clearing data)</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery descriptions -->
