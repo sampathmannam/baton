@@ -195,17 +195,17 @@ interface InstructionDao {
     // ---- v2.0 (Hierarchy): audience + due chip + channel ----
 
     @Query(
-        '''SELECT * FROM instructions WHERE direction = 'OUTGOING' AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') ORDER BY capturedAt DESC LIMIT 50'''
+        """SELECT * FROM instructions WHERE direction = 'OUTGOING' AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') ORDER BY capturedAt DESC LIMIT 50"""
     )
     fun observeOutgoingOpen(): Flow<List<InstructionEntity>>
 
     @Query(
-        '''SELECT * FROM instructions WHERE direction = 'INCOMING' AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') ORDER BY capturedAt DESC LIMIT 50'''
+        """SELECT * FROM instructions WHERE direction = 'INCOMING' AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') ORDER BY capturedAt DESC LIMIT 50"""
     )
     fun observeIncomingOpen(): Flow<List<InstructionEntity>>
 
     @Query(
-        '''UPDATE instructions SET audienceKind = :audienceKind, audienceTarget = :audienceTarget, audienceLabel = :audienceLabel, audienceIsBroadcast = :audienceIsBroadcast, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id'''
+        """UPDATE instructions SET audienceKind = :audienceKind, audienceTarget = :audienceTarget, audienceLabel = :audienceLabel, audienceIsBroadcast = :audienceIsBroadcast, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
     )
     suspend fun setAudience(
         id: String,
@@ -218,7 +218,7 @@ interface InstructionDao {
     )
 
     @Query(
-        '''UPDATE instructions SET dueAtMs = :dueAtMs, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id'''
+        """UPDATE instructions SET dueAtMs = :dueAtMs, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
     )
     suspend fun setDueChip(
         id: String,
@@ -228,7 +228,7 @@ interface InstructionDao {
     )
 
     @Query(
-        '''UPDATE instructions SET channel = :channel, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id'''
+        """UPDATE instructions SET channel = :channel, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
     )
     suspend fun setChannel(
         id: String,
