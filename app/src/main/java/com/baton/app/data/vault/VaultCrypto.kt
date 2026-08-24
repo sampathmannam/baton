@@ -3,6 +3,8 @@ package com.baton.app.data.vault
 import com.lambdapioneer.argon2kt.Argon2Kt
 import com.lambdapioneer.argon2kt.Argon2Mode
 import com.lambdapioneer.argon2kt.Argon2Version
+import java.nio.CharBuffer
+import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -13,22 +15,34 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Tier 1.1 (v2.0): AES-256-GCM primitive + Argon2id KDF for the
- * .baton-vault file format.
+ * Tier 1.1 (v2.0) + v2.1.1 (security): AES-256-GCM
+ * primitive + Argon2id KDF for the .baton-vault file
+ * format.
  *
- * **Design.** m=19,456 KiB, t=2, p=1 (OWASP minimum for mobile,
- * 2026 cheat sheet). Salt 16 B random. IV 12 B random (NIST SP
- * 800-38D). Tag 16 B. AAD = 56-byte fixed header.
+ * **Design.** m=19,456 KiB, t=2, p=1 (OWASP minimum for
+ * mobile, 2026 cheat sheet). Salt 16 B random. IV 12 B
+ * random (NIST SP 800-38D). Tag 16 B. AAD = 56-byte
+ * fixed header.
  *
- * **Library.** `com.lambdapioneer.argon2kt:argon2kt:1.6.0` for
- * the KDF; `javax.crypto.Cipher` (no extra deps) for the cipher.
- * Both are kept as separate helpers so the cipher can be
- * unit-tested with a known KDF output and the KDF can be
- * benchmarked independently.
+ * **Library.** `com.lambdapioneer.argon2kt:argon2kt:1.6.0`
+ * for the KDF; `javax.crypto.Cipher` (no extra deps) for
+ * the cipher. Both are kept as separate helpers so the
+ * cipher can be unit-tested with a known KDF output and
+ * the KDF can be benchmarked independently.
  *
- * The exporter and importer use the constants here — never
- * hard-code parameter values at the call site. This is the
- * single source of truth.
+ * The exporter and importer use the constants here —
+ * never hard-code parameter values at the call site. This
+ * is the single source of truth.
+ *
+ * **v2.1.1 (security): CharArray → ByteArray without
+ * going through `String`.** v2.1.0's [deriveKey] did
+ * `String(passphrase).toByteArray(Charsets.UTF_8)`. The
+ * intermediate `String` is interned by the JVM and
+ * survives in the string pool until the next GC of the
+ * `StringTable` — the passphrase is recoverable from a
+ * heap dump. v2.1.1 encodes the [CharArray] directly via
+ * [StandardCharsets] + [CharBuffer] (no String allocation)
+ * and zeroes the byte array in a `finally` block.
  */
 @Singleton
 class VaultCrypto @Inject constructor() {
@@ -43,6 +57,14 @@ class VaultCrypto @Inject constructor() {
      * the header of every export (`m`/`t`/`p` in the 56-byte
      * file header) so the importer always uses the right
      * values — there is no library default to drift.
+     *
+     * **v2.1.1 (security): caller-owned CharArray.** The
+     * passphrase is read from a [CharArray] (the caller
+     * controls the lifetime and can zero it after the
+     * KDF returns). The intermediate UTF-8 [ByteArray] is
+     * local to this function and is zeroed in a `finally`
+     * block before the function returns. v2.1.0's
+     * `String(passphrase)` indirection is gone.
      */
     fun deriveKey(
         passphrase: CharArray,
@@ -53,7 +75,16 @@ class VaultCrypto @Inject constructor() {
         outLen: Int = KEY_BYTES,
     ): ByteArray {
         require(salt.size == SALT_BYTES) { "Argon2id salt must be exactly $SALT_BYTES bytes" }
-        val passBytes = String(passphrase).toByteArray(Charsets.UTF_8)
+        // v2.1.1: encode the CharArray directly to a
+        // ByteArray, bypassing `String`. The `String`
+        // indirection would put the passphrase into the
+        // JVM's string pool where it could survive for
+        // an unbounded time (until the pool is GC'd).
+        val passBytes: ByteArray = StandardCharsets.UTF_8
+            .encode(CharBuffer.wrap(passphrase))
+            .let { buf ->
+                ByteArray(buf.remaining()).also { buf.get(it) }
+            }
         try {
             return argon2.hash(
                 Argon2Mode.ARGON2_ID,

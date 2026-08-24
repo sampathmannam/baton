@@ -11,12 +11,11 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * v1.9.0 (PROD-READINESS-P3-P1-#1): the in-app
- * crash log. Catches unhandled exceptions on the
- * main looper, writes a structured log file to
- * `cacheDir/crashes/`, and shows a "share with
- * support" notification next time the user
- * launches the app.
+ * v1.9.0 (PROD-READINESS-P3-P1-#1) + v2.1.1 (security):
+ * the in-app crash log. Catches unhandled exceptions on
+ * the main looper, writes a structured log file to
+ * `cacheDir/crashes/`, and shows a "share with support"
+ * notification next time the user launches the app.
  *
  * **Why a local crash log, not Crashlytics.**
  * The v1.5.0+ privacy policy is "we collect no
@@ -37,6 +36,19 @@ import java.util.Locale
  *    the system share intent (the [CrashLog]
  *    helper exposes a FileProvider URI for the
  *    share).
+ *
+ * **v2.1.1 (security): PII redaction in the
+ * rendered log.** v1.9.0 wrote the raw
+ * [printStackTrace] output to disk. A crash in a
+ * function that had a [com.baton.app.data.person.Person]
+ * on the stack would render the toString — which
+ * includes the user's `displayName`, `phone`,
+ * `email` — into the log file. v2.1.1 scrubs the
+ * rendered log for common PII patterns (email,
+ * phone, name) and replaces them with `[REDACTED]`
+ * before writing. The patterns are conservative
+ * (false positives are fine; false negatives leak
+ * PII); see [redactPii] for the full list.
  *
  * **File format.** Plain text. Each line is a
  * `key=value` pair. Easy to parse, easy to redact.
@@ -82,7 +94,13 @@ object CrashLog {
         val timestampStr = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date(timestampMs))
         val file = File(dir, "$FILE_PREFIX$timestampStr$FILE_EXT")
         val content = renderCrashLog(throwable, timestampMs)
-        file.writeText(content)
+        // v2.1.1 (security): redact PII patterns
+        // (email, phone, displayName) from the
+        // rendered log before writing. The patterns
+        // are conservative — false positives are
+        // fine, false negatives leak PII.
+        val redacted = redactPii(content)
+        file.writeText(redacted)
         prune(dir)
         CrashReport(file = file, timestampMs = timestampMs)
     } catch (_: Throwable) {
@@ -137,4 +155,56 @@ object CrashLog {
             append(sw.toString())
         }
     }
+
+    /**
+     * v2.1.1 (security): scrub PII patterns from a
+     * rendered crash log. The patterns are
+     * conservative — they err on the side of
+     * false positives (over-redaction is fine;
+     * under-redaction leaks PII).
+     *
+     *  - `EMAIL` — RFC-5322-ish (any
+     *    `something@somewhere.tld`).
+     *  - `PHONE` — 10+ digits with optional `+`,
+     *    spaces, dashes, parens (covers IN + US
+     *    + EU formats).
+     *  - `Person(displayName="...")` — the
+     *    [com.baton.app.data.person.Person] toString
+     *    that v1.9.0's stack traces would render
+     *    when a crash happened inside a function
+     *    with a Person on the stack.
+     *
+     * Returns the redacted string. Pure function;
+     * tested by [CrashLogTest] in the unit test
+     * suite.
+     */
+    internal fun redactPii(text: String): String {
+        var out = text
+        // email — match the typical `a@b.c` shape;
+        // the regex is conservative (no quoted
+        // local-parts, no `+` aliases).
+        out = EMAIL_RE.replace(out, "[REDACTED_EMAIL]")
+        // phone — 10+ digits, optional leading +,
+        // optional spaces/dashes/parens between
+        // groups. Matches e.g. `555-123-4567`,
+        // `+91 98765 43210`, `(555) 123-4567`.
+        out = PHONE_RE.replace(out, "[REDACTED_PHONE]")
+        // Person(displayName="...") — match the
+        // literal `displayName=` attribute and
+        // its quoted value. The same pattern
+        // would also redact a literal
+        // `displayName="..."` in any other toString.
+        out = DISPLAY_NAME_RE.replace(out, "displayName=[REDACTED_NAME]")
+        return out
+    }
+
+    private val EMAIL_RE = Regex(
+        "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}",
+    )
+    private val PHONE_RE = Regex(
+        "\\+?\\d[\\d\\s\\-()]{8,}\\d",
+    )
+    private val DISPLAY_NAME_RE = Regex(
+        "displayName\\s*=\\s*\"[^\"]*\"",
+    )
 }

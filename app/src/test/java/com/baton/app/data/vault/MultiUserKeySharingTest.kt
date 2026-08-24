@@ -42,9 +42,9 @@ class MultiUserKeySharingTest {
         val share = MultiUserKeySharing.wrap(
             masterKey = masterKey,
             userId = "officer-1",
-            passphrase = "correct horse battery staple",
+            passphrase = "correct horse battery staple".toCharArray(),
         )
-        val unwrapped = MultiUserKeySharing.unwrap(share, "correct horse battery staple")
+        val unwrapped = MultiUserKeySharing.unwrap(share, "correct horse battery staple".toCharArray())
         assertArrayEquals(masterKey, unwrapped.masterKey)
     }
 
@@ -59,12 +59,12 @@ class MultiUserKeySharingTest {
         val first = MultiUserKeySharing.wrap(
             masterKey = masterKey,
             userId = "officer-1",
-            passphrase = "same passphrase",
+            passphrase = "same passphrase".toCharArray(),
         )
         val second = MultiUserKeySharing.wrap(
             masterKey = masterKey,
             userId = "officer-1",
-            passphrase = "same passphrase",
+            passphrase = "same passphrase".toCharArray(),
         )
         // The salts differ.
         assertNotEquals(first.salt.toList(), second.salt.toList())
@@ -75,11 +75,11 @@ class MultiUserKeySharingTest {
         // Both still unwrap to the same master.
         assertArrayEquals(
             masterKey,
-            MultiUserKeySharing.unwrap(first, "same passphrase").masterKey,
+            MultiUserKeySharing.unwrap(first, "same passphrase".toCharArray()).masterKey,
         )
         assertArrayEquals(
             masterKey,
-            MultiUserKeySharing.unwrap(second, "same passphrase").masterKey,
+            MultiUserKeySharing.unwrap(second, "same passphrase".toCharArray()).masterKey,
         )
     }
 
@@ -89,10 +89,10 @@ class MultiUserKeySharingTest {
         val share = MultiUserKeySharing.wrap(
             masterKey = masterKey,
             userId = "officer-2",
-            passphrase = "the right one",
+            passphrase = "the right one".toCharArray(),
         )
         val error = assertThrows(VaultError.MasterKeyUnwrap::class.java) {
-            MultiUserKeySharing.unwrap(share, "the wrong one")
+            MultiUserKeySharing.unwrap(share, "the wrong one".toCharArray())
         }
         // The error message must not leak the
         // AEADBadTagException detail; it must
@@ -111,30 +111,30 @@ class MultiUserKeySharingTest {
         val shareA = MultiUserKeySharing.wrap(
             masterKey = masterKey,
             userId = "officer-A",
-            passphrase = "alpha-only",
+            passphrase = "alpha-only".toCharArray(),
         )
         val shareB = MultiUserKeySharing.wrap(
             masterKey = masterKey,
             userId = "officer-B",
-            passphrase = "bravo-only",
+            passphrase = "bravo-only".toCharArray(),
         )
         // A's passphrase unwraps A's share.
         assertArrayEquals(
             masterKey,
-            MultiUserKeySharing.unwrap(shareA, "alpha-only").masterKey,
+            MultiUserKeySharing.unwrap(shareA, "alpha-only".toCharArray()).masterKey,
         )
         // B's passphrase unwraps B's share.
         assertArrayEquals(
             masterKey,
-            MultiUserKeySharing.unwrap(shareB, "bravo-only").masterKey,
+            MultiUserKeySharing.unwrap(shareB, "bravo-only".toCharArray()).masterKey,
         )
         // A's passphrase does NOT unwrap B's share.
         assertThrows(VaultError.MasterKeyUnwrap::class.java) {
-            MultiUserKeySharing.unwrap(shareB, "alpha-only")
+            MultiUserKeySharing.unwrap(shareB, "alpha-only".toCharArray())
         }
         // B's passphrase does NOT unwrap A's share.
         assertThrows(VaultError.MasterKeyUnwrap::class.java) {
-            MultiUserKeySharing.unwrap(shareA, "bravo-only")
+            MultiUserKeySharing.unwrap(shareA, "bravo-only".toCharArray())
         }
     }
 
@@ -146,7 +146,7 @@ class MultiUserKeySharingTest {
         // officer's existing passphrase.
         val oldMaster = MultiUserKeySharing.newMasterKey()
         val newMaster = MultiUserKeySharing.newMasterKey()
-        val officerPassphrase = "officer-3's passphrase"
+        val officerPassphrase = "officer-3's passphrase".toCharArray()
         val oldShare = MultiUserKeySharing.wrap(oldMaster, "officer-3", officerPassphrase)
         val newShare = MultiUserKeySharing.rewrap(newMaster, "officer-3", officerPassphrase)
         // The new share unwraps to the new master.
@@ -161,7 +161,7 @@ class MultiUserKeySharingTest {
         )
         // A "wrong passphrase" + the new share is still rejected.
         assertThrows(VaultError.MasterKeyUnwrap::class.java) {
-            MultiUserKeySharing.unwrap(newShare, "wrong")
+            MultiUserKeySharing.unwrap(newShare, "wrong".toCharArray())
         }
     }
 
@@ -175,7 +175,7 @@ class MultiUserKeySharingTest {
         val realShare = MultiUserKeySharing.wrap(masterKey, "officer-4", "good")
         val futureShare = realShare.copy(version = 2)
         val error = assertThrows(VaultError.MasterKeyUnwrap::class.java) {
-            MultiUserKeySharing.unwrap(futureShare, "good")
+            MultiUserKeySharing.unwrap(futureShare, "good".toCharArray())
         }
         assertEquals(
             "share version 2 is not supported by this build",
