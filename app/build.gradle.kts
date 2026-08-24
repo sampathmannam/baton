@@ -438,17 +438,18 @@ android {
 }
 
 // v2.1.0 (PM rating): exclude the orphan `com.kaavalan.*`
-// test package that survives from the v2.0.0-supabase-drop
+// source package that survives from the v2.0.0-supabase-drop
 // branch's in-flight kaavalan rename (see `stash@{0}` on
-// `release/v2.0.0-supabase-drop`). Those tests reference
-// `com.kaavalan.note.*` classes that don't exist in the
-// current `com.baton.app.*` HEAD, so they fail to compile.
-// Excluding the package here keeps the unit-test source
-// set self-consistent. When the kaavalan rename is
-// applied (the user has a stash for it), the rename will
-// touch both `com.kaavalan.*` and `com.baton.app.*`
+// `release/v2.0.0-supabase-drop`). The 177 source files under
+// `com.kaavalan.note.*` reference each other (Person, etc.)
+// and don't match the current `com.baton.app.*` HEAD, so they
+// fail to compile. Excluding the package here keeps the main
+// and test source sets self-consistent. When the kaavalan
+// rename is applied (the user has a stash for it), the rename
+// will touch both `com.kaavalan.*` and `com.baton.app.*`
 // together; this exclude is then a no-op.
 android {
+    sourceSets.getByName("main").java.exclude("com/kaavalan/**")
     sourceSets.getByName("test").java.exclude("com/kaavalan/**")
     sourceSets.getByName("androidTest").java.exclude("com/kaavalan/**")
 }
