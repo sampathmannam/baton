@@ -29,7 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.BuildConfig
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.ui.theme.BatonTheme
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -169,12 +169,12 @@ private fun stringResource(context: Context, resId: Int): String =
 /**
  * ViewModel for [ChangelogScreen]. Reads `assets/changelog.json`
  * on init, exposes the parsed entries. The "seen" flag is
- * stored in [BatonPreferences.lastSeenChangelogVersion].
+ * stored in [KaavalanPreferences.lastSeenChangelogVersion].
  */
 @HiltViewModel
 class ChangelogViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val preferences: BatonPreferences,
+    private val preferences: KaavalanPreferences,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ChangelogState())

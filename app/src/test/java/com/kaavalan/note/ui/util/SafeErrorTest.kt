@@ -43,7 +43,7 @@ class SafeErrorTest {
         // leak via the default branch. The v2.0 default branch
         // returns the caller's `default` verbatim — there is no
         // way for the raw `e.message` to reach the UI.
-        val rawMsg = "leaky-secret-DB-path-/data/data/com.kaavalan.note/databases/baton.db"
+        val rawMsg = "leaky-secret-DB-path-/data/data/com.kaavalan.note/databases/kaavalan-note.db"
         val msg = SafeError.forUser(IllegalStateException(rawMsg), "Safe fallback.")
         assertEquals("Safe fallback.", msg)
         assert(!msg.contains(rawMsg, ignoreCase = true)) { "SafeError leaked message: $msg" }
@@ -61,7 +61,7 @@ class SafeErrorTest {
         // SQLiteException is an IOException subclass — this is
         // the path that fires when the SQLCipher-encrypted Room
         // DB write fails (e.g. disk full).
-        val e = java.io.FileNotFoundException("/data/data/com.kaavalan.note/databases/baton.db")
+        val e = java.io.FileNotFoundException("/data/data/com.kaavalan.note/databases/kaavalan-note.db")
         val msg = SafeError.forUser(e, "ignored")
         assertEquals("Local storage error. Check available space.", msg)
     }
@@ -93,7 +93,7 @@ class SafeErrorTest {
 
     @Test
     fun `forUserSave never leaks e_message`() {
-        val rawMsg = "leaky-secret-DB-path-/data/data/com.kaavalan.note/databases/baton.db"
+        val rawMsg = "leaky-secret-DB-path-/data/data/com.kaavalan.note/databases/kaavalan-note.db"
         val msg = SafeError.forUserSave(IllegalStateException(rawMsg), "Safe save fallback.")
         assertEquals("Safe save fallback.", msg)
         assert(!msg.contains(rawMsg, ignoreCase = true)) { "SafeError leaked message: $msg" }

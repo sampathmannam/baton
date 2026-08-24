@@ -68,6 +68,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
 import com.kaavalan.note.data.preferences.ThemeMode
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.tags.Tag
 import com.kaavalan.note.data.tags.TagKind
 import com.kaavalan.note.data.vault.VaultMode
@@ -568,7 +569,7 @@ fun SettingsSheet(
             // v2.0 (Tier 1.4): the theme switcher. A segmented
             // button row that maps `ThemeMode` to the user's
             // choice (System / Light / Dark). The selection
-            // persists via [BatonPreferences.setThemeMode] and
+            // persists via [KaavalanPreferences.setThemeMode] and
             // the root composable observes the same flow.
             Text(
                 text = stringResource(R.string.settings_theme),

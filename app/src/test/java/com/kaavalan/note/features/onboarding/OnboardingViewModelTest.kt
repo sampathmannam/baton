@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.kaavalan.note.data.local.AppDatabase
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import java.io.File
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -37,7 +37,7 @@ class OnboardingViewModelTest {
 
     private lateinit var ctx: Context
     private lateinit var db: AppDatabase
-    private lateinit var prefs: BatonPreferences
+    private lateinit var prefs: KaavalanPreferences
 
     @Before
     fun setUp() {
@@ -45,12 +45,12 @@ class OnboardingViewModelTest {
         // Wipe the DataStore file so the hasSeenOnboarding
         // assertion in `finish flips flag to true` starts
         // from the default (false) value.
-        val file = File(ctx.filesDir, "datastore/baton-prefs.preferences_pb")
+        val file = File(ctx.filesDir, "datastore/kaavalan-note-prefs.preferences_pb")
         if (file.exists()) file.delete()
         db = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        prefs = BatonPreferences(ctx)
+        prefs = KaavalanPreferences(ctx)
         ShadowLooper.idleMainLooper()
     }
 

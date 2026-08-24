@@ -50,10 +50,10 @@ class CrashLogTest {
         assertTrue("crash file should exist", report!!.file.exists())
         val content = report.file.readText()
         // v2.1.0+ format: the rendered log has a
-        // `# Baton crash log` header line.
+        // `# Kaavalan note crash log` header line.
         assertTrue(
-            "crash file should start with the Baton header",
-            content.startsWith("# Baton crash log"),
+            "crash file should start with the Kaavalan note header",
+            content.startsWith("# Kaavalan note crash log"),
         )
         // The synthetic exception message is in the
         // stack-trace section.
@@ -97,7 +97,7 @@ class CrashLogTest {
     @Test
     fun `redactPii scrubs email addresses from a rendered log`() {
         val input = """
-            # Baton crash log
+            # Kaavalan note crash log
             timestamp=2026-08-24T20:00:00+05:30
             # Stack trace
             java.lang.IllegalStateException: failed to send invite to

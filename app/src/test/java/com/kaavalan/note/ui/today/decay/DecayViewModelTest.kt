@@ -194,7 +194,7 @@ class DecayViewModelTest {
             personDao = personDao,
             touchOnActivity = mockk(relaxed = true),
             undoController = undoController,
-            // v1.9.6: pass a relaxed BatonPreferences mock. The
+            // v1.9.6: pass a relaxed KaavalanPreferences mock. The
             // markRecent() call also dispatches
             // setDecayGestureHintShown(); the relaxed mock makes
             // the suspend call a safe no-op.
@@ -240,7 +240,7 @@ class DecayViewModelTest {
             personDao = personDao,
             touchOnActivity = mockk(relaxed = true),
             undoController = undoController,
-            // v1.9.6: relaxed BatonPreferences mock. See
+            // v1.9.6: relaxed KaavalanPreferences mock. See
             // `markRecent calls touch...` above.
             preferences = mockk(relaxed = true),
         )
@@ -271,7 +271,7 @@ class DecayViewModelTest {
         personDao = personDao,
         touchOnActivity = mockk<TouchPersonOnActivity>(relaxed = true),
         undoController = mockk<com.kaavalan.note.data.undo.UndoController>(relaxed = true),
-        // v1.9.6: relaxed BatonPreferences mock. The
+        // v1.9.6: relaxed KaavalanPreferences mock. The
         // `gestureHintVisible` flow is a `combine(state,
         // preferences.decayGestureHintShown)`; the relaxed
         // mock's Flow property stays empty, so the
@@ -279,7 +279,7 @@ class DecayViewModelTest {
         // stays at its initialValue = false. That matches
         // the "fresh install" contract these tests want to
         // assert (no gesture hint, no preference).
-        preferences = mockk<com.kaavalan.note.data.preferences.BatonPreferences>(relaxed = true),
+        preferences = mockk<com.kaavalan.note.data.preferences.KaavalanPreferences>(relaxed = true),
     )
 
     private fun seedPerson(

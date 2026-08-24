@@ -83,7 +83,7 @@ class SettingsVaultPinTest {
             tagDao = mockk<TagDao>(relaxed = true),
             vaultModeHolder = vaultModeHolder,
             securePreferences = securePreferences,
-            preferences = mockk<com.kaavalan.note.data.preferences.BatonPreferences>(relaxed = true),
+            preferences = mockk<com.kaavalan.note.data.preferences.KaavalanPreferences>(relaxed = true),
             plainExporter = mockk<com.kaavalan.note.data.export.PlainExporter>(relaxed = true),
             // v2.0.1: the importer is the inverse of the
             // exporter. The vault-pin tests don't touch

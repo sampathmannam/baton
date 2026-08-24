@@ -22,9 +22,9 @@ import java.io.File
  * displays "X.X MB on this phone" alongside the existing
  * people/instructions/tags counts. The size is the sum of:
  *
- *  - `getDatabasePath("baton.db")` (the SQLCipher Room DB)
- *  - the WAL companion (`baton.db-wal`)
- *  - the SHM companion (`baton.db-shm`)
+ *  - `getDatabasePath("kaavalan-note.db")` (the SQLCipher Room DB)
+ *  - the WAL companion (`kaavalan-note.db-wal`)
+ *  - the SHM companion (`kaavalan-note.db-shm`)
  *  - every file under `filesDir/captures/`
  *
  * **What we test:**

@@ -23,7 +23,7 @@ import java.util.UUID
 
 /**
  * Tier 1.1 (v2.0): the on-device end-to-end round-trip
- * for the .baton-vault backup. This test runs on a real
+ * for the .kaavalan-note-vault backup. This test runs on a real
  * device or emulator (androidTest) so the Argon2id native
  * library (`libargon2jni.so`) is on the classpath.
  *
@@ -66,7 +66,7 @@ class VaultEndToEndTest {
         db = androidx.room.Room.databaseBuilder(ctx, AppDatabase::class.java, AppDatabase.NAME)
             .allowMainThreadQueries()
             .build()
-        tempFile = File.createTempFile("vault-e2e-", ".baton-vault", ctx.cacheDir)
+        tempFile = File.createTempFile("vault-e2e-", ".kaavalan-note-vault", ctx.cacheDir)
         tempFile.delete()
     }
 

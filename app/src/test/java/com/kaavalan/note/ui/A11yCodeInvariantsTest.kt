@@ -36,7 +36,7 @@ class A11yCodeInvariantsTest {
     fun `no IconButton or clickable Image without contentDescription or sibling Text`() {
         val uiRoot = File("src/main/java/com/kaavalan/note")
         require(uiRoot.isDirectory) {
-            "Test must run from the baton repo root; got ${uiRoot.absolutePath}"
+            "Test must run from the kaavalan-note repo root; got ${uiRoot.absolutePath}"
         }
         val ktFiles = uiRoot.walkTopDown()
             .filter { it.isFile && it.extension == "kt" }

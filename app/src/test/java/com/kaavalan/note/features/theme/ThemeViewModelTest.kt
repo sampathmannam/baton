@@ -1,7 +1,7 @@
 package com.kaavalan.note.features.theme
 
 import androidx.test.core.app.ApplicationProvider
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.preferences.ThemeMode
 import java.io.File
 import kotlinx.coroutines.runBlocking
@@ -19,7 +19,7 @@ import org.robolectric.shadows.ShadowLooper
  * Tier 1.4 (v2.0): the theme switcher ViewModel.
  *
  * The VM's [themeMode] is a `stateIn` over
- * [BatonPreferences.themeMode] (a DataStore Preferences
+ * [KaavalanPreferences.themeMode] (a DataStore Preferences
  * `Flow<ThemeMode>`). Setting a new mode via
  * `vm.setThemeMode(...)` calls
  * `preferences.setThemeMode(...)` which is a `suspend` call
@@ -47,7 +47,7 @@ class ThemeViewModelTest {
         // default (System) value. Without this, the second
         // test sees the value the first one wrote.
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val file = File(ctx.filesDir, "datastore/baton-prefs.preferences_pb")
+        val file = File(ctx.filesDir, "datastore/kaavalan-note-prefs.preferences_pb")
         if (file.exists()) file.delete()
         // v2.0.0 (test isolation): the pre-v1.9.11 version of
         // this test was flaky (1-in-8 failed with "expected
@@ -73,7 +73,7 @@ class ThemeViewModelTest {
     @Test
     fun `initial theme mode is System`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val prefs = BatonPreferences(ctx)
+        val prefs = KaavalanPreferences(ctx)
         ShadowLooper.idleMainLooper()
         // The VM's stateIn starts eagerly and reads from
         // DataStore. Idle the looper so the first read fires.
@@ -85,7 +85,7 @@ class ThemeViewModelTest {
     @Test
     fun `setThemeMode to Light propagates to the StateFlow`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val prefs = BatonPreferences(ctx)
+        val prefs = KaavalanPreferences(ctx)
         val vm = ThemeViewModel(prefs)
         repeat(3) { ShadowLooper.idleMainLooper() }
         runBlocking { prefs.setThemeMode(ThemeMode.Light) }
@@ -102,7 +102,7 @@ class ThemeViewModelTest {
     @Test
     fun `setThemeMode to Dark propagates to the StateFlow`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val prefs = BatonPreferences(ctx)
+        val prefs = KaavalanPreferences(ctx)
         val vm = ThemeViewModel(prefs)
         repeat(3) { ShadowLooper.idleMainLooper() }
         runBlocking { prefs.setThemeMode(ThemeMode.Dark) }
@@ -115,7 +115,7 @@ class ThemeViewModelTest {
     @Test
     fun `setThemeMode to Light then to Dark - the second value wins`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val prefs = BatonPreferences(ctx)
+        val prefs = KaavalanPreferences(ctx)
         val vm = ThemeViewModel(prefs)
         repeat(3) { ShadowLooper.idleMainLooper() }
         runBlocking { prefs.setThemeMode(ThemeMode.Light) }

@@ -8,7 +8,7 @@ import com.kaavalan.note.data.local.InstructionDao
 import com.kaavalan.note.data.local.PersonDao
 import com.kaavalan.note.data.local.SyncConflictDao
 import com.kaavalan.note.data.local.TagDao
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.tags.RoomTagRepository
 import com.kaavalan.note.data.vault.VaultModeHolder
 import io.mockk.coEvery
@@ -72,7 +72,7 @@ class SettingsViewModelTest {
             tagDao = mockk<TagDao>(relaxed = true),
             vaultModeHolder = mockk<VaultModeHolder>(relaxed = true),
             securePreferences = mockk<SecurePreferences>(relaxed = true),
-            preferences = mockk<BatonPreferences>(relaxed = true),
+            preferences = mockk<KaavalanPreferences>(relaxed = true),
             plainExporter = mockk<PlainExporter>(relaxed = true),
             // v2.0.1: the importer is the inverse of the
             // exporter. The existing tests don't exercise

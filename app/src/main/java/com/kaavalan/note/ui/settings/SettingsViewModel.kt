@@ -14,7 +14,7 @@ import com.kaavalan.note.data.backup.DriveBackupManager
 
 import com.kaavalan.note.data.local.AppDatabase
 
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 
 import com.kaavalan.note.data.preferences.ThemeMode
 
@@ -205,7 +205,7 @@ class SettingsViewModel @Inject constructor(
 
     private val securePreferences: SecurePreferences,
 
-    private val preferences: BatonPreferences,
+    private val preferences: KaavalanPreferences,
 
     private val plainExporter: PlainExporter,
     // v2.0.1 (PM rating): the importer is the inverse of
@@ -1133,7 +1133,7 @@ class SettingsViewModel @Inject constructor(
      * button that mirrors the value. The
 
 
-     * [BatonPreferences.setThemeMode] call persists to
+     * [KaavalanPreferences.setThemeMode] call persists to
 
 
      * DataStore; the root composable reads the same flow so

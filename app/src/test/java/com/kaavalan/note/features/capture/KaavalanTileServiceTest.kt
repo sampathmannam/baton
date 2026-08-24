@@ -9,7 +9,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Tier 0.2: unit tests for [BatonTileService].
+ * Tier 0.2: unit tests for [KaavalanTileService].
  *
  * **What we test without an emulator:**
  *  - The ACTION_QUICK_CAPTURE deep-link constant the tile
@@ -32,7 +32,7 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
-class BatonTileServiceTest {
+class KaavalanTileServiceTest {
 
     @Test
     fun `tile fires the same QUICK_CAPTURE action as the widget`() {
@@ -41,23 +41,23 @@ class BatonTileServiceTest {
         // break the deep link.
         assertEquals(
             "com.kaavalan.note.action.QUICK_CAPTURE",
-            BatonCaptureWidget.ACTION_QUICK_CAPTURE,
+            KaavalanCaptureWidget.ACTION_QUICK_CAPTURE,
         )
     }
 
     @Test
     fun `tile service is package-consistent with the manifest`() {
         // The manifest declares
-        // `.features.capture.BatonTileService`. The FQN
+        // `.features.capture.KaavalanTileService`. The FQN
         // resolves to the class below; if the package moves,
         // the manifest must follow.
-        val tileClass = BatonTileService::class.java
+        val tileClass = KaavalanTileService::class.java
         assertEquals(
             "com.kaavalan.note.features.capture",
             tileClass.`package`?.name ?: "",
         )
         assertEquals(
-            "com.kaavalan.note.features.capture.BatonTileService",
+            "com.kaavalan.note.features.capture.KaavalanTileService",
             tileClass.name,
         )
     }
@@ -70,7 +70,7 @@ class BatonTileServiceTest {
         // assert the service is alive and the manifest is
         // wired correctly.
         val controller = org.robolectric.Robolectric
-            .buildService(BatonTileService::class.java)
+            .buildService(KaavalanTileService::class.java)
         val service = controller.get()
         assertNotNull(service)
         controller.create().startCommand(0, 0).get()

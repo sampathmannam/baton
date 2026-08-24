@@ -13,7 +13,7 @@ import org.robolectric.annotation.Config
  * by `hilt-android-testing`, itself a `@HiltAndroidApp` class) as the
  * Robolectric application — Hilt forbids two `@HiltAndroidApp` roots in the
  * same variant, so we cannot ship a project-local TestApp alongside
- * BatonApplication. The assertion exercises the Robolectric + Hilt
+ * KaavalanApplication. The assertion exercises the Robolectric + Hilt
  * application plumbing; it would fail at the Hilt KSP step if the Hilt
  * plugin weren't applied correctly.
  */

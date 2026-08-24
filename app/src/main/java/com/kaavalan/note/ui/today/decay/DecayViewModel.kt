@@ -8,7 +8,7 @@ import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.person.TierCadence
 import com.kaavalan.note.data.person.toDomain
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.undo.UndoController
 import com.kaavalan.note.data.undo.UndoableAction
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,7 +41,7 @@ class DecayViewModel @Inject constructor(
     private val personDao: PersonDao,
     private val touchOnActivity: TouchPersonOnActivity,
     private val undoController: UndoController,
-    private val preferences: BatonPreferences,
+    private val preferences: KaavalanPreferences,
 ) : ViewModel() {
 
     private val _filterDays = MutableStateFlow(DEFAULT_FILTER_DAYS)

@@ -129,7 +129,7 @@ class AccessibilityContentDescriptionTest {
      * through `Context.getString()`: the latter requires Android
      * resources to be packaged into the test classpath
      * (`testOptions.unitTests.isIncludeAndroidResources = true`),
-     * which in turn forces the production [com.kaavalan.note.BatonApplication]
+     * which in turn forces the production [com.kaavalan.note.KaavalanApplication]
      * to be instantiated, and that fails the unrelated
      * SecurePreferences initialiser under Robolectric (no
      * AndroidKeyStore). Keeping the test pure-JVM means the

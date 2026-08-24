@@ -1,7 +1,7 @@
 package com.kaavalan.note.features.changelog
 
 import androidx.test.core.app.ApplicationProvider
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -23,7 +23,7 @@ import org.robolectric.annotation.Config
  * pieces in isolation:
  *
  *  1. [ChangelogEntry.fromJson] — the JSON parser
- *  2. `BatonPreferences.setChangelogSeenAtVersion` / read
+ *  2. `KaavalanPreferences.setChangelogSeenAtVersion` / read
  *     round-trip — the preference flow
  *  3. The bundled `changelog.json` has the current build's
  *     code (sanity check that the JSON is in sync with the
@@ -38,7 +38,7 @@ import org.robolectric.annotation.Config
 class ChangelogViewModelTest {
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-    private val preferences = BatonPreferences(context)
+    private val preferences = KaavalanPreferences(context)
 
     @Before
     fun setUp() {

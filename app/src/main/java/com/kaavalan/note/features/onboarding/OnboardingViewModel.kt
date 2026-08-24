@@ -8,7 +8,7 @@ import com.kaavalan.note.data.local.entities.InstructionTagCrossRef
 import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
 import com.kaavalan.note.data.local.entities.TagEntity
-import com.kaavalan.note.data.preferences.BatonPreferences
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.tags.TagKind
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val db: AppDatabase,
-    private val preferences: BatonPreferences,
+    private val preferences: KaavalanPreferences,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(OnboardingUiState())

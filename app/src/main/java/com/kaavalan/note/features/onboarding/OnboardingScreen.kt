@@ -65,7 +65,7 @@ import kotlinx.coroutines.launch
  *     toggle.
  *
  * The host ([com.kaavalan.note.MainScaffold]) reads the
- * `hasSeenOnboarding` flow in [BatonPreferences] and only
+ * `hasSeenOnboarding` flow in [KaavalanPreferences] and only
  * shows this screen on the first run.
  */
 @OptIn(ExperimentalMaterial3Api::class)

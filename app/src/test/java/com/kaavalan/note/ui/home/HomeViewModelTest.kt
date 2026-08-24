@@ -172,7 +172,7 @@ class HomeViewModelTest {
      */
     @Test
     fun `BEAU-NEW-01 Flow catch does not leak underlying throwable text`() = runTest(testDispatcher) {
-        val secret = "leaky-secret-DB-path-/data/data/com.kaavalan.note/databases/baton.db"
+        val secret = "leaky-secret-DB-path-/data/data/com.kaavalan.note/databases/kaavalan-note.db"
 
         every { repo.observeAllInMode("visible") } returns flow<List<Person>> {
             emit(emptyList())
@@ -189,7 +189,7 @@ class HomeViewModelTest {
             val msg = saw.message
             assertFalse("secret leaked: $msg", msg.contains(secret, ignoreCase = true))
             assertFalse("path leaked: $msg", msg.contains("/data/data", ignoreCase = true))
-            assertFalse("baton.db leaked: $msg", msg.contains("baton.db", ignoreCase = true))
+            assertFalse("kaavalan-note.db leaked: $msg", msg.contains("kaavalan-note.db", ignoreCase = true))
             assertTrue("user-facing message should be present", msg.isNotBlank())
             cancelAndIgnoreRemainingEvents()
         }
