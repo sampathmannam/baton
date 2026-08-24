@@ -266,8 +266,20 @@ android {
         // open the main app) so a quick note takes 2 taps +
         // typing, not 3+ taps. No public-API or schema changes.
         // versionCode 39 -> 40.
-        versionCode = 40
-        versionName = "1.9.10"
+        // v1.9.11: closes the rest of the v1.9.8 audit's
+        // deferral table. A2 (recovery-phrase contract test),
+        // A3 (connected-device androidTest CI), A7 (40 MB
+        // debug-APK budget + CI guard), A8 (a11y code-level
+        // invariants + manual checklist), A9 (Changelog screen
+        // — accessible from Settings, NOT a launch-time modal
+        // per the v1.6.0 design rule), Obs-3 mlock (custom
+        // SQLCipher preKey hook silences the 31 keying-phase
+        // warnings). Plus the Quick Note widget grew resizable:
+        // 2x2 / 4x2 / 4x4 with progressive disclosure (count +
+        // recent list). No public-API or schema changes.
+        // versionCode 40 -> 41.
+        versionCode = 41
+        versionName = "1.9.11"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

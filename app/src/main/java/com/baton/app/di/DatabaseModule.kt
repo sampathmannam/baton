@@ -26,6 +26,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import com.baton.app.data.local.SqlCipherMemorySecurityHook
 import javax.inject.Singleton
 
 /**
@@ -84,7 +85,20 @@ object DatabaseModule {
         securePreferences: SecurePreferences,
     ): AppDatabase {
         val passphrase = securePreferences.databasePassphrase()
-        val factory = SupportOpenHelperFactory(passphrase)
+        // v1.9.11 (Obs-3): the [SqlCipherMemorySecurityHook]
+        // sets `PRAGMA cipher_memory_security = OFF` in
+        // [SQLiteDatabaseHook.preKey], which fires BEFORE
+        // the keying phase. The v1.4.3 on-open fix (see
+        // [onOpenPragmaCallback]) set the same pragma but
+        // too late — by the time `onOpen` runs, the
+        // keying-phase mlock attempts have already fired
+        // (and failed with ENOMEM=12). This hook closes
+        // the gap. The 3-arg constructor accepts the hook.
+        val factory = SupportOpenHelperFactory(
+            passphrase,
+            SqlCipherMemorySecurityHook(),
+            false, // enableWriteAheadLogging = false (existing config)
+        )
         // Zero the passphrase bytes after handing them to SQLCipher.
         // SQLCipher has already copied what it needs internally.
         passphrase.fill(0)
