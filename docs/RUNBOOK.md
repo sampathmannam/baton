@@ -67,6 +67,19 @@ the on-device encrypted backup, not a server.
    most common cause is a custom ROM that stripped the
    SQLCipher AAR. Reinstall the APK from the official source
    (GitHub Releases) and verify the SHA-256 fingerprint.
+5. **If you can't reach Settings** (the crash is on first
+   launch, before the bottom sheet renders), the recovery
+   is harder. The DB open failure happens in
+   `DatabaseModule.provideDatabase`. The `AppInitializer`
+   catches the lib-load failure (UnsatisfiedLinkError) but
+   NOT the runtime open failure (a wrong-passphrase or
+   corrupt file). The v2.0.1 fix-path is: a `recovery`
+   build-type in v2.0.2 will ship a "Database corrupt — wipe
+   and start fresh" prompt on first launch. Until then,
+   uninstall and reinstall from the GitHub Release APK
+   (the SQLCipher-encrypted DB is in
+   `/data/data/com.baton.app/databases/baton.db` and is
+   destroyed on uninstall).
 
 ---
 
