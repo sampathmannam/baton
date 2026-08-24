@@ -135,10 +135,41 @@ object RecoveryPdfGenerator {
 
         pdf.finishPage(page)
 
-        val outFile = File(File(context.cacheDir, "recovery"), "baton-recovery-${System.currentTimeMillis()}.pdf")
+        val recoveryDir = File(context.cacheDir, "recovery")
+        // v2.1.1 (security): auto-clean any old PDFs
+        // in the recovery directory before writing the
+        // new one. The recovery phrase IS the secret
+        // — leaving the PDF on disk after the user has
+        // shared it is a PII-at-rest risk. Android
+        // may purge `cacheDir` on low storage, but
+        // that doesn't run on a healthy device; we
+        // delete here as a defence-in-depth. Any
+        // PDF older than 5 minutes is stale.
+        pruneOld(recoveryDir, olderThanMs = 5 * 60 * 1000L)
+
+        val outFile = File(recoveryDir, "baton-recovery-${System.currentTimeMillis()}.pdf")
         FileOutputStream(outFile).use { pdf.writeTo(it) }
         pdf.close()
         return outFile
+    }
+
+    /**
+     * v2.1.1 (security): delete any PDF in [dir] older
+     * than [olderThanMs]. Called at the start of
+     * [generate] so the directory doesn't accumulate
+     * stale recovery sheets. The function is a no-op
+     * if the directory doesn't exist (first-ever
+     * generate on a fresh install).
+     */
+    private fun pruneOld(dir: File, olderThanMs: Long) {
+        if (!dir.exists()) return
+        val now = System.currentTimeMillis()
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile && f.name.endsWith(".pdf") &&
+                (now - f.lastModified()) > olderThanMs) {
+                runCatching { f.delete() }
+            }
+        }
     }
 
     private const val PAGE_WIDTH = 595   // A4 @ 72 dpi

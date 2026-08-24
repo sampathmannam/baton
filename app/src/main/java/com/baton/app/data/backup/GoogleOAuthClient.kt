@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
+import com.baton.app.BuildConfig
 import com.baton.app.data.auth.SecurePreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
@@ -359,14 +360,22 @@ class GoogleOAuthClient @Inject constructor(
         securePreferences.getGoogleRefreshToken() != null
 
     companion object {
-        // v2.1.0: placeholders. Replace with the real
-        // Google Cloud Console OAuth 2.0 client ID +
-        // redirect URI before shipping. The redirect
-        // scheme is `baton` and the host is
-        // `oauth-callback` — both are declared in the
-        // AndroidManifest as an intent filter on
+        // v2.1.1 (security): the client ID + redirect URI
+        // are read from `BuildConfig` (which is populated
+        // by `app/build.gradle.kts` from `local.properties`
+        // or a Gradle project property). The v2.1.0
+        // hard-coded placeholders failed the token
+        // exchange with `400 invalid_client` because
+        // Google rejects unknown client IDs. The user
+        // sets `BATON_GOOGLE_OAUTH_CLIENT_ID` in
+        // `local.properties` before shipping to the
+        // Play Store.
+        //
+        // The redirect scheme is `baton` and the host
+        // is `oauth-callback` — both are declared in
+        // the AndroidManifest as an intent filter on
         // [com.baton.app.features.auth.OAuthCallbackActivity].
-        const val CLIENT_ID = "BATON_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER"
-        const val REDIRECT_URI = "baton://oauth-callback"
+        val CLIENT_ID: String = BuildConfig.BATON_GOOGLE_OAUTH_CLIENT_ID
+        val REDIRECT_URI: String = BuildConfig.BATON_GOOGLE_OAUTH_REDIRECT_URI
     }
 }

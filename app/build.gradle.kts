@@ -309,7 +309,39 @@ android {
             "BRAND_ICON",
             "\"${project.findProperty("brand.icon") ?: "ic_launcher"}\"",
         )
-    }
+        // v2.1.1 (security): the Google OAuth 2.0 client
+        // ID. The v2.1.0/v2.1.1 code shipped a
+        // placeholder ("BATON_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER")
+        // hard-coded in
+        // [com.baton.app.data.backup.GoogleOAuthClient].
+        // The placeholder fails Google's token exchange
+        // with `400 invalid_client`; the user must set
+        // a real client ID from the Google Cloud Console
+        // before shipping to the Play Store.
+        //
+        // The real client ID is read from `local.properties`
+        // (gitignored) at build time, with a Gradle project
+        // property override for CI. The default is the
+        // v2.1.0 placeholder so an out-of-the-box
+        // `./gradlew assembleDebug` still compiles.
+        buildConfigField(
+            "String",
+            "BATON_GOOGLE_OAUTH_CLIENT_ID",
+            "\"" + (
+                (project.findProperty("baton.googleOauthClientId") as? String)
+                    ?: (localProps.getProperty("BATON_GOOGLE_OAUTH_CLIENT_ID"))
+                    ?: "BATON_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER"
+            ) + "\"",
+        )
+        buildConfigField(
+            "String",
+            "BATON_GOOGLE_OAUTH_REDIRECT_URI",
+            "\"" + (
+                (project.findProperty("baton.googleOauthRedirectUri") as? String)
+                    ?: (localProps.getProperty("BATON_GOOGLE_OAUTH_REDIRECT_URI"))
+                    ?: "baton://oauth-callback"
+            ) + "\"",
+        )
 
     signingConfigs {
         // v1.3 (F-CRIT-03): proper production keystore. Generated
