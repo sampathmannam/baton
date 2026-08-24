@@ -1,4 +1,4 @@
-package com.kaavalan.note.data.instructions
+package com.baton.app.data.instructions
 
 object MentionAndTagParser {
     data class Token(val kind: Kind, val text: String, val start: Int, val end: Int) { enum class Kind { AT_MENTION, HASHTAG } }
@@ -14,7 +14,8 @@ object MentionAndTagParser {
             if (c == '@' || c == '#') {
                 if (i == 0 || body[i - 1].isWhitespace()) {
                     val end = scanToken(body, i + 1)
-                    val raw = body.substring(i, end).trimEnd { it in TRAILING_PUNCTUATION }
+                    val rawWithPunct = body.substring(i, end)
+                    val raw = rawWithPunct.trimEnd { it in TRAILING_PUNCTUATION }
                     if (raw.length > 1) {
                         if (c == '@') { tokens.add(Token(Token.Kind.AT_MENTION, raw, i, i + raw.length)); val mention = classifyMention(raw); if (seenMentions.add(raw.lowercase())) mentions.add(mention) }
                         else { tokens.add(Token(Token.Kind.HASHTAG, raw, i, i + raw.length)); val tag = raw.substring(1).lowercase(); if (seenHashtags.add(tag)) hashtags.add(tag) }

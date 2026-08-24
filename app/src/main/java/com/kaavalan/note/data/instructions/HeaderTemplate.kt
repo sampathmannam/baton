@@ -1,4 +1,4 @@
-package com.kaavalan.note.data.instructions
+package com.baton.app.data.instructions
 
 import java.time.Instant
 import java.time.ZoneId

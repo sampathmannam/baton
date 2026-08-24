@@ -1,4 +1,4 @@
-package com.kaavalan.note.data.instructions
+package com.baton.app.data.instructions
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -11,6 +11,7 @@ sealed interface AudienceRef {
     @Serializable @SerialName("STATION") data class ByStation(val station: String, override val label: String) : AudienceRef
     @Serializable @SerialName("ALL") data class ByAll(val scope: String, override val label: String) : AudienceRef
 }
+
 val AudienceRef.kind: String get() = when (this) { is AudienceRef.ByPerson -> "PERSON"; is AudienceRef.ByDesignation -> "DESIGNATION"; is AudienceRef.ByStation -> "STATION"; is AudienceRef.ByAll -> "ALL" }
 val AudienceRef.target: String get() = when (this) { is AudienceRef.ByPerson -> personId; is AudienceRef.ByDesignation -> designation; is AudienceRef.ByStation -> station; is AudienceRef.ByAll -> scope }
 val AudienceRef.isBroadcast: Boolean get() = when (this) { is AudienceRef.ByPerson -> false; is AudienceRef.ByDesignation -> true; is AudienceRef.ByStation -> true; is AudienceRef.ByAll -> true }

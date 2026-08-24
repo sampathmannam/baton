@@ -1,11 +1,11 @@
-package com.kaavalan.note.data.instructions
+package com.baton.app.data.instructions
 
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import com.kaavalan.note.data.local.DeliveryReceiptDao
-import com.kaavalan.note.data.local.entities.DeliveryReceiptEntity
-import com.kaavalan.note.data.person.Person
+import com.baton.app.data.local.DeliveryReceiptDao
+import com.baton.app.data.local.entities.DeliveryReceiptEntity
+import com.baton.app.data.person.Person
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import javax.inject.Inject

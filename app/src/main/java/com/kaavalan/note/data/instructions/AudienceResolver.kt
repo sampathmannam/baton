@@ -1,6 +1,6 @@
-package com.kaavalan.note.data.instructions
+package com.baton.app.data.instructions
 
-import com.kaavalan.note.data.person.Person
+import com.baton.app.data.person.Person
 
 object AudienceResolver {
     fun resolve(audience: AudienceRef, roster: RosterPicker): List<Person> = when (audience) {

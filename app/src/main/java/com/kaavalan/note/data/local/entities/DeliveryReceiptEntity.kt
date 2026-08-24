@@ -1,4 +1,4 @@
-package com.kaavalan.note.data.local.entities
+package com.baton.app.data.local.entities
 
 import androidx.room.Entity
 import androidx.room.Index

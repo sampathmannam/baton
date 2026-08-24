@@ -1,7 +1,7 @@
-package com.kaavalan.note.data.instructions
+package com.baton.app.data.instructions
 
-import com.kaavalan.note.data.local.entities.DeliveryReceiptEntity
-import com.kaavalan.note.data.local.entities.SyncStatus
+import com.baton.app.data.local.entities.DeliveryReceiptEntity
+import com.baton.app.data.local.entities.SyncStatus
 import java.time.Instant
 import java.util.UUID
 
