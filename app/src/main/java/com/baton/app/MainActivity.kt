@@ -391,6 +391,13 @@ private fun MainScaffold(
                         onClose = { navController.popBackStack() },
                     )
                 }
+                // v2.0.2 (PM rating): the About screen.
+                // Reachable from Settings → Privacy → About.
+                composable(Routes.ABOUT) {
+                    com.baton.app.features.about.AboutScreen(
+                        onClose = { navController.popBackStack() },
+                    )
+                }
                 // v1.8.0 (PROD-READINESS-P2-#2): the
                 // sync-conflict list screen. Reachable
                 // from Settings → Sync conflicts. The
@@ -458,6 +465,15 @@ private fun MainScaffold(
             onOpenAuditLog = {
                 showSettings = false
                 navController.navigate(Routes.AUDIT_LOG)
+            },
+            // v2.0.2 (PM rating): the About screen is
+            // reachable from Settings. The version is
+            // already in the storage card; this is the
+            // canonical build-info + privacy-posture
+            // surface.
+            onOpenAbout = {
+                showSettings = false
+                navController.navigate(Routes.ABOUT)
             },
             // v2.0.0: onOpenSyncConflicts removed — the sync
             // queue is a no-op stub (no cloud). The Settings
@@ -700,6 +716,10 @@ object Routes {
     // chain has been writing rows since v1.8.0; v2.0
     // surfaces them.
     const val AUDIT_LOG = "privacy/audit-log"
+    // v2.0.2 (PM rating): the About screen. Reachable
+    // from Settings → Privacy → About. Build info,
+    // privacy posture, source repo.
+    const val ABOUT = "about"
     // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
     // routes. The list screen is reachable from
     // Settings; the diff screen is pushed when a

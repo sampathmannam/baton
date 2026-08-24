@@ -1,6 +1,21 @@
 {
   "changelog": [
     {
+      "version": "2.0.1",
+      "code": 43,
+      "date": "2026-08-24",
+      "highlights": [
+        "Settings → Privacy → Audit log: lists recent entries and runs the SHA-256 chain verifier on demand.",
+        "Settings → Import: round-trip a v1.x CSV/JSON export back into the local DB. Re-importing is idempotent.",
+        "RetentionWorker firing test pins the daily retention contract (old rows deleted/redacted, recent survive).",
+        "BackupManager restore e2e test pins the export → wipe → restore round-trip.",
+        "Bug fix: Hilt 'HttpClient' MissingBinding that would have crashed the in-app 'Check for updates' (latent in v1.9.x).",
+        "Threat model rewritten to document the local-only architecture and the ML Kit OCR third-party surface.",
+        "Operations runbook: recovery flows for 'data is gone', 'app crashes on launch', 'I forgot my vault PIN', and migration from v1.x.",
+        "500 unit tests pass; :app:assembleDebug builds clean."
+      ]
+    },
+    {
       "version": "2.0.0",
       "code": 42,
       "date": "2026-08-24",
