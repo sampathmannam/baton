@@ -245,8 +245,18 @@ android {
         // (was 5 in v1.9.4). Bugfix release;
         // no public-API or schema changes.
         // versionCode 36 -> 37.
-        versionCode = 38
-        versionName = "1.9.6"
+        // v1.9.7: "polish" pass (a11y, drive label, onboarding).
+        // v1.9.8: honest production & enterprise gap analysis
+        // (docs only — no code change).
+        // v1.9.9: atomic create() in RoomInstructionRepository
+        // (PROD-READINESS-P0-#2); debug-gated auto-reseed in
+        // AppInitializer (A6 audit fix); one-tap "Report a
+        // problem" mailto in Settings → About that embeds
+        // the most recent crash log in the body (A10 audit
+        // fix). No public-API or schema changes.
+        // versionCode 38 -> 39.
+        versionCode = 39
+        versionName = "1.9.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

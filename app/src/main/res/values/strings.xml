@@ -610,6 +610,18 @@
     <string name="settings_support_email_subject">Baton %1$s support</string>
     <string name="settings_support_email_body">Describe the issue. Attach a screenshot if you can.\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s</string>
     <string name="settings_support_email_cd">Email support</string>
+    <!-- v1.9.9 (A10 audit fix): one-tap problem report. Distinct
+         from the "Support" row (general question) and the conditional
+         "Share crash log" row (file-attachment via system share sheet).
+         This row is always visible, opens the email composer directly
+         via mailto:, and embeds the latest crash log (if any) in the
+         body so the support reply has the stack trace inline. -->
+    <string name="settings_report_problem">Report a problem</string>
+    <string name="settings_report_problem_subtitle">Send a bug report with crash log</string>
+    <string name="settings_report_problem_subject">Baton %1$s problem report</string>
+    <string name="settings_report_problem_body_no_crash">What happened? (steps to reproduce)\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s</string>
+    <string name="settings_report_problem_body_with_crash">What happened? (steps to reproduce)\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s\n\n--- Crash log (most recent) ---\n%5$s</string>
+    <string name="settings_report_problem_cd">Email a bug report</string>
     <string name="settings_rate">Rate Baton</string>
     <string name="settings_rate_cd">Open the Play Store listing for Baton</string>
     <string name="settings_share_app">Share Baton</string>

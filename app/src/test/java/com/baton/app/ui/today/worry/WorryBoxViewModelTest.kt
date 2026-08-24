@@ -148,6 +148,7 @@ class WorryBoxViewModelTest {
         instructionDao = instructionDao,
         captureDao = captureDao,
         roomInstructionRepository = RoomInstructionRepository(
+            db = mockk(relaxed = true),
             dao = instructionDao,
             syncQueueDao = syncQueueDao,
             syncEngine = mockk<SyncEngine>(relaxed = true),

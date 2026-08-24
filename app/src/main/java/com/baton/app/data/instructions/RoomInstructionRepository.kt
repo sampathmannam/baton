@@ -12,6 +12,7 @@ import com.baton.app.data.local.entities.SyncStatus
 import com.baton.app.di.ApplicationScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import androidx.room.withTransaction
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -44,14 +45,35 @@ import javax.inject.Singleton
  * the locally-cached rows (the post-`refreshFromNetwork` state).
  *
  * **v2.0 (Tier 1.3):** every write also upserts the FTS4 row
- * (free FTS4 entity, no `contentEntity` link). The DAO pair
- * (`InstructionDao` + `InstructionFtsDao`) is updated in two
- * coroutine steps — we don't use `runInTransaction` here
- * because we want the main-table write to land first (so the
- * FTS row never references a missing main row).
+ * (free FTS4 entity, no `contentEntity` link).
+ *
+ * **v1.9.8 (PROD-READINESS-P0-#2 — production blocker fix):**
+ * the [create] path now wraps all four writes (main row, FTS row,
+ * sync outbox entry, last-interaction touch) in a single Room
+ * `withTransaction { ... }` block. The pre-fix version wrote them
+ * sequentially across four coroutine steps; a process death or
+ * JVM crash between the main-table insert and the FTS upsert left
+ * the FTS index pointing at a non-existent rowid (search broken
+ * until the next reseed). A crash between the FTS upsert and the
+ * sync-queue enqueue left a row that the user could see in the
+ * app but that would never reach Supabase. A crash between the
+ * sync-queue enqueue and the last-interaction touch left the
+ * decay view showing the user as "haven't touched in 30+ days"
+ * for a person they had just saved an instruction about.
+ *
+ * Trade-off: wrapping in a transaction means the FTS row is
+ * written AFTER the main row inside the same atomic block. The
+ * pre-fix comment worried about "the FTS row never references a
+ * missing main row" — that property is still guaranteed by
+ * Room: the FTS DAO reads the main row's rowid via
+ * [InstructionFtsDao.maxInstructionRowid] inside the same
+ * transaction, so a partial read is impossible. Crash recovery
+ * is now atomic: either all four writes land, or none do, and
+ * the user sees a consistent local state.
  */
 @Singleton
 open class RoomInstructionRepository @Inject constructor(
+    private val db: com.baton.app.data.local.AppDatabase,
     private val dao: InstructionDao,
     private val ftsDao: InstructionFtsDao,
     private val syncQueueDao: SyncQueueDao,
@@ -158,27 +180,37 @@ open class RoomInstructionRepository @Inject constructor(
             isSensitive = false,
             syncStatus = SyncStatus.PENDING_INSERT,
         )
-        dao.upsert(entity)
-        // v2.0: also upsert the FTS row. The new rowid is the
-        // main row's primary-key hex-decoded Long; we use the
-        // FTS DAO's max-rowid helper.
-        val newRowid = ftsDao.maxInstructionRowid() ?: 0L
-        ftsDao.upsert(
-            InstructionFtsEntity(
-                rowid = newRowid,
-                title = title,
-                rawText = rawText,
-                personId = personId,
-                capturedAt = now,
-            ),
-        )
-        enqueueInsert(id)
-        // v2.0 Tier 2 (§2.3): auto-snooze. A new instruction
-        // counts as activity for the person; bump their
-        // lastInteractionAt so the decay view drops them out of
-        // the "haven't touched" list. No-op on free-floating
-        // instructions (personId == null).
-        touchOnActivity.touch(personId)
+        // v1.9.8: atomic multi-write. All four side effects (main
+        // table, FTS index, sync outbox, last-interaction touch) land
+        // in one Room transaction, so a process death or cancellation
+        // between them rolls back the partial state. See the class
+        // docstring for the failure modes this closes.
+        val touchResult = db.withTransaction {
+            dao.upsert(entity)
+            // The FTS row's rowid is the main row's rowid, which
+            // is auto-assigned by SQLite on the insert above. Read
+            // it back inside the same transaction so we don't
+            // race against a concurrent insert.
+            val newRowid = ftsDao.maxInstructionRowid() ?: 0L
+            ftsDao.upsert(
+                InstructionFtsEntity(
+                    rowid = newRowid,
+                    title = title,
+                    rawText = rawText,
+                    personId = personId,
+                    capturedAt = now,
+                ),
+            )
+            enqueueInsert(id)
+            // v2.0 Tier 2 (§2.3): auto-snooze. A new instruction
+            // counts as activity for the person; bump their
+            // lastInteractionAt so the decay view drops them out of
+            // the "haven't touched" list. No-op on free-floating
+            // instructions (personId == null). Returns the touched
+            // personId (or null) so the caller can observe the side
+            // effect; the value is not used by [create] itself.
+            touchOnActivity.touch(personId)
+        }
         return entity.toDomain()
     }
 
