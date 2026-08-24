@@ -1,11 +1,8 @@
 package com.baton.app.data.person
 
-import com.baton.app.BuildConfig
-import com.baton.app.data.supabase.buildSupabaseClient
-import io.github.jan.supabase.SupabaseClient
+import com.baton.app.data.supabase.BatonSupabase
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
-import io.ktor.client.HttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -25,16 +22,17 @@ import kotlinx.serialization.Serializable
  * M2-T8: [findById] is used by the sync engine's last-write-wins
  * conflict check — it reads the server's `updated_at` and compares
  * against the local row before applying an UPDATE.
+ *
+ * **v1.9.10 (Obs-1 fix):** the constructor now takes the shared
+ * [BatonSupabase] singleton instead of building a fresh
+ * `SupabaseClient` in a field initializer. See [BatonSupabase]'s
+ * class docstring for the four-clients-collapsed-into-one rationale.
  */
 class SupabasePersonRepository(
-    httpClient: HttpClient,
+    batonSupabase: BatonSupabase,
 ) {
 
-    private val client: SupabaseClient = buildSupabaseClient(
-        url = BuildConfig.SUPABASE_URL,
-        key = BuildConfig.SUPABASE_ANON_KEY,
-        httpClient = httpClient,
-    )
+    private val client = batonSupabase.client
 
     suspend fun create(
         name: String,

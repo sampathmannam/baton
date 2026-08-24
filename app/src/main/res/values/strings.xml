@@ -679,6 +679,21 @@
     <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery descriptions -->
     <string name="widget_today_description">Tap to open Today. The badge shows the count of open instructions.</string>
     <string name="widget_decay_description">Tap to open Today. The badge shows the count of quiet contacts (60+ days since last interaction).</string>
+
+    <!-- v1.9.10: Quick Note widget (Tier 1.1) — single-tap
+         capture from the home screen. Distinct from the existing
+         BatonCaptureWidget (which opens the main app) — this
+         widget opens a fullscreen entry activity so the user
+         captures without app navigation. -->
+    <string name="quick_note_widget_label">Quick note</string>
+    <string name="quick_note_widget_capture_desc">Open the quick-note entry</string>
+    <string name="quick_note_widget_description">Tap to capture a quick note. Opens a fullscreen entry — no need to open the app.</string>
+    <string name="quick_note_title">Quick note</string>
+    <string name="quick_note_subtitle">Type a short note. It saves to your private on-device database.</string>
+    <string name="quick_note_placeholder">What did you just see or hear?</string>
+    <string name="quick_note_save">Save</string>
+    <string name="quick_note_cancel">Cancel</string>
+    <string name="quick_note_saved_toast">Note saved</string>
 </resources>
 
 

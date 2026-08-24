@@ -178,6 +178,34 @@
                 android:resource="@xml/baton_capture_widget_info" />
         </receiver>
 
+        <!-- v1.9.10: the Quick Note widget (Tier 1.1). A
+             single-tap capture button that opens a fullscreen
+             Compose entry activity (QuickNoteActivity) instead of
+             the main app. The widget itself is stateless in
+             v1.9.10 — it re-renders on save and on the 30-min
+             system tick. The activity is `exported="false"` so
+             only the widget (running as the user) can launch it;
+             the OS cannot launch it from a generic intent. -->
+        <receiver
+            android:name=".features.widget.BatonQuickNoteWidgetReceiver"
+            android:exported="true"
+            android:label="@string/quick_note_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/baton_quick_note_widget_info" />
+        </receiver>
+
+        <activity
+            android:name=".features.widget.QuickNoteActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Baton"
+            android:windowSoftInputMode="adjustResize"
+            android:excludeFromRecents="true"
+            android:noHistory="true" />
+
         <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery expansion.
              The Today widget opens the Today screen and shows a
              small badge with the open-instruction count. The

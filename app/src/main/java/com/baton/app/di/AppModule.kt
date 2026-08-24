@@ -1,6 +1,5 @@
 package com.baton.app.di
 
-import android.content.Context
 import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.captures.CaptureRepository
 import com.baton.app.data.captures.SupabaseCaptureRepository
@@ -8,27 +7,26 @@ import com.baton.app.data.instructions.InstructionRepository
 import com.baton.app.data.instructions.SupabaseInstructionRepository
 import com.baton.app.data.person.PersonRepository
 import com.baton.app.data.person.SupabasePersonRepository
+import com.baton.app.data.supabase.BatonSupabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import io.ktor.client.HttpClient
 import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
 /**
- * App-wide Hilt module. The [SupabaseClient] is built inside each
- * consumer (not bound here) to keep Hilt's KSP processor from trying to
- * resolve a KMP AAR type at binding-analysis time. See
- * `data/supabase/SupabaseModule.kt` for the full rationale.
+ * App-wide Hilt module.
  *
- * **M2-T6:** the [PersonRepository] binding is the Room-backed
- * `RoomPersonRepository` (see `data/local/RoomPersonRepository.kt`).
- * The [SupabasePersonRepository] is a constructor dep of the Room
- * repo, not a Hilt binding. Any consumer that wants the
- * Supabase-only path (e.g. the sync queue drain) can inject
- * [SupabasePersonRepository] directly.
+ * **v1.9.10 (Obs-1 fix):** the four Supabase repositories
+ * ([SupabasePersonRepository], [SupabaseInstructionRepository],
+ * [SupabaseCaptureRepository], [AuthRepository]) all take the
+ * shared [BatonSupabase] singleton now — see
+ * `data/supabase/SupabaseModule.kt` for the wrapper that hides
+ * the KMP-AAR type from the Hilt KSP processor. The pre-v1.9.10
+ * design built one `SupabaseClient` per repository (4 parallel
+ * Realtime WebSockets at cold start, 4 retry loops on network
+ * failure); the new design is one client, four consumers.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -36,18 +34,23 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSupabasePersonRepository(httpClient: HttpClient): SupabasePersonRepository =
-        SupabasePersonRepository(httpClient)
+    fun provideSupabasePersonRepository(batonSupabase: BatonSupabase): SupabasePersonRepository =
+        SupabasePersonRepository(batonSupabase)
 
     @Provides
     @Singleton
-    fun provideSupabaseCaptureRepository(httpClient: HttpClient): SupabaseCaptureRepository =
-        SupabaseCaptureRepository(httpClient)
+    fun provideSupabaseCaptureRepository(batonSupabase: BatonSupabase): SupabaseCaptureRepository =
+        SupabaseCaptureRepository(batonSupabase)
 
     @Provides
     @Singleton
-    fun provideSupabaseInstructionRepository(httpClient: HttpClient): SupabaseInstructionRepository =
-        SupabaseInstructionRepository(httpClient)
+    fun provideSupabaseInstructionRepository(batonSupabase: BatonSupabase): SupabaseInstructionRepository =
+        SupabaseInstructionRepository(batonSupabase)
+
+    @Provides
+    @Singleton
+    fun provideAuthRepository(batonSupabase: BatonSupabase): AuthRepository =
+        AuthRepository(batonSupabase)
 
     @Provides
     @Singleton
@@ -71,13 +74,6 @@ object AppModule {
         // toggle can flip this back to the cloud repo.
         impl: com.baton.app.data.instructions.RoomInstructionRepository,
     ): InstructionRepository = impl
-
-    @Provides
-    @Singleton
-    fun provideAuthRepository(
-        httpClient: HttpClient,
-        @ApplicationContext context: Context,
-    ): AuthRepository = AuthRepository(httpClient, context)
 
     /** M1-T3: OkHttp is used by the Supabase HTTP client and
      *  (v1.6.0/v1.6.0.1) by the LLM model download. v1.6.1

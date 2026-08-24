@@ -1,10 +1,7 @@
 package com.baton.app.data.captures
 
-import com.baton.app.BuildConfig
-import com.baton.app.data.supabase.buildSupabaseClient
-import io.github.jan.supabase.SupabaseClient
+import com.baton.app.data.supabase.BatonSupabase
 import io.github.jan.supabase.postgrest.postgrest
-import io.ktor.client.HttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.UUID
@@ -56,18 +53,10 @@ import java.util.UUID
  * client-generated UUID (see [insertCapture]).
  */
 class SupabaseCaptureRepository(
-    httpClient: HttpClient,
-    url: String = BuildConfig.SUPABASE_URL,
-    key: String = BuildConfig.SUPABASE_ANON_KEY,
-    withAuth: Boolean = true,
+    batonSupabase: BatonSupabase,
 ) : CaptureRepository {
 
-    private val client: SupabaseClient = buildSupabaseClient(
-        url = url,
-        key = key,
-        httpClient = httpClient,
-        withAuth = withAuth,
-    )
+    private val client = batonSupabase.client
 
     override suspend fun create(rawText: String, mode: CaptureMode): Capture {
         // v1.3: generate the UUID here so the wire call is

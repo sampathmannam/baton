@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v1.9.10: AppWidgetProviderInfo for the Quick Note widget
+  (BatonQuickNoteWidget + BatonQuickNoteWidgetReceiver).
+
+  The widget is a single-tap capture button. Per the v1.9.10
+  user request — "create a widget for quick notes instead of
+  opening the app" — the widget's job is to launch the
+  QuickNoteActivity (a fullscreen Compose entry that
+  captures a note directly), not the main app.
+
+  Sizing:
+    - minWidth 110dp / minHeight 110dp: smallest cell that still
+      shows the icon + "Quick note" label comfortably. This is
+      the standard 2x2 widget footprint; anything smaller
+      would crop the icon.
+    - resizeMode: vertical. The widget's content is the same
+      for any height (a centred button), so vertical-only
+      resize is the right constraint — the user can stretch
+      taller if they want but the width is fixed at 2 cells.
+
+  Privacy:
+    - widgetCategory=home_screen: the widget is NOT offered on
+      the lock screen. Quick-note capture from the lock screen
+      would put a text field there, which is a privacy risk
+      we explicitly do not take. On Android 12+ launchers
+      that surface home-screen widgets on the lock screen,
+      the system auto-redacts widget content by default.
+
+  Update:
+    - updatePeriodMillis 1800000 (30 min): the system-respected
+      minimum. The widget is stateless in v1.9.10; this value
+      is effectively never triggered (the widget re-renders
+      on every `update` from QuickNoteActivity's save).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/widget_quick_note_loading"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:resizeMode="vertical"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:description="@string/quick_note_widget_description"
+    android:previewLayout="@layout/widget_quick_note_loading" />

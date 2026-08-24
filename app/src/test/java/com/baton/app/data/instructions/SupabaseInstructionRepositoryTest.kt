@@ -1,5 +1,7 @@
 package com.baton.app.data.instructions
 
+import com.baton.app.data.supabase.BatonSupabase
+import com.baton.app.data.supabase.buildSupabaseClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -35,6 +37,27 @@ import org.junit.Test
  */
 class SupabaseInstructionRepositoryTest {
 
+    /**
+     * v1.9.10 (Obs-1 fix): test helper that wraps a [MockEngine]-backed
+     * [HttpClient] in the production [BatonSupabase] wrapper so the
+     * repository constructor can take the shared client. Mirrors the
+     * production wiring in [com.baton.app.data.supabase.SupabaseModule].
+     */
+    private fun testBaton(
+        engine: MockEngine,
+        url: String = "https://test.supabase.co",
+        key: String = "sb_publishable_test",
+        withAuth: Boolean = false,
+    ): BatonSupabase = BatonSupabase.create {
+        val httpClient = HttpClient(engine)
+        buildSupabaseClient(
+            url = url,
+            key = key,
+            httpClient = httpClient,
+            withAuth = withAuth,
+        )
+    }
+
     @Test
     fun `create posts to instructions with direction OUTGOING and status OPEN`() = runTest {
         var capturedMethod: HttpMethod? = null
@@ -67,13 +90,7 @@ class SupabaseInstructionRepositoryTest {
                 headers = headersOf("Content-Type", "application/json"),
             )
         }
-        val httpClient = HttpClient(engine)
-        val repo = SupabaseInstructionRepository(
-            httpClient = httpClient,
-            url = "https://test.supabase.co",
-            key = "sb_publishable_test",
-            withAuth = false,
-        )
+        val repo = SupabaseInstructionRepository(testBaton(engine))
 
         val saved = repo.create(
             personId = "person-uuid-1",
@@ -132,13 +149,7 @@ class SupabaseInstructionRepositoryTest {
                 headers = headersOf("Content-Type", "application/json"),
             )
         }
-        val httpClient = HttpClient(engine)
-        val repo = SupabaseInstructionRepository(
-            httpClient = httpClient,
-            url = "https://test.supabase.co",
-            key = "sb_publishable_test",
-            withAuth = false,
-        )
+        val repo = SupabaseInstructionRepository(testBaton(engine))
 
         val saved = repo.create(
             personId = null,
@@ -164,13 +175,7 @@ class SupabaseInstructionRepositoryTest {
         val engine = MockEngine { _ ->
             respondError(HttpStatusCode.Conflict)
         }
-        val httpClient = HttpClient(engine)
-        val repo = SupabaseInstructionRepository(
-            httpClient = httpClient,
-            url = "https://test.supabase.co",
-            key = "sb_publishable_test",
-            withAuth = false,
-        )
+        val repo = SupabaseInstructionRepository(testBaton(engine))
 
         repo.create(
             personId = "person-x",
@@ -223,13 +228,7 @@ class SupabaseInstructionRepositoryTest {
                 headers = headersOf("Content-Type", "application/json"),
             )
         }
-        val httpClient = HttpClient(engine)
-        val repo = SupabaseInstructionRepository(
-            httpClient = httpClient,
-            url = "https://test.supabase.co",
-            key = "sb_publishable_test",
-            withAuth = false,
-        )
+        val repo = SupabaseInstructionRepository(testBaton(engine))
 
         // Re-open a previously DROPPED row: status=OPEN, no
         // completedAt, no droppedReason.
