@@ -2,6 +2,8 @@ package com.kaavalan.note.ui.home
 
 import app.cash.turbine.test
 import com.kaavalan.note.data.local.InstructionDao
+import com.kaavalan.note.data.local.InstructionTagDao
+import com.kaavalan.note.data.local.TagDao
 import com.kaavalan.note.data.local.PersonOpenCount
 import com.kaavalan.note.data.local.RoomPersonRepository
 import com.kaavalan.note.data.person.Person
@@ -43,6 +45,8 @@ class HomeViewModelTest {
     private val repo: RoomPersonRepository = mockk(relaxed = true)
     private val instructionDao: InstructionDao = mockk(relaxed = true)
     private val tagRepository: RoomTagRepository = mockk(relaxed = true)
+    private val tagDao: TagDao = mockk(relaxed = true)
+    private val instructionTagDao: InstructionTagDao = mockk(relaxed = true)
     // v2.0 T3-1: a real VaultModeHolder (a process-singleton by
     // design). The HomeViewModel reads its `mode` flow and re-queries
     // the person DAO when it changes. The default mode is Visible.
@@ -73,6 +77,8 @@ class HomeViewModelTest {
     private fun makeVm() = HomeViewModel(
         personRepository = repo,
         instructionDao = instructionDao,
+        tagDao = tagDao,
+        instructionTagDao = instructionTagDao,
         tagRepository = tagRepository,
         vaultModeHolder = vaultModeHolder,
     )

@@ -173,6 +173,28 @@ class V156QaTest {
         ): Instruction = error("not used")
         override suspend fun markDone(id: String, completedAt: String) {}
         override suspend fun markDropped(id: String, reason: String?, at: String) {}
+
+        override suspend fun createWithAudience(
+            personId: String?,
+            audience: com.kaavalan.note.data.instructions.AudienceRef?,
+            source: Source,
+            priority: Priority,
+            title: String,
+            rawText: String,
+            dueAt: String?,
+            dueAtMs: Long?,
+            channel: String?,
+        ): Instruction = error("not used in tests")
+        override suspend fun setAudience(id: String, audience: com.kaavalan.note.data.instructions.AudienceRef?) {
+            // no-op
+        }
+        override suspend fun setDueChip(id: String, dueAtMs: Long?) {
+            // no-op
+        }
+        override suspend fun setChannel(id: String, channel: String?) {
+            // no-op
+        }
+
     }
 
     private data class CreatedInstruction(

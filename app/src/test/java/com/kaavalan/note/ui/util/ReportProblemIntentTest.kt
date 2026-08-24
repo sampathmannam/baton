@@ -55,7 +55,7 @@ class ReportProblemIntentTest {
     // Mirrors the production string templates. The exact
     // text doesn't matter for these tests; we only assert
     // on the placeholders the helper fills in.
-    private val subjectTemplate = "Kaavalan note %1$s problem report"
+    private val subjectTemplate = "Kaavalan note %1${'$'}s problem report"
     private val bodyTemplateNoCrash =
         "What happened? (steps to reproduce)\n\n" +
             "App version: %1\$s (build %2\$d)\n" +

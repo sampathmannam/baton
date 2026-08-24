@@ -41,7 +41,7 @@ class DriveRestApiTest {
             // just acknowledge with a Drive-shaped
             // JSON response.
             respond(
-                content = """{"id":"file-abc-123","name":kaavalan-note-backup.json.enc"}""",
+                content = """{"id":"file-abc-123","name":"kaavalan-note-backup.json.enc"}""",
                 status = HttpStatusCode.OK,
                 headers = headersOf("Content-Type", "application/json"),
             )
@@ -49,7 +49,7 @@ class DriveRestApiTest {
         val api = DriveRestApi(client)
         val id = api.uploadToAppFolder(
             accessToken = "fake-token",
-            fileName = kaavalan-note-backup.json.enc",
+            fileName = "kaavalan-note-backup.json.enc",
             content = "encrypted-blob".toByteArray(),
         )
         assertEquals("file-abc-123", id)
@@ -88,13 +88,13 @@ class DriveRestApiTest {
                   "files": [
                     {
                       "id": "f-1",
-                      "name": kaavalan-note-backup-20260824-150000.json.enc",
+                      "name": "kaavalan-note-backup-20260824-150000.json.enc",
                       "size": "1024",
                       "createdTime": "2026-08-24T15:00:00.000Z"
                     },
                     {
                       "id": "f-2",
-                      "name": kaavalan-note-backup-20260823-150000.json.enc",
+                      "name": "kaavalan-note-backup-20260823-150000.json.enc",
                       "size": "2048",
                       "createdTime": "2026-08-23T15:00:00.000Z"
                     }
@@ -109,7 +109,7 @@ class DriveRestApiTest {
         val files = api.listBackups(accessToken = "fake-token")
         assertEquals(2, files.size)
         assertEquals("f-1", files[0].id)
-        assertEquals(kaavalan-note-backup-20260824-150000.json.enc", files[0].name)
+        assertEquals("kaavalan-note-backup-20260824-150000.json.enc", files[0].name)
         assertEquals(1024L, files[0].sizeBytes)
         assertTrue("createdTime should be parsed into epoch millis", files[0].createdTimeMs > 0L)
     }
