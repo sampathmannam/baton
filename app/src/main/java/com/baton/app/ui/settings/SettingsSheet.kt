@@ -83,6 +83,12 @@ fun SettingsSheet(
     onVaultImport: () -> Unit = {},
     onOpenRecoveryPhrase: () -> Unit = {},
     onOpenThreatModel: () -> Unit = {},
+    // v1.9.12 (A9 wire-up): the changelog screen is reachable
+    // from Settings, not auto-shown at first launch (the v1.6.0
+    // design rule forbids launch-time modals). The callback is
+    // a no-op default so tests can construct the sheet without
+    // a navigation host.
+    onOpenChangelog: () -> Unit = {},
     onOpenSyncConflicts: () -> Unit = {},
     // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
     // the Drive backup / restore rows use
@@ -365,6 +371,18 @@ fun SettingsSheet(
                 value = stringResource(R.string.settings_threat_model_value),
                 explainer = null,
                 onClick = onOpenThreatModel,
+            )
+            // v1.9.12 (A9 wire-up): the changelog is reachable
+            // from Settings so the user can review release
+            // notes at any time. This row is the canonical
+            // "What's new in this build?" surface (the v1.6.0
+            // design rule forbids auto-showing it at first
+            // launch as a modal).
+            PrivacyRow(
+                label = stringResource(R.string.settings_changelog),
+                value = "v${viewModel.appVersion.name} (build ${viewModel.appVersion.code})",
+                explainer = stringResource(R.string.settings_changelog_explainer),
+                onClick = onOpenChangelog,
             )
 
             val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()

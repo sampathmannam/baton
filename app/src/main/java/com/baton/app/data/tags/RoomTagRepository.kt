@@ -5,13 +5,8 @@ import com.baton.app.data.local.TagDao
 import com.baton.app.data.local.entities.InstructionTagCrossRef
 import com.baton.app.data.local.entities.SyncStatus
 import com.baton.app.data.local.entities.TagEntity
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,17 +15,18 @@ import javax.inject.Singleton
  * through Room + the outbox (the tag is auto-created on first sight
  * of a person, designation, station, FIR number, or `#tag`).
  *
- * **Why a repository and not just a DAO:** the tag picker needs the
- * Cloud ↔ Room sync to keep the local list in lock-step with the
- * server's `usage_count`. The instruction_tags join table is a
- * write-through mirror too — the LLM extractor produces a list of
- * `(tagId, instructionId)` pairs that must land on the server.
+ * **v2.0.0 (drop Supabase):** the Cloud ↔ Room sync is gone — the
+ * tag picker reads from local Room, the LLM extractor writes
+ * `(tagId, instructionId)` pairs straight to Room. The
+ * [refreshFromNetwork] hook is kept as a no-op to preserve the
+ * v1.9.10 Obs-2 function contract (so a future change that
+ * re-introduces local background sync reuses the same
+ * error-surface contract).
  */
 @Singleton
 open class RoomTagRepository @Inject constructor(
     private val tagDao: TagDao,
     private val instructionTagDao: InstructionTagDao,
-    private val supabase: SupabaseClient,
 ) {
 
     fun observeAll(): Flow<List<Tag>> = tagDao.observeAll()
@@ -42,16 +38,15 @@ open class RoomTagRepository @Inject constructor(
 
     /**
      * M3-T7: pull the user's tags + the tags for each open
-     * instruction from Supabase and upsert into Room. Called on
-     * app start (after auth) and on every Realtime `Change.Tags`
-     * event so the local picker reflects the full user dataset.
+     * instruction from Supabase and upsert into Room.
+     *
+     * **v2.0.0 (drop Supabase):** no-op. The local Room mirror is
+     * the source of truth. Kept as a suspend function so the
+     * [com.baton.app.ui.home.HomeViewModel.refreshTagsFromNetwork]
+     * call site still type-checks.
      */
     suspend fun refreshFromNetwork() {
-        val tagRows: List<TagRow> = supabase.postgrest
-            .from("tags")
-            .select(Columns.ALL)
-            .decodeList()
-        tagDao.upsertAll(tagRows.map { it.toEntity() })
+        // No-op in v2.0.0.
     }
 
     /**
@@ -102,19 +97,6 @@ internal fun Tag.toEntity(syncStatus: String = SyncStatus.SYNCED): TagEntity = T
     usageCount = usageCount,
     lastUsedAt = lastUsedAt,
     userId = "",  // filled by the RLS-aware insert path on the server
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    syncStatus = syncStatus,
-)
-
-internal fun TagRow.toEntity(syncStatus: String = SyncStatus.SYNCED): TagEntity = TagEntity(
-    id = id,
-    name = name,
-    kind = kind.name,
-    color = color,
-    usageCount = usageCount,
-    lastUsedAt = lastUsedAt,
-    userId = "",
     createdAt = createdAt,
     updatedAt = updatedAt,
     syncStatus = syncStatus,

@@ -6,6 +6,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
 import javax.inject.Singleton
 
 /**
@@ -19,6 +20,19 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object UpdateModule {
+
+    /**
+     * v2.0.0 (drop Supabase): the GitHub Releases
+     * check is the only remaining network call.
+     * We use the OkHttp engine because the offline
+     * cache already ships `ktor-client-okhttp` (it
+     * was a Supabase transitive dep in v1.x). One
+     * `HttpClient` per process — `UpdateChecker`
+     * is the only consumer.
+     */
+    @Provides
+    @Singleton
+    fun provideHttpClient(): HttpClient = HttpClient(OkHttp)
 
     @Provides
     @Singleton

@@ -130,6 +130,20 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_13_14,
                 AppDatabase.MIGRATION_14_15,
             )
+            // v2.0.0 (drop Supabase): the v2 → v7 destructive
+            // migrations are now a **data-loss bug**, not a
+            // convenience. In v1.x the post-destruct re-fill
+            // from Supabase covered the loss; in v2.0.0 there
+            // is no remote. The release notes for v2.0.0 call
+            // this out: "v2.0.0 is a breaking change for
+            // pre-v8 users — back up your data via Settings →
+            // Export before updating."
+            //
+            // A future v2.x could replace this list with real
+            // Migration objects (the schema at v3 was persons +
+            // instructions + captures; v4–v7 added a handful
+            // of columns). For v2.0.0 the honest answer is:
+            // upgrade from v2-v7 = wipe.
             .fallbackToDestructiveMigrationFrom(2, 3, 4, 5, 6, 7)
             .build()
     }

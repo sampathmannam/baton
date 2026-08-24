@@ -2,20 +2,11 @@ package com.baton.app.data.appstate
 
 import com.baton.app.data.local.AppDao
 import com.baton.app.data.local.entities.AppStateEntity
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -33,14 +24,16 @@ import javax.inject.Singleton
  * **Opt-in.** The integration is gated by the `mindanchor_enabled`
  * setting (spec §4.10); when disabled, the read paths return
  * defaults and the writes are skipped.
+ *
+ * **v2.0.0 (drop Supabase):** MindAnchor integration is suspended
+ * (no cross-device cloud). The local Room mirror is the source of
+ * truth; [refreshFromNetwork] is a no-op so any future re-enable
+ * only needs the data path restored, not a new call site.
  */
 @Singleton
 open class AppStateRepository @Inject constructor(
     private val dao: AppDao,
-    private val supabase: SupabaseClient,
 ) {
-
-    private val json = appStateJson
 
     /**
      * Reactive view of one app's keys. Empty Flow if none.
@@ -110,22 +103,12 @@ open class AppStateRepository @Inject constructor(
      * the `app_state` table. The RLS policy restricts to the
      * calling user; MindAnchor-side keys come through because the
      * RLS predicate is on `user_id`, not on `source`.
+     *
+     * **v2.0.0 (drop Supabase):** no-op. MindAnchor cross-app
+     * state is local-only until cloud sync is re-introduced.
      */
     suspend fun refreshFromNetwork() {
-        val rows: List<AppStateRow> = supabase.postgrest
-            .from("app_state")
-            .select(Columns.ALL)
-            .decodeList()
-        val entities = rows.map { row ->
-            AppStateEntity(
-                id = "${row.source}:${row.key}",
-                source = row.source,
-                `key` = row.key,
-                valueJson = row.value.toString(),
-                updatedAt = row.updatedAt,
-            )
-        }
-        dao.upsertAll(entities)
+        // No-op in v2.0.0.
     }
 }
 
@@ -159,13 +142,4 @@ internal fun AppStateEntity.toDomain(): AppStateEntry = AppStateEntry(
     key = `key`,
     value = runCatching { appStateJson.parseToJsonElement(valueJson).jsonObject }.getOrElse { JsonObject(emptyMap()) },
     updatedAt = updatedAt,
-)
-
-@Serializable
-internal data class AppStateRow(
-    val id: String,
-    val source: String,
-    val key: String,
-    val value: JsonElement,
-    @SerialName("updated_at") val updatedAt: String,
 )

@@ -1,20 +1,16 @@
 package com.baton.app.ui.settings
 
-import com.baton.app.data.auth.AuthRepository
 import com.baton.app.data.auth.SecurePreferences
 import com.baton.app.data.local.AppInitializer
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
-import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.local.TagDao
-import com.baton.app.data.sync.RealtimeSync
 import com.baton.app.data.tags.RoomTagRepository
 import com.baton.app.data.vault.IdentityCrypto
 import com.baton.app.data.vault.VaultMode
 import com.baton.app.data.vault.VaultModeHolder
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -62,9 +58,6 @@ class SettingsVaultPinTest {
 
     private fun makeVm(initialPin: String? = null): Triple<SettingsViewModel, VaultModeHolder, SecurePreferences> {
         val init = mockk<AppInitializer>(relaxed = true)
-        val auth = mockk<AuthRepository>(relaxed = true)
-        val realtime = mockk<RealtimeSync>(relaxed = true)
-        val syncEngine = mockk<SyncEngine>(relaxed = true)
         val vaultModeHolder = VaultModeHolder()
         val securePreferences = mockk<SecurePreferences>(relaxed = true)
         // The mock SecurePreferences holds the current PIN
@@ -78,12 +71,13 @@ class SettingsVaultPinTest {
         every { securePreferences.clearVaultPinHash() } answers {
             storedHash = null
         }
+        // v2.0.0 (drop Supabase): the SettingsViewModel no
+        // longer takes AuthRepository, RealtimeSync, or
+        // SyncEngine (no remote to sign out of, no realtime
+        // to stop, no outbox to drain).
         val vm = SettingsViewModel(
-            authRepository = auth,
             appInitializer = init,
             tagRepository = mockk<RoomTagRepository>(relaxed = true),
-            realtimeSync = realtime,
-            syncEngine = syncEngine,
             personDao = mockk<PersonDao>(relaxed = true),
             instructionDao = mockk<InstructionDao>(relaxed = true),
             tagDao = mockk<TagDao>(relaxed = true),
@@ -92,15 +86,15 @@ class SettingsVaultPinTest {
             preferences = mockk<com.baton.app.data.preferences.BatonPreferences>(relaxed = true),
             plainExporter = mockk<com.baton.app.data.export.PlainExporter>(relaxed = true),
             backupManager = mockk<com.baton.app.data.export.BackupManager>(relaxed = true),
-            appContext = mockk<android.content.Context>(relaxed = true),
+            updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
             fixtureLoader = mockk<com.baton.app.data.dev.FixtureLoader>(relaxed = true),
             // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
             // DAO. Relaxed mock; the vault-pin tests don't touch
-            // the conflict flow.
+            // the conflict flow. The table is always empty in
+            // v2.0.0 (no cloud sync), but the DAO is still in
+            // the schema and the VM still observes it.
             syncConflictDao = mockk<com.baton.app.data.local.SyncConflictDao>(relaxed = true),
-            // v1.9.0 (PROD-READINESS-P3-P1-#3): the in-app update
-            // channel. Relaxed mock.
-            updateChecker = mockk<com.baton.app.data.update.UpdateChecker>(relaxed = true),
+            appContext = mockk<android.content.Context>(relaxed = true),
         )
         return Triple(vm, vaultModeHolder, securePreferences)
     }

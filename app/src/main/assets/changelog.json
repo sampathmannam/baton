@@ -1,6 +1,22 @@
 {
   "changelog": [
     {
+      "version": "2.0.0",
+      "code": 42,
+      "date": "2026-08-24",
+      "highlights": [
+        "BREAKING: All Supabase cloud sync is removed. The app is now local-only.",
+        "All data lives in a SQLCipher-encrypted Room DB on the device. No remote auth, no account, no email.",
+        "The only outbound network call is 'Check for updates' against the public GitHub Releases API (no auth, no PII).",
+        "Removed: multi-device sync, MCP cloud server, MindAnchor cross-app state, in-app sign-up/sign-in.",
+        "The sync_queue table is kept in the schema for forward-compat but no rows are written in v2.0.",
+        "Settings → Privacy → What's new (replaces the auto-shown 'What's new' modal — v1.6.0 design rule).",
+        "Threat model rewritten to document the local-only architecture and the ML Kit OCR third-party surface.",
+        "490 unit tests pass; :app:assembleDebug builds clean.",
+        "Pre-v8 users MUST back up via Settings → Export before updating — the v2-v7 destructive migration will wipe the local DB."
+      ]
+    },
+    {
       "version": "1.9.11",
       "code": 41,
       "date": "2026-08-24",

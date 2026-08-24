@@ -5,9 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.baton.app.data.instructions.Priority
 import com.baton.app.data.instructions.RoomInstructionRepository
 import com.baton.app.data.instructions.Source
-import com.baton.app.data.person.SupabasePersonRepository
-import com.baton.app.data.captures.SupabaseCaptureRepository
-import com.baton.app.data.instructions.SupabaseInstructionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -125,14 +122,12 @@ class RoomInstructionRepositoryCrashRecoveryTest {
         // because [PersonDao] is the seam; the production class
         // never has to be `open`-ed.
         val touchOnActivity = TouchPersonOnActivity(personDao = throwingPersonDao)
-        val syncEngine = noopSyncEngine(syncQueueDao, personDao, instructionDao)
 
         val repo = RoomInstructionRepository(
             db = db,
             dao = instructionDao,
             ftsDao = ftsDao,
             syncQueueDao = syncQueueDao,
-            syncEngine = syncEngine,
             touchOnActivity = touchOnActivity,
             appScope = appScope,
         )
@@ -202,14 +197,12 @@ class RoomInstructionRepositoryCrashRecoveryTest {
         // the rest of the transaction commits.
         val happyPersonDao = mockk<PersonDao>(relaxed = true)
         val touchOnActivity = TouchPersonOnActivity(personDao = happyPersonDao)
-        val syncEngine = noopSyncEngine(syncQueueDao, personDao, instructionDao)
 
         val repo = RoomInstructionRepository(
             db = db,
             dao = instructionDao,
             ftsDao = ftsDao,
             syncQueueDao = syncQueueDao,
-            syncEngine = syncEngine,
             touchOnActivity = touchOnActivity,
             appScope = appScope,
         )
@@ -248,29 +241,6 @@ class RoomInstructionRepositoryCrashRecoveryTest {
     }
 
     // ---- Test helpers ----
-
-    /**
-     * Returns a [SyncEngine] whose constructor dependencies are
-     * all relaxed mocks. The repo's `create()` path does not
-     * invoke any [SyncEngine] method that would touch the
-     * network — the enqueue is done via the repo's private
-     * `enqueueInsert` which writes to [SyncQueueDao] directly.
-     * So a mocked engine is sufficient.
-     */
-    private fun noopSyncEngine(
-        @Suppress("UNUSED_PARAMETER") syncQueueDao: SyncQueueDao,
-        @Suppress("UNUSED_PARAMETER") personDao: PersonDao,
-        @Suppress("UNUSED_PARAMETER") instructionDao: InstructionDao,
-    ): SyncEngine = SyncEngine(
-        syncQueueDao = mockk(relaxed = true),
-        personDao = mockk(relaxed = true),
-        captureDao = mockk(relaxed = true),
-        instructionDao = mockk(relaxed = true),
-        syncConflictDao = mockk(relaxed = true),
-        personRemote = mockk<SupabasePersonRepository>(relaxed = true),
-        captureRemote = mockk<SupabaseCaptureRepository>(relaxed = true),
-        instructionRemote = mockk<SupabaseInstructionRepository>(relaxed = true),
-    )
 
     /**
      * Helper note: when verifying a mockk call with a

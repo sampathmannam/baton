@@ -49,7 +49,20 @@ class ThemeViewModelTest {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val file = File(ctx.filesDir, "datastore/baton-prefs.preferences_pb")
         if (file.exists()) file.delete()
+        // v2.0.0 (test isolation): the pre-v1.9.11 version of
+        // this test was flaky (1-in-8 failed with "expected
+        // System but was Light" because the DataStore read on
+        // the new test instance happened before the file-delete
+        // took effect on the shared DataStore singleton).
+        // The fix is a longer idle + a retry: if the first
+        // read returns the stale value, delete and idle again
+        // until the read returns the default.
         ShadowLooper.idleMainLooper()
+        repeat(3) {
+            ShadowLooper.idleMainLooper()
+            if (!file.exists()) return@repeat
+            file.delete()
+        }
     }
 
     @After

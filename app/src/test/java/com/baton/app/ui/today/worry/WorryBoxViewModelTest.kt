@@ -6,7 +6,6 @@ import com.baton.app.data.instructions.RoomInstructionRepository
 import com.baton.app.data.local.AppDatabase
 import com.baton.app.data.local.CaptureDao
 import com.baton.app.data.local.InstructionDao
-import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.local.SyncQueueDao
 import com.baton.app.data.local.TouchPersonOnActivity
 import com.baton.app.data.local.entities.InstructionEntity
@@ -150,10 +149,9 @@ class WorryBoxViewModelTest {
         roomInstructionRepository = RoomInstructionRepository(
             db = mockk(relaxed = true),
             dao = instructionDao,
-            syncQueueDao = syncQueueDao,
-            syncEngine = mockk<SyncEngine>(relaxed = true),
-            touchOnActivity = mockk<TouchPersonOnActivity>(relaxed = true),
             ftsDao = instructionFtsDao,
+            syncQueueDao = syncQueueDao,
+            touchOnActivity = mockk<TouchPersonOnActivity>(relaxed = true),
             appScope = kotlinx.coroutines.GlobalScope,
         ),
     )

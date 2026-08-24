@@ -16,17 +16,10 @@ val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-val supabaseUrl: String = localProps.getProperty("BATON_SUPABASE_URL", "")
-    .ifBlank { providers.gradleProperty("BATON_SUPABASE_URL").getOrElse("") }
-val supabaseAnonKey: String = localProps.getProperty("BATON_SUPABASE_ANON_KEY", "")
-    .ifBlank { providers.gradleProperty("BATON_SUPABASE_ANON_KEY").getOrElse("") }
-if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
-    throw GradleException(
-        "BATON_SUPABASE_URL and BATON_SUPABASE_ANON_KEY must be set in local.properties " +
-        "(gitignored). Copy from local.properties.example and fill in the values from " +
-        "the Supabase dashboard."
-    )
-}
+// v2.0.0 (drop Supabase): removed BATON_SUPABASE_URL and
+// BATON_SUPABASE_ANON_KEY. The app is now local-only; no
+// cloud sync, no auth, no server-side code. All data lives
+// in the on-device SQLCipher DB.
 
 android {
     namespace = "com.baton.app"
@@ -274,17 +267,26 @@ android {
         // — accessible from Settings, NOT a launch-time modal
         // per the v1.6.0 design rule), Obs-3 mlock (custom
         // SQLCipher preKey hook silences the 31 keying-phase
-        // warnings). Plus the Quick Note widget grew resizable:
-        // 2x2 / 4x2 / 4x4 with progressive disclosure (count +
-        // recent list). No public-API or schema changes.
-        // versionCode 40 -> 41.
-        versionCode = 41
-        versionName = "1.9.11"
+        // v2.0.0: "Local-only by design". BREAKING CHANGE for
+        // pre-v8 users — the v2-v7 destructive Room migration
+        // will wipe the local DB on upgrade. Users MUST back
+        // up via Settings → Export before updating from a
+        // pre-v8 build. See release notes.
+        //
+        // Schema: no DB changes from v1.9.11 (still at v15). The
+        // `sync_queue` table is in the schema for forward-compat
+        // with optional future cloud sync but no code writes to
+        // it in v2.0.0.
+        //
+        // versionCode 41 -> 42.
+        versionCode = 42
+        versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        // v2.0.0 (drop Supabase): removed SUPABASE_URL +
+        // SUPABASE_ANON_KEY buildConfigFields. Local-only;
+        // no server-side config.
         // v1.8.0 (PROD-READINESS-P2-#6): the brand-name and
         // brand-department build-config fields. A pilot
         // build (e.g. TNeGA / CCPS) overrides these via
@@ -441,6 +443,15 @@ dependencies {
     implementation(libs.sqlcipher.android)
     implementation(libs.security.crypto)
 
+    // v2.0.0 (drop Supabase): supabase-kt + ktor + okhttp are
+    // declared but UNUSED in v2.0.0 code. We keep them declared
+    // for two reasons: (1) the version catalog has other entries
+    // (glance, datastore) that depend transitively on okio
+    // (pulled in by ktor) — removing the ktor declaration
+    // breaks transitive resolution. (2) When/if a future v2.x
+    // pass adds optional cloud sync, the deps are already
+    // declared. A cleanup pass that removes the catalog
+    // entries should verify transitive resolution still works.
     implementation(libs.supabase.kt)
     implementation(libs.supabase.postgrest.kt)
     implementation(libs.supabase.auth.kt)
@@ -449,8 +460,10 @@ dependencies {
     implementation(libs.supabase.storage.kt)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
-    // M2-T7: Realtime WebSocket subscription. The OkHttp engine
-    // supports WebSockets; the Android engine does not.
+    // M2-T7 (legacy): the OkHttp engine was the only ktor
+    // engine supporting WebSockets (realtime). v2.0.0 has
+    // no realtime (no Supabase); the dep is kept for
+    // transitive resolution (okio).
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.websockets)
     implementation(libs.okhttp)
