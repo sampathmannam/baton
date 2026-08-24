@@ -253,13 +253,13 @@ class DatabasePreflight @Inject constructor(
                 "id", "displayName", "deviceOwner",
             ),
             "instructions" to setOf(
-                "id", "title", "body", "kind", "createdAt",
+                "id", "personId", "title", "rawText", "status",
             ),
             "sync_queue" to setOf(
-                "id", "captureId", "status", "nextAttemptAt",
+                "id", "table", "rowId", "op", "payloadJson", "nextAttemptAt",
             ),
             "audit_chain_events" to setOf(
-                "id", "timestamp", "kind", "payload",
+                "id", "tableName", "rowId", "kind", "payload", "signingKey",
             ),
         )
     }

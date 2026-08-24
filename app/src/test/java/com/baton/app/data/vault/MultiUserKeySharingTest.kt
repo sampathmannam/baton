@@ -172,7 +172,7 @@ class MultiUserKeySharingTest {
         // rejected by this v1.8.0 build (the
         // "downgrade" defense).
         val masterKey = MultiUserKeySharing.newMasterKey()
-        val realShare = MultiUserKeySharing.wrap(masterKey, "officer-4", "good")
+        val realShare = MultiUserKeySharing.wrap(masterKey, "officer-4", "good".toCharArray())
         val futureShare = realShare.copy(version = 2)
         val error = assertThrows(VaultError.MasterKeyUnwrap::class.java) {
             MultiUserKeySharing.unwrap(futureShare, "good".toCharArray())
@@ -187,7 +187,7 @@ class MultiUserKeySharingTest {
     fun `blank passphrase is rejected at the API boundary`() {
         val masterKey = MultiUserKeySharing.newMasterKey()
         assertThrows(IllegalArgumentException::class.java) {
-            MultiUserKeySharing.wrap(masterKey, "officer-5", "")
+            MultiUserKeySharing.wrap(masterKey, "officer-5", "".toCharArray())
         }
     }
 
@@ -196,7 +196,7 @@ class MultiUserKeySharingTest {
         // A 31-byte or 33-byte master is a programming error.
         val tooShort = ByteArray(31)
         assertThrows(IllegalArgumentException::class.java) {
-            MultiUserKeySharing.wrap(tooShort, "officer-6", "pass")
+            MultiUserKeySharing.wrap(tooShort, "officer-6", "pass".toCharArray())
         }
     }
 }
