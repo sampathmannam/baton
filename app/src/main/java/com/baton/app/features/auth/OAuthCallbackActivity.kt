@@ -13,20 +13,36 @@ import javax.inject.Inject
 /**
  * v2.1.0 (PM rating): the OAuth callback activity.
  * Google redirects the user to
- * `baton://oauth-callback?code=...` after they sign in
- * + grant the `drive.appdata` scope. The activity
- * (declared in the manifest with the matching intent
- * filter) catches the intent, extracts the auth code,
- * calls [GoogleOAuthClient.completeSignIn] to
- * exchange the code for an access + refresh token,
- * and finishes.
+ * `baton://oauth-callback?code=...&state=...` after
+ * they sign in + grant the `drive.appdata` scope.
+ * The activity (declared in the manifest with the
+ * matching intent filter) catches the intent,
+ * extracts the auth code + state, validates the
+ * state against the persisted value (the OAuth
+ * `state` parameter from the Authorization Code
+ * with PKCE flow), calls
+ * [GoogleOAuthClient.completeSignIn] to exchange
+ * the code for an access + refresh token, and
+ * finishes.
+ *
+ * **v2.1.1 (security): the `state` parameter check.**
+ * The OAuth flow generates a random 32-byte `state`
+ * in [GoogleOAuthClient.signIn] and persists it to a
+ * private file. The callback reads the same file
+ * (via [GoogleOAuthClient.consumeOAuthState]) and
+ * compares. If the inbound `state` doesn't match
+ * (or is absent), we reject the redirect without
+ * exchanging the code. This blocks the
+ * "any-installed-app-can-fire-baton://oauth-callback
+ * with-an-attacker's-code" attack that v2.1.0
+ * allowed.
  *
  * **The flow is single-task.** The user is bounced
  * out of the Settings sheet to the Chrome Custom
- * Tab for the OAuth page, then back to this activity.
- * The activity is `singleTop` so a re-entry (e.g. a
- * double-tap on the sign-in button) doesn't stack two
- * copies.
+ * Tab for the OAuth page, then back to this
+ * activity. The activity is `singleTop` so a
+ * re-entry (e.g. a double-tap on the sign-in
+ * button) doesn't stack two copies.
  *
  * **The activity is a transparent overlay.** It
  * finishes immediately after the token exchange
@@ -51,6 +67,36 @@ class OAuthCallbackActivity : ComponentActivity() {
         if (code == null) {
             val error = data.getQueryParameter("error") ?: "(no error parameter)"
             Log.w(TAG, "OAuth callback missing code parameter (error=$error)")
+            finish()
+            return
+        }
+        // v2.1.1 (security): validate `state` against the
+        // persisted value. If absent or mismatch, we
+        // reject the redirect without calling
+        // [GoogleOAuthClient.completeSignIn]. The state
+        // file is deleted on success; if a malicious app
+        // tries to replay a code, the state file is
+        // already gone (consumed by the legitimate flow).
+        val inboundState = data.getQueryParameter("state")
+        val persisted = oauth.consumeOAuthState()
+        if (persisted == null) {
+            Log.w(
+                TAG,
+                "OAuth callback fired with no persisted state — " +
+                    "this is either a stale redirect or a malicious " +
+                    "app firing the deep link. Rejecting.",
+            )
+            finish()
+            return
+        }
+        val (expectedState, _) = persisted
+        if (inboundState == null || inboundState != expectedState) {
+            Log.w(
+                TAG,
+                "OAuth callback state mismatch: " +
+                    "inbound=${inboundState?.take(8)} " +
+                    "expected=${expectedState.take(8)}. Rejecting.",
+            )
             finish()
             return
         }

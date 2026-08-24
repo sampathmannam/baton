@@ -43,6 +43,24 @@ class BatonApplication : Application(), Configuration.Provider {
     // launcher activity.
     @Inject lateinit var databasePreflight: com.baton.app.data.local.DatabasePreflight
 
+    // v2.1.1 (security): the Google OAuth client.
+    // Injected so the cold-start path can check
+    // [GoogleOAuthClient.isSignedIn] and only
+    // schedule the daily Drive backup when the
+    // user has signed in. The v2.1.0 path scheduled
+    // it unconditionally, which meant the worker
+    // fired on every cold start of a device that
+    // had never signed in and dumped a failure
+    // result to the WorkManager log.
+    @Inject lateinit var googleOAuthClient: com.baton.app.data.backup.GoogleOAuthClient
+
+    // v2.1.1 (security): the encrypted-preferences
+    // store. The cold-start path reads
+    // [SecurePreferences.getBackupEncryptionKeyHash]
+    // so the daily Drive backup is only scheduled
+    // when the user has set a passphrase.
+    @Inject lateinit var securePreferences: com.baton.app.data.auth.SecurePreferences
+
     override fun onCreate() {
         super.onCreate()
         // v1.9.0 (PROD-READINESS-P3-P1-#1): install
@@ -103,14 +121,19 @@ class BatonApplication : Application(), Configuration.Provider {
         // retention sweep is also scheduled. Same
         // KEEP-on-re-enqueue idempotency as the backup.
         com.baton.app.data.work.WorkManagerInitializer.scheduleRetention(this)
-        // v2.1.0 (PM rating): the daily Google Drive
-        // backup is scheduled when the user has signed
-        // in to Google. The Settings sheet's "Sign
-        // in" CTA flips a SharedPreferences flag, and
-        // the next cold start of [BatonApplication]
-        // checks the flag and conditionally schedules
-        // the worker. Same KEEP-on-re-enqueue idempotency.
-        com.baton.app.data.work.WorkManagerInitializer.scheduleDriveBackup(this)
+        // v2.1.1 (security): only schedule the daily
+        // Google Drive backup when the user has both
+        // (a) signed in to Google and (b) set a backup
+        // passphrase. v2.1.0 scheduled unconditionally,
+        // which meant the worker fired on every cold
+        // start of a device that had never signed in
+        // and dumped a failure result to the
+        // WorkManager log. The user re-enables the
+        // schedule the next time they sign in.
+        if (googleOAuthClient.isSignedIn() &&
+            securePreferences.getBackupEncryptionKeyHash() != null) {
+            com.baton.app.data.work.WorkManagerInitializer.scheduleDriveBackup(this)
+        }
     }
 
     /**

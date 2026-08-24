@@ -28,8 +28,27 @@ import dagger.assisted.AssistedInject
  * app's Drive access in their Google account
  * settings, [GoogleOAuthClient.getAccessToken]
  * returns `null` and the worker bails out with
- * [Result.retry]. The Settings sheet re-renders
- * the "Sign in" CTA on the next launch.
+ * [Result.failure] (v2.1.1 — was [Result.retry] in
+ * v2.1.0). The Settings sheet re-renders the
+ * "Sign in" CTA on the next launch.
+ *
+ * **v2.1.1 (security): why [Result.failure] not
+ * [Result.retry] on `NotSignedIn`.** v2.1.0 returned
+ * [Result.retry] for `NotSignedIn` so the worker
+ * would re-run on the next 24h tick. The problem:
+ * [BatonApplication.onCreate] scheduled the worker
+ * on every cold start (idempotent, KEEP policy),
+ * which meant the worker fired within seconds of
+ * the launcher on a device that had never signed
+ * in. Each fire wrote a `failure` result to the
+ * WorkManager log and, if the user had configured
+ * the drive-verify test, dumped a stack trace. The
+ * fix: gate the schedule on `isSignedIn() && has-passphrase`
+ * in [BatonApplication.onCreate], and return
+ * [Result.failure] (with a `Log.w`) on `NotSignedIn`
+ * so the worker doesn't pollute the log on a device
+ * that never signed in. The user re-enables the
+ * schedule the next time they sign in.
  */
 @HiltWorker
 class DriveBackupWorker @AssistedInject constructor(
@@ -60,10 +79,23 @@ class DriveBackupWorker @AssistedInject constructor(
             )
             if (file.sizeBytes > 0) Result.success() else Result.retry()
         } catch (e: DriveBackupManager.DriveBackupException.NotSignedIn) {
-            // The user revoked access or the silent
-            // sign-in failed. Retry next day; the user
-            // can also re-sign-in manually.
-            Result.retry()
+            // v2.1.1 (security): the user revoked access
+            // or the silent sign-in failed. The BatonApp
+            // gates the periodic schedule on isSignedIn()
+            // — this branch only fires if the user signed
+            // out between the schedule and the fire. Log
+            // + failure; the user re-enables the schedule
+            // on next sign-in.
+            android.util.Log.w(
+                TAG,
+                "DriveBackupWorker: not signed in; skipping " +
+                    "(next manual back-up will re-enable)",
+            )
+            Result.failure(
+                androidx.work.workDataOf(
+                    "reason" to "not-signed-in",
+                ),
+            )
         } catch (e: Throwable) {
             Result.failure(
                 androidx.work.workDataOf(
@@ -71,5 +103,9 @@ class DriveBackupWorker @AssistedInject constructor(
                 ),
             )
         }
+    }
+
+    companion object {
+        private const val TAG = "BatonDriveBackupWorker"
     }
 }

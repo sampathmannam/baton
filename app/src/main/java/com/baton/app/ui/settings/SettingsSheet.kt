@@ -790,73 +790,22 @@ fun SettingsSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // v1.9.0 (PROD-READINESS-P3-P1-#8) +
-            // v1.9.1 honest re-label: the row was
-            // labelled "Back up to Google Drive" in
-            // v1.9.0 but the implementation uses the
-            // system file picker (SAF) and never talks
-            // to Google Drive directly. The user CAN
-            // pick a Drive folder via the system
-            // picker, but they can also pick local
-            // storage, Dropbox, OneDrive, etc. The
-            // label now reads "Save backup to a
-            // folder..." with a subtitle that lists
-            // the destinations. The tap launches the
-            // system file picker via
-            // [driveBackupLauncher] (declared near
-            // the top of the Settings sheet).
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        driveBackupLauncher.launch(
-                            "baton-backup-" +
-                                java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
-                                    .format(java.util.Date()) + ".json",
-                        )
-                    }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_drive_title),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = stringResource(R.string.settings_drive_backup_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            // v1.9.0 (PROD-READINESS-P3-P1-#9) +
-            // v1.9.1 string resource extraction: the
-            // v1.9.0 row had a hardcoded
-            // "Restore from backup" + "(on a new device)"
-            // pair. Moved to string resources so the
-            // same translations path as the save row
-            // above applies (Tamil + Hindi already
-            // shipped in v1.8.0).
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        restoreBackupLauncher.launch(arrayOf("application/json"))
-                    }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_drive_restore),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = stringResource(R.string.settings_drive_restore_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            // v2.1.1 (PM rating): the v1.9.0
+            // "Save backup to a folder..." +
+            // "Restore from backup" rows are REMOVED.
+            // Both rows re-used the same string
+            // resources as the v2.1.0 Google Drive
+            // section (settings_drive_title,
+            // settings_drive_restore) and rendered
+            // directly below it, so the Settings
+            // sheet showed two "Google Drive backup"
+            // sections. The v2.1.0 Drive section
+            // (above) is the canonical "Back up to
+            // Google Drive" / "Restore from Google
+            // Drive" surface. The SAF launchers
+            // (driveBackupLauncher + restoreBackupLauncher)
+            // are still declared for future use, but
+            // no UI invokes them.
             // v1.8.0 (PROD-READINESS-P2-#2): the
             // "Sync conflicts" row. The row is
             // visible only when the count is
