@@ -238,6 +238,10 @@ class SettingsViewModel @Inject constructor(
     // exposes the count for the Settings sheet; the
     // row is hidden when the count is 0.
     private val syncConflictDao: com.baton.app.data.local.SyncConflictDao,
+    // v2.1.0 (PM rating): the database-health flag.
+    // `true` when the preflight detected a runtime
+    // corruption on the last launch.
+    private val databaseHealth: com.baton.app.data.local.DatabaseHealth,
     @ApplicationContext private val appContext: Context,
 
 
@@ -293,7 +297,7 @@ class SettingsViewModel @Inject constructor(
      * banner with a one-tap path to [eraseAllLocalData].
      */
     val databaseCorrupt: StateFlow<Boolean> = MutableStateFlow(
-        securePreferences.isDatabaseCorrupt(),
+        databaseHealth.isCorrupt(),
     ).asStateFlow()
 
 
