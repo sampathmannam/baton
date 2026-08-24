@@ -9,6 +9,7 @@ import android.content.Context
 import android.net.Uri
 
 import com.baton.app.data.export.PlainExporter
+import com.baton.app.data.export.PlainImporter
 
 import com.baton.app.data.local.AppDatabase
 
@@ -206,6 +207,11 @@ class SettingsViewModel @Inject constructor(
     private val preferences: BatonPreferences,
 
     private val plainExporter: PlainExporter,
+    // v2.0.1 (PM rating): the importer is the inverse of
+    // [plainExporter]. The Settings sheet's "Import"
+    // button uses it to round-trip a v1.x export back
+    // into the local DB.
+    private val plainImporter: PlainImporter,
 
     // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
     // the BackupManager is exposed so the
@@ -1050,6 +1056,21 @@ class SettingsViewModel @Inject constructor(
 
 
     }
+
+    /**
+     * v2.0.1 (PM rating): the inverse of [exportPlain].
+     * Reads a CSV or JSON snapshot from the SAF-chosen
+     * URI and upserts every row. The MIME type is
+     * ignored — the importer branches on the first
+     * non-whitespace character (`{` → JSON, else → CSV).
+     *
+     * Returns the [PlainImporter.ImportReport] on
+     * success, or the underlying [Throwable] on
+     * failure. Callers render the report as a snackbar
+     * ("Imported N people, M instructions, K tags").
+     */
+    suspend fun importPlain(uri: Uri): Result<PlainImporter.ImportReport> =
+        plainImporter.importFromUri(uri)
 
     /**
      * v1.8.0 (PROD-READINESS-P0-#1): trigger a one-shot

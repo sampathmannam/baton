@@ -252,6 +252,13 @@
     <string name="plain_export_json">JSON</string>
     <string name="plain_export_success">Export saved</string>
     <string name="plain_export_failed">Couldn\'t save the export. Try again.</string>
+    <!-- v2.0.1 (PM rating): the inverse of export — pick a
+         CSV or JSON from SAF and round-trip it back into
+         the local DB. Re-importing the same file is
+         idempotent (upsert by id). -->
+    <string name="plain_import_title">Import from</string>
+    <string name="plain_import_button">Import a saved file</string>
+    <string name="plain_import_failed">Couldn\'t read the file. Is it a Baton export (CSV/JSON)?</string>
 
     <!-- v2.0 Tier 2 features. -->
     <string name="decay_section_title">Quiet a while</string>

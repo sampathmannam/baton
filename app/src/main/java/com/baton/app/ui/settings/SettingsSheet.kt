@@ -178,6 +178,33 @@ fun SettingsSheet(
             }
         }
     }
+    // v2.0.1 (PM rating): the inverse — pick a CSV/JSON
+    // from SAF (OpenDocument contract) and call
+    // [viewModel.importPlain]. MIME is ignored; the
+    // importer branches on the first non-whitespace
+    // character.
+    var plainImportOk by remember { mutableStateOf<String?>(null) }
+    var plainImportError by remember { mutableStateOf<String?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val r = viewModel.importPlain(uri)
+                if (r.isSuccess) {
+                    val report = r.getOrThrow()
+                    plainImportOk =
+                        "Imported ${report.total} rows " +
+                        "(${report.peopleInserted + report.peopleUpdated} people, " +
+                        "${report.instructionsInserted + report.instructionsUpdated} instructions, " +
+                        "${report.tagsInserted + report.tagsUpdated} tags)"
+                    plainImportError = null
+                } else {
+                    plainImportError = r.exceptionOrNull()?.message
+                }
+            }
+        }
+    }
     val jsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
     ) { uri: Uri? ->
@@ -543,6 +570,45 @@ fun SettingsSheet(
                     text = stringResource(R.string.plain_export_failed),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v2.0.1 (PM rating): the inverse of the export
+            // block above. Tapping the row opens the SAF
+            // file picker (no MIME filter — the importer
+            // branches on the first non-whitespace char).
+            // The result snackbar reports inserted + updated
+            // counts. Re-importing the same file is
+            // idempotent (upsert by id).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        plainImportError = null
+                        plainImportOk = null
+                        // Empty array = "any type"; the
+                        // importer reads the bytes and
+                        // decides CSV vs JSON.
+                        importLauncher.launch(arrayOf("*/*"))
+                    }
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.plain_import_button),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+            if (plainImportOk != null) {
+                Text(
+                    text = plainImportOk!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (plainImportError != null) {
+                Text(
+                    text = stringResource(R.string.plain_import_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
             // v1.8.0 (PROD-READINESS-P0-#1): the "Back up now"
