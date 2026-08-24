@@ -25,7 +25,7 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
             Spacer(Modifier.height(8.dp))
             AudienceSummary(state.audience, state.recipientCount)
             Spacer(Modifier.height(12.dp))
-            DueChip(state.dueAtMs) { viewModel.setDue(it) }
+            DueChip(dueAtMs = state.dueAtMs, onSet = { viewModel.setDue(it) })
             Spacer(Modifier.height(12.dp))
             ChannelToggles(state.channels) { viewModel.toggleChannel(it) }
             Spacer(Modifier.height(16.dp))

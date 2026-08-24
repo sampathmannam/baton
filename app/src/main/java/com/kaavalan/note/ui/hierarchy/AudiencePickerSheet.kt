@@ -36,7 +36,10 @@ fun AudiencePickerSheet(roster: RosterPicker, onPicked: (AudienceRef) -> Unit, o
                 Mode.Root -> RootChips(roster = roster, onPerson = { mode = Mode.PeopleByDesignation(null, roster.allPeople) }, onDesignation = { mode = Mode.Designations }, onStation = { mode = Mode.Stations }, onAll = { onPicked(AudienceRef.ByAll("all", "Everyone on the roster")); scope.launch { sheetState.hide() } })
                 Mode.Designations -> DesignationList(roster, onPick = { d -> onPicked(AudienceRef.ByDesignation(d, "All $d")); scope.launch { sheetState.hide() } })
                 Mode.Stations -> StationList(roster, onPick = { s -> onPicked(AudienceRef.ByStation(s, "Everyone at $s")); scope.launch { sheetState.hide() } })
-                is Mode.PeopleByDesignation -> PersonList(mode.people, mode.designation ?: stringResource(R.string.hierarchy_audience_by_person), onPick = { p -> onPicked(AudienceRef.ByPerson(p.id, p.name)); scope.launch { sheetState.hide() } })
+                is Mode.PeopleByDesignation -> {
+                    val p = mode
+                    PersonList(p.people, p.designation ?: stringResource(R.string.hierarchy_audience_by_person), onPick = { per -> onPicked(AudienceRef.ByPerson(per.id, per.name)); scope.launch { sheetState.hide() } })
+                }
             }
             Spacer(Modifier.height(24.dp))
         }
