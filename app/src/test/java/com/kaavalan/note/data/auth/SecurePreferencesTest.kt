@@ -59,7 +59,7 @@ class SecurePreferencesTest {
     fun `hasDatabasePassphrase is false before the first call, true after`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val rawPrefs: SharedPreferences =
-            context.getSharedPreferences("baton_secure_prefs", Context.MODE_PRIVATE)
+            context.getSharedPreferences("kaavalan_note_secure_prefs", Context.MODE_PRIVATE)
         rawPrefs.edit().clear().commit()
 
         val prefs = newPrefs()
@@ -81,7 +81,7 @@ class SecurePreferencesTest {
     fun `clearDatabasePassphrase returns false when no key is present`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val rawPrefs: SharedPreferences =
-            context.getSharedPreferences("baton_secure_prefs", Context.MODE_PRIVATE)
+            context.getSharedPreferences("kaavalan_note_secure_prefs", Context.MODE_PRIVATE)
         rawPrefs.edit().clear().commit()
 
         val prefs = newPrefs()

@@ -164,7 +164,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun consumeQuickCapture(intent: Intent?) {
-        if (intent?.action == com.kaavalan.note.features.capture.BatonCaptureWidget.ACTION_QUICK_CAPTURE) {
+        if (intent?.action == com.kaavalan.note.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE) {
             rootViewModel.onQuickCapture()
         }
     }

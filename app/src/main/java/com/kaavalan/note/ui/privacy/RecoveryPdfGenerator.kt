@@ -147,7 +147,7 @@ object RecoveryPdfGenerator {
         // PDF older than 5 minutes is stale.
         pruneOld(recoveryDir, olderThanMs = 5 * 60 * 1000L)
 
-        val outFile = File(recoveryDir, "baton-recovery-${System.currentTimeMillis()}.pdf")
+        val outFile = File(recoveryDir, "kaavalan-note-recovery-${System.currentTimeMillis()}.pdf")
         FileOutputStream(outFile).use { pdf.writeTo(it) }
         pdf.close()
         return outFile

@@ -49,14 +49,14 @@ import com.kaavalan.note.R
  * **State:** the widget is stateless -- it is re-rendered on
  * every `update` (which is in turn triggered by the system at
  * `updatePeriodMillis` intervals or by an explicit
- * [BatonCaptureWidget.updateAll] call). The `Tap capture` action
+ * [KaavalanCaptureWidget.updateAll] call). The `Tap capture` action
  * always routes to [MainActivity] via the
- * [com.kaavalan.note.features.capture.BatonCaptureWidget.ACTION_QUICK_CAPTURE]
+ * [com.kaavalan.note.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE]
  * deep link; the widget does NOT depend on app data.
  *
  * **No permission** is required to install or render the widget.
  */
-class BatonCaptureWidget : GlanceAppWidget() {
+class KaavalanCaptureWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
@@ -127,12 +127,12 @@ class BatonCaptureWidget : GlanceAppWidget() {
 /**
  * Tier 0.1: the manifest-declared receiver. The class extends
  * [GlanceAppWidgetReceiver] and wires the singleton
- * [BatonCaptureWidget] composable. The receiver must be listed
+ * [KaavalanCaptureWidget] composable. The receiver must be listed
  * in `AndroidManifest.xml` with the
  * `android.appwidget.action.APPWIDGET_UPDATE` intent filter and
  * a `<meta-data android:name="android.appwidget.provider" .../>`
- * pointing to the new `xml/baton_capture_widget_info.xml`.
+ * pointing to the new `xml/kaavalan_capture_widget_info.xml`.
  */
-class BatonCaptureWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = BatonCaptureWidget()
+class KaavalanCaptureWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = KaavalanCaptureWidget()
 }

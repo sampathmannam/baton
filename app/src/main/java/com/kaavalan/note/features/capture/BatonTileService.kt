@@ -44,7 +44,7 @@ import com.kaavalan.note.R
  * label/icon so TalkBack and the tile picker both see the
  * correct state. Tapping fires [onClick] which deep-links to
  * [MainActivity] via the
- * [com.kaavalan.note.features.capture.BatonCaptureWidget.ACTION_QUICK_CAPTURE]
+ * [com.kaavalan.note.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE]
  * action -- the same action the Tier 0.1 widget fires.
  *
  * **Android 14 (UPSIDE_DOWN_CAKE) handling:** unchanged from
@@ -87,7 +87,7 @@ class BatonTileService : TileService() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             // The capture flow checks for this action;
             // CaptureSheet opens pre-focused on the text input.
-            action = BatonCaptureWidget.ACTION_QUICK_CAPTURE
+            action = KaavalanCaptureWidget.ACTION_QUICK_CAPTURE
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             // API 34+: TileService.startActivity expects a

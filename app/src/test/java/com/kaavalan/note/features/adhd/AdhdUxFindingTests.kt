@@ -219,7 +219,7 @@ class AdhdUxFindingTests {
     /**
      * 7. Lock-screen widget is one button, voice. The widget
      * is a single tap target (the mic). The widget label is
-     * "Baton" + the button description is "Quick-capture".
+     * "Kaavalan note" + the button description is "Quick-capture".
      */
     @Test
     fun `7 widget is one button - the mic - not a multi-tap launcher`() {
@@ -227,7 +227,7 @@ class AdhdUxFindingTests {
         // one RemoteViews layout (a single ImageButton). We
         // assert the manifest class file exists in the
         // project (the build will fail if it's missing).
-        val widgetClass = com.kaavalan.note.features.capture.BatonCaptureWidget::class.java
+        val widgetClass = com.kaavalan.note.features.capture.KaavalanCaptureWidget::class.java
         val packageName = widgetClass.`package`?.name ?: ""
         assertEquals(
             "Widget class lives in features.capture",
@@ -238,7 +238,7 @@ class AdhdUxFindingTests {
         assertEquals(
             "Widget defines exactly one public action: ACTION_QUICK_CAPTURE",
             "com.kaavalan.note.action.QUICK_CAPTURE",
-            com.kaavalan.note.features.capture.BatonCaptureWidget.ACTION_QUICK_CAPTURE,
+            com.kaavalan.note.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE,
         )
     }
 

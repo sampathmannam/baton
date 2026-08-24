@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
  * which meant the worker re-fired on every cold start of a
  * device that had never signed in (the periodic schedule
  * was registered unconditionally in
- * [com.kaavalan.note.BatonApplication.onCreate]). Each fire
+ * [com.kaavalan.note.KaavalanApplication.onCreate]). Each fire
  * wrote a `failure` to the WorkManager log.
  *
  * The v2.1.1 fix: return [ListenableWorker.Result.failure]

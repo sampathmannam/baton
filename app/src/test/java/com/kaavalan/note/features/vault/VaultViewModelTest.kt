@@ -56,7 +56,7 @@ class VaultViewModelTest {
         val vm = VaultViewModel(exporter, importer, strength)
         vm.setPassphrase("short")
         vm.setConfirm("short")
-        vm.export(Uri.parse("file:///tmp/out.baton-vault")) {}
+        vm.export(Uri.parse("file:///tmp/out.kaavalan-note-vault")) {}
         advanceUntilIdle()
         assertEquals(VaultUiError.TooShort, vm.state.value.error)
     }
@@ -66,7 +66,7 @@ class VaultViewModelTest {
         val vm = VaultViewModel(exporter, importer, strength)
         vm.setPassphrase("longenoughpass")
         vm.setConfirm("differentpass")
-        vm.export(Uri.parse("file:///tmp/out.baton-vault")) {}
+        vm.export(Uri.parse("file:///tmp/out.kaavalan-note-vault")) {}
         advanceUntilIdle()
         assertEquals(VaultUiError.Mismatch, vm.state.value.error)
     }
@@ -78,7 +78,7 @@ class VaultViewModelTest {
         vm.setPassphrase("longenoughpass")
         vm.setConfirm("longenoughpass")
         var called = false
-        vm.export(Uri.parse("file:///tmp/out.baton-vault")) { called = true }
+        vm.export(Uri.parse("file:///tmp/out.kaavalan-note-vault")) { called = true }
         advanceUntilIdle()
         coVerify(exactly = 1) { exporter.export(any(), any()) }
         assertTrue("onSuccess should be called", called)
@@ -91,7 +91,7 @@ class VaultViewModelTest {
         coEvery { importer.import(any(), any()) } returns Result.failure(VaultError.IncorrectPassphrase())
         val vm = VaultViewModel(exporter, importer, strength)
         vm.setPassphrase("whatever")
-        vm.import(Uri.parse("file:///tmp/in.baton-vault")) {}
+        vm.import(Uri.parse("file:///tmp/in.kaavalan-note-vault")) {}
         advanceUntilIdle()
         assertEquals(VaultUiError.IncorrectPassphrase, vm.state.value.error)
     }
@@ -101,7 +101,7 @@ class VaultViewModelTest {
         coEvery { importer.import(any(), any()) } returns Result.failure(VaultError.NotAVault("bad magic"))
         val vm = VaultViewModel(exporter, importer, strength)
         vm.setPassphrase("whatever")
-        vm.import(Uri.parse("file:///tmp/in.baton-vault")) {}
+        vm.import(Uri.parse("file:///tmp/in.kaavalan-note-vault")) {}
         advanceUntilIdle()
         assertEquals(VaultUiError.NotAVault, vm.state.value.error)
     }
@@ -131,7 +131,7 @@ class VaultViewModelTest {
         val vm = VaultViewModel(exporter, importer, strength)
         vm.setPassphrase("any")
         var called = false
-        vm.import(Uri.parse("file:///tmp/in.baton-vault")) { called = true }
+        vm.import(Uri.parse("file:///tmp/in.kaavalan-note-vault")) { called = true }
         advanceUntilIdle()
         assertNotNull(vm.state.value)
         assertTrue("onSuccess should be called", called)

@@ -42,10 +42,10 @@ import java.util.concurrent.TimeUnit
  */
 object WorkManagerInitializer {
 
-    private const val ONE_SHOT_NAME = "baton-sync-drain"
-    private const val PERIODIC_NAME = "baton-sync-periodic"
-    private const val BRIEF_NAME = "baton-daily-brief"
-    private const val MORNING_BRIEF_NAME = "baton-morning-brief"
+    private const val ONE_SHOT_NAME = "kaavalan-note-sync-drain"
+    private const val PERIODIC_NAME = "kaavalan-note-sync-periodic"
+    private const val BRIEF_NAME = "kaavalan-note-daily-brief"
+    private const val MORNING_BRIEF_NAME = "kaavalan-note-morning-brief"
     private const val PERIODIC_INTERVAL_MIN = 15L
 
     // v2.0.0 (drop Supabase): the capture-sync work names from
@@ -58,16 +58,16 @@ object WorkManagerInitializer {
     // The one-shot is the "Back up now" button in the Settings
     // sheet; the periodic is the daily safety-net that runs even
     // if the user never opens Settings.
-    private const val BACKUP_ONE_SHOT_NAME = "baton-backup-now"
-    private const val BACKUP_PERIODIC_NAME = "baton-backup-periodic"
+    private const val BACKUP_ONE_SHOT_NAME = "kaavalan-note-backup-now"
+    private const val BACKUP_PERIODIC_NAME = "kaavalan-note-backup-periodic"
     private const val BACKUP_PERIODIC_INTERVAL_HOURS = 24L
 
     // v1.8.0 (PROD-READINESS-P2-#5): names for the
     // retention sweep. The one-shot is fired after
     // a settings change (future); the periodic is
     // the daily safety-net.
-    private const val RETENTION_ONE_SHOT_NAME = "baton-retention-now"
-    private const val RETENTION_PERIODIC_NAME = "baton-retention-periodic"
+    private const val RETENTION_ONE_SHOT_NAME = "kaavalan-note-retention-now"
+    private const val RETENTION_PERIODIC_NAME = "kaavalan-note-retention-periodic"
     private const val RETENTION_PERIODIC_INTERVAL_HOURS = 24L
 
     /**

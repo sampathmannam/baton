@@ -226,7 +226,7 @@ class SecurePreferences @Inject constructor(
     }
 
     companion object {
-        private const val FILE_NAME = "baton_secure_prefs"
+        private const val FILE_NAME = "kaavalan_note_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase_v1"
         // v2.1.0 (PM rating): the Google Drive backup
         // tokens. See [setGoogleRefreshToken] /

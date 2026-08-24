@@ -45,10 +45,10 @@ class WorkManagerInitializerMorningBriefTest {
     }
 
     @Test
-    fun `enqueueMorningBriefOneShot enqueues a one-shot work named baton-morning-brief`() = runTest {
+    fun `enqueueMorningBriefOneShot enqueues a one-shot work named kaavalan-note-morning-brief`() = runTest {
         WorkManagerInitializer.enqueueMorningBriefOneShot(context, delaySec = 2L)
         val wm = WorkManager.getInstance(context)
-        val infos = wm.getWorkInfosForUniqueWork("baton-morning-brief").get()
+        val infos = wm.getWorkInfosForUniqueWork("kaavalan-note-morning-brief").get()
         assertEquals(1, infos.size)
         val info = infos[0]
         assertNotNull("info should be non-null", info)
@@ -63,7 +63,7 @@ class WorkManagerInitializerMorningBriefTest {
         // Second enqueue with REPLACE -> the first is replaced.
         WorkManagerInitializer.enqueueMorningBriefOneShot(context, delaySec = 5L)
         val infos = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork("baton-morning-brief").get()
+            .getWorkInfosForUniqueWork("kaavalan-note-morning-brief").get()
         // REPLACE policy -> only the latest enqueue survives.
         assertEquals(1, infos.size)
     }
@@ -72,7 +72,7 @@ class WorkManagerInitializerMorningBriefTest {
     fun `scheduleMorningBrief enqueues a periodic 24h work`() = runTest {
         WorkManagerInitializer.scheduleMorningBrief(context, hourOfDay = 9, minute = 0)
         val infos = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork("baton-morning-brief").get()
+            .getWorkInfosForUniqueWork("kaavalan-note-morning-brief").get()
         assertEquals(1, infos.size)
         val info = infos[0]
         // Periodicity is opaque on the public WorkInfo API, but

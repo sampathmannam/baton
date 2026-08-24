@@ -24,10 +24,10 @@ import org.robolectric.annotation.Config
  *
  * What we assert:
  *  1. `enqueueBackupNow(context)` enqueues a unique
- *     one-shot named `baton-backup-now` tagged with
+ *     one-shot named `kaavalan-note-backup-now` tagged with
  *     [BackupWorker].
  *  2. `scheduleBackup(context)` enqueues a unique
- *     periodic named `baton-backup-periodic` tagged
+ *     periodic named `kaavalan-note-backup-periodic` tagged
  *     with [BackupWorker].
  *  3. The KEEP policies hold for both.
  */
@@ -50,7 +50,7 @@ class WorkManagerInitializerBackupTest {
     fun `enqueueBackupNow enqueues unique one-shot work tagged with BackupWorker`() {
         WorkManagerInitializer.enqueueBackupNow(context)
         val workInfos = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork("baton-backup-now")
+            .getWorkInfosForUniqueWork("kaavalan-note-backup-now")
             .get()
         assertEquals(1, workInfos.size)
         val info = workInfos[0]
@@ -73,7 +73,7 @@ class WorkManagerInitializerBackupTest {
         WorkManagerInitializer.enqueueBackupNow(context)
         WorkManagerInitializer.enqueueBackupNow(context)
         val workInfos = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork("baton-backup-now")
+            .getWorkInfosForUniqueWork("kaavalan-note-backup-now")
             .get()
         assertEquals(
             "KEEP policy should keep the existing one work, not enqueue another",
@@ -85,7 +85,7 @@ class WorkManagerInitializerBackupTest {
     fun `scheduleBackup enqueues unique periodic work tagged with BackupWorker`() {
         WorkManagerInitializer.scheduleBackup(context)
         val workInfos = WorkManager.getInstance(context)
-            .getWorkInfosForUniqueWork("baton-backup-periodic")
+            .getWorkInfosForUniqueWork("kaavalan-note-backup-periodic")
             .get()
         assertEquals(1, workInfos.size)
         val info = workInfos[0]
