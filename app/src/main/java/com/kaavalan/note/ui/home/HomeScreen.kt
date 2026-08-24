@@ -297,7 +297,7 @@ fun HomeScreen(
                         onAddPersonClick = { showAddPerson = true },
                     )
                     HomeUiState.Loading -> LoadingSkeleton(padding)
-                    is HomeUiState.Loaded -> com.kaavalan.note.ui.hierarchy.HomeHierarchyAwarePersonList(
+                    is HomeUiState.Loaded -> com.kaavalan.note.ui./* hierarchy. */HomeHierarchyAwarePersonList(
                         persons = s.persons,
                         openCountByPersonId = s.openCountByPersonId,
                         stalePersonIds = s.stalePersonIds,

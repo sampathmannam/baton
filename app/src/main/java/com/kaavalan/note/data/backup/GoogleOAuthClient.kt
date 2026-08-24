@@ -395,7 +395,7 @@ class GoogleOAuthClient @Inject constructor(
         // hard-coded placeholders failed the token
         // exchange with `400 invalid_client` because
         // Google rejects unknown client IDs. The user
-        // sets `BATON_GOOGLE_OAUTH_CLIENT_ID` in
+        // sets `KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID` in
         // `local.properties` before shipping to the
         // Play Store.
         //
@@ -403,7 +403,7 @@ class GoogleOAuthClient @Inject constructor(
         // is `oauth-callback` — both are declared in
         // the AndroidManifest as an intent filter on
         // [com.kaavalan.note.features.auth.OAuthCallbackActivity].
-        val CLIENT_ID: String = BuildConfig.BATON_GOOGLE_OAUTH_CLIENT_ID
-        val REDIRECT_URI: String = BuildConfig.BATON_GOOGLE_OAUTH_REDIRECT_URI
+        val CLIENT_ID: String = BuildConfig.KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID
+        val REDIRECT_URI: String = BuildConfig.KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI
     }
 }

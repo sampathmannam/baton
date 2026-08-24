@@ -62,6 +62,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.kaavalan.note.data.preferences.KaavalanPreferences
+import com.kaavalan.note.data.preferences.ThemeMode
 import com.kaavalan.note.data.undo.UndoController
 import com.kaavalan.note.features.capture.ShareIntake
 import com.kaavalan.note.features.onboarding.OnboardingScreen
