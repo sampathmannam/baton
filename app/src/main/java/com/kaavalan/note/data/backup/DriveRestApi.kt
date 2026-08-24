@@ -58,7 +58,7 @@ class DriveRestApi(
     /**
      * Upload [content] as a new file in the user's
      * `appDataFolder`. [fileName] is the file's display
-     * name (e.g. "baton-backup-20260824-150000.json.enc").
+     * name (e.g. kaavalan-note-backup-20260824-150000.json.enc").
      * Returns the Drive file ID — the caller stores
      * this to delete the file later.
      */
@@ -76,7 +76,7 @@ class DriveRestApi(
             append("\"parents\":[\"appDataFolder\"]")
             append("}")
         }
-        val boundary = "baton-drive-${System.nanoTime()}"
+        val boundary = kaavalan-note-drive-${System.nanoTime()}"
         val body = buildMultipartBody(boundary, metadata, fileName, content)
 
         val response: HttpResponse = httpClient.post(

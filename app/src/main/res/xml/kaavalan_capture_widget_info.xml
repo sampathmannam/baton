@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   AppWidgetProviderInfo for the Tier 0.1 Glance widget
-  (BatonCaptureWidget + BatonCaptureWidgetReceiver).
+  (KaavalanCaptureWidget + KaavalanCaptureWidgetReceiver).
 
   - minWidth/minHeight: 180dp x 80dp is the smallest cell that
     still shows the mic icon + "Capture" label clearly on most

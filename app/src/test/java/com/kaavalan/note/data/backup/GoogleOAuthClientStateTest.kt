@@ -41,8 +41,8 @@ import java.io.File
  * authorization-code-injection defence (RFC 6749 §10.12);
  * the `code_verifier` is the PKCE binding (RFC 7636).
  * Without these, any installed app on the device can fire
- * `baton://oauth-callback?code=ATTACKER_CODE` and have
- * Baton exchange the attacker's auth code.
+ * `kaavalan-note://oauth-callback?code=ATTACKER_CODE` and have
+ * Kaavalan note exchange the attacker's auth code.
  *
  * Robolectric is used for the [Context] (the real Android
  * `filesDir` is internal). [SecurePreferences] is mocked

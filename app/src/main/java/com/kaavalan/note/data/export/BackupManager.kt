@@ -108,7 +108,7 @@ class BackupManager @Inject constructor(
             put("instruction_tags", instructionTags.toInstructionTagJsonArray())
         }
         val ts = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-        val file = File(backupDir, "baton-backup-$ts.json")
+        val file = File(backupDir, kaavalan-note-backup-$ts.json")
         file.writeText(root.toString(2))
         pruneOldBackups()
         return file
@@ -154,7 +154,7 @@ class BackupManager @Inject constructor(
      * List the backup files in [backupDir] sorted newest-first.
      */
     fun listBackups(): List<File> =
-        backupDir.listFiles { f -> f.isFile && f.name.startsWith("baton-backup-") && f.name.endsWith(".json") }
+        backupDir.listFiles { f -> f.isFile && f.name.startsWith(kaavalan-note-backup-") && f.name.endsWith(".json") }
             ?.sortedByDescending { it.lastModified() }
             ?: emptyList()
 

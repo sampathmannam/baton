@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="baton_background">#FAF8F4</color>
+    <color name="kaavalan_note_background">#FAF8F4</color>
 
     <!-- M2-T5 widget palette: dark surface so the mic reads on both
          light and dark home-screen wallpapers. -->

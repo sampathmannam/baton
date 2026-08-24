@@ -86,7 +86,7 @@ class DriveBackupManager @Inject constructor(
         val blob = crypto.encrypt(json, passphrase)
 
         // 4. Upload.
-        val fileName = "baton-backup-${ts()}.json.enc"
+        val fileName = kaavalan-note-backup-${ts()}.json.enc"
         val id = driveApi.uploadToAppFolder(accessToken, fileName, blob)
         Log.i(
             TAG,

@@ -1,0 +1,72 @@
+package com.kaavalan.note.ui.hierarchy
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.kaavalan.note.R
+import com.kaavalan.note.data.instructions.AudienceRef
+import com.kaavalan.note.data.instructions.DeliveryService
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesignation: String?, senderDivision: String?, onDismiss: () -> Unit, onSent: (String) -> Unit, viewModel: DispatchViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(stringResource(R.string.hierarchy_dispatch_title), style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            AudienceSummary(state.audience, state.recipientCount)
+            Spacer(Modifier.height(12.dp))
+            DueChip(dueAtMs = state.dueAtMs, onSet = { viewModel.setDue(it) })
+            Spacer(Modifier.height(12.dp))
+            ChannelToggles(state.channels) { viewModel.toggleChannel(it) }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = { viewModel.submit(title = title, rawText = rawText, senderName = senderName, senderDesignation = senderDesignation, senderDivision = senderDivision, onDone = onSent) },
+                enabled = state.audience != null && state.recipientCount > 0,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.Send, contentDescription = null)
+                Text("  " + stringResource(R.string.hierarchy_dispatch_title))
+            }
+            state.lastResult?.let { r ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = if (r.failed == 0) stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) else stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) + " (${r.failed} failed)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (r.failed == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable private fun AudienceSummary(audience: AudienceRef?, count: Int) {
+    val (label, color) = when (audience) {
+        null -> "Pick an audience" to MaterialTheme.colorScheme.error
+        is AudienceRef.ByPerson -> stringResource(R.string.hierarchy_audience_summary_to_person, audience.label) to MaterialTheme.colorScheme.onSurface
+        is AudienceRef.ByDesignation -> stringResource(R.string.hierarchy_audience_summary_to_designation, audience.label) to MaterialTheme.colorScheme.onSurface
+        is AudienceRef.ByStation -> stringResource(R.string.hierarchy_audience_summary_to_station, audience.label) to MaterialTheme.colorScheme.onSurface
+        is AudienceRef.ByAll -> stringResource(R.string.hierarchy_audience_summary_to_all) to MaterialTheme.colorScheme.onSurface
+    }
+    Column {
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = color)
+        if (count > 0) Text(if (count == 1) stringResource(R.string.hierarchy_audience_recipient_count_one) else stringResource(R.string.hierarchy_audience_recipient_count_other, count), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable private fun ChannelToggles(selected: Set<DeliveryService.Channel>, onToggle: (DeliveryService.Channel) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        FilterChip(selected = DeliveryService.Channel.SMS in selected, onClick = { onToggle(DeliveryService.Channel.SMS) }, label = { Text(stringResource(R.string.hierarchy_dispatch_channel_sms)) })
+        FilterChip(selected = DeliveryService.Channel.WHATSAPP in selected, onClick = { onToggle(DeliveryService.Channel.WHATSAPP) }, label = { Text(stringResource(R.string.hierarchy_dispatch_channel_whatsapp)) })
+    }
+}

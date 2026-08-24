@@ -13,7 +13,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Tier 1.1 (v2.0): the .baton-vault crypto primitive.
+ * Tier 1.1 (v2.0): the .kaavalan-note-vault crypto primitive.
  *
  * **Argon2id KDF** is exercised in the on-device integration
  * test (`app/src/androidTest/.../VaultEndToEndTest.kt`).
@@ -39,7 +39,7 @@ class VaultCryptoTest {
         val key = crypto.generateKeyForTest()
         val secretKey = SecretKeySpec(key, "AES")
         val iv = crypto.generateIv()
-        val plaintext = "Kaavalan note -- the baton's quiet half.".toByteArray(Charsets.UTF_8)
+        val plaintext = "Kaavalan note -- the Kaavalan note guardian's quiet half.".toByteArray(Charsets.UTF_8)
         val aad = "header-bytes-as-aad".toByteArray(Charsets.UTF_8)
         val ciphertext = crypto.encrypt(secretKey, iv, plaintext, aad)
         val decrypted = crypto.decrypt(secretKey, iv, ciphertext, aad)

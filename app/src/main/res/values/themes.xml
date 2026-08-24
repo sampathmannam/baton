@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.Baton" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor" tools:targetApi="l">@color/baton_background</item>
+    <style name="Theme.KaavalanNote" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor" tools:targetApi="l">@color/kaavalan_note_background</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
     </style>
 
@@ -11,7 +11,7 @@
          finishes. A translucent theme means the user never
          sees a flash of the activity itself, only the
          MainActivity underneath. -->
-    <style name="Theme.Baton.Translucent.NoDisplay" parent="android:Theme.Translucent.NoTitleBar">
+    <style name="Theme.KaavalanNote.Translucent.NoDisplay" parent="android:Theme.Translucent.NoTitleBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowNoTitle">true</item>

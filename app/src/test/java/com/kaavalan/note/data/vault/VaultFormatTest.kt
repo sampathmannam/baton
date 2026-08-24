@@ -9,7 +9,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Tier 1.1 (v2.0): the on-disk .baton-vault file format.
+ * Tier 1.1 (v2.0): the on-disk .kaavalan-note-vault file format.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])

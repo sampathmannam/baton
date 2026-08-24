@@ -33,7 +33,7 @@ import org.robolectric.annotation.Config
  *    direct `CharBuffer` encoding produce the same
  *    key — the v2.1.1 path is wire-compatible with
  *    v2.1.0 (the upgrade is safe; existing
- *    `.baton-vault` files still decrypt).
+ *    `.kaavalan-note-vault` files still decrypt).
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])

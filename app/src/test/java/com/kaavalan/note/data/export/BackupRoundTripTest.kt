@@ -290,10 +290,10 @@ class BackupRoundTripTest {
     fun `backup file name uses the timestamp pattern and lives in the backups subdirectory`() = runTest {
         val file = backupManager.backup()
         val name = file.name
-        // v1.8.0: the filename is baton-backup-YYYYMMDD-HHmmss.json
+        // v1.8.0: the filename is kaavalan-note-backup-YYYYMMDD-HHmmss.json
         assertTrue(
-            "filename must start with baton-backup-; got $name",
-            name.startsWith("baton-backup-"),
+            "filename must start with kaavalan-note-backup-; got $name",
+            name.startsWith("kaavalan-note-backup-"),
         )
         assertTrue(
             "filename must end with .json; got $name",

@@ -633,7 +633,7 @@ fun SettingsSheet(
                             plainExportError = null
                             plainExportOk = false
                             selectedPlainFormat = "csv"
-                            csvLauncher.launch("baton-${ts()}.csv")
+                            csvLauncher.launch(kaavalan-note-${ts()}.csv")
                         }
                         .padding(vertical = 8.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -656,7 +656,7 @@ fun SettingsSheet(
                             plainExportError = null
                             plainExportOk = false
                             selectedPlainFormat = "json"
-                            jsonLauncher.launch("baton-${ts()}.json")
+                            jsonLauncher.launch(kaavalan-note-${ts()}.json")
                         }
                         .padding(vertical = 8.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,

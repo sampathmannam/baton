@@ -13,7 +13,7 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Tier 1.1 (v2.0): end-to-end test of the .baton-vault file
+ * Tier 1.1 (v2.0): end-to-end test of the .kaavalan-note-vault file
  * format. We build the 56-byte header, encrypt the
  * payload with AES-256-GCM under a known key (bypassing
  * Argon2id — the KDF is covered by the on-device

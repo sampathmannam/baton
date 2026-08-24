@@ -2,7 +2,7 @@
 <!--
   v1.9.10: Preview / loading layout for the Quick Note widget
   shown in the Android widget picker. The runtime layout is
-  rendered by Glance from [BatonQuickNoteWidget.provideGlance];
+  rendered by Glance from [KaavalanQuickNoteWidget.provideGlance];
   this XML is only the placeholder the picker shows before the
   widget composes. Same shape as the live widget so the user
   sees a faithful preview.

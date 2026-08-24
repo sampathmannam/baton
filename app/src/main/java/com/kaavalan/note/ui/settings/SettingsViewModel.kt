@@ -1370,10 +1370,10 @@ class SettingsViewModel @Inject constructor(
      *
 
 
-     *  - the SQLCipher Room DB file (`baton.db`)
+     *  - the SQLCipher Room DB file (`kaavalan-note.db`)
 
 
-     *  - the WAL (`baton.db-wal`) and SHM (`baton.db-shm`)
+     *  - the WAL (`kaavalan-note.db-wal`) and SHM (`kaavalan-note.db-shm`)
 
 
      *    companions; the WAL is often the bulk of the size

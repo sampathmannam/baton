@@ -50,10 +50,10 @@ class DriveBackupTest {
 
     @Test
     fun `buildCreateDocumentIntent sets the application_json MIME type`() {
-        val intent = DriveBackup.buildCreateDocumentIntent("baton-backup-20260822.json")
+        val intent = DriveBackup.buildCreateDocumentIntent(kaavalan-note-backup-20260822.json")
         assertEquals(Intent.ACTION_CREATE_DOCUMENT, intent.action)
         assertEquals("application/json", intent.type)
-        assertEquals("baton-backup-20260822.json", intent.getStringExtra(Intent.EXTRA_TITLE))
+        assertEquals(kaavalan-note-backup-20260822.json", intent.getStringExtra(Intent.EXTRA_TITLE))
     }
 
     @Test

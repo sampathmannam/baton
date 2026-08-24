@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Baton capture widget. Single mic button; tap to launch MainActivity
+  Kaavalan note capture widget. Single mic button; tap to launch MainActivity
   with the ACTION_QUICK_CAPTURE deep link. The widget size is set by
   the AppWidgetProviderInfo XML.
 -->

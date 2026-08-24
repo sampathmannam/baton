@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   v1.9.11: AppWidgetProviderInfo for the Quick Note widget
-  (BatonQuickNoteWidget + BatonQuickNoteWidgetReceiver).
+  (KaavalanQuickNoteWidget + KaavalanQuickNoteWidgetReceiver).
 
   v1.9.10 baseline: 2x2 single-tap capture button. v1.9.11:
   resizable in both dimensions with progressive disclosure

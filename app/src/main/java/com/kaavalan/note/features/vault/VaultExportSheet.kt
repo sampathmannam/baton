@@ -170,7 +170,7 @@ fun VaultExportSheet(
                         viewModel.setConfirm(s.confirm)
                         return@Button
                     }
-                    val filename = "baton-vault-${ts()}.baton-vault"
+                    val filename = kaavalan-note-vault-${ts()}.baton-vault"
                     createLauncher.launch(filename)
                 },
                 enabled = !state.working && state.passphrase.isNotEmpty() && state.confirm.isNotEmpty(),

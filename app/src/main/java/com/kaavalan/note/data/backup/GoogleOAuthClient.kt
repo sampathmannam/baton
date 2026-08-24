@@ -74,7 +74,7 @@ import javax.inject.Singleton
  *     (or if the file is missing — which means the
  *     legitimate flow already consumed it). A
  *     malicious `am start -a android.intent.action.VIEW
- *     -d "baton://oauth-callback?code=ATTACKER_CODE"`
+ *     -d kaavalan-note://oauth-callback?code=ATTACKER_CODE"`
  *     fires the activity but the state file is absent
  *     (or already consumed) so the exchange is
  *     rejected.

@@ -53,7 +53,7 @@ import org.json.JSONObject
 class UpdateChecker(
     private val httpClient: HttpClient,
     private val repoOwner: String = "sampathmannam",
-    private val repoName: String = "baton",
+    private val repoName: String = kaavalan-note",
 ) {
 
     sealed class UpdateInfo {

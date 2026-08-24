@@ -27,7 +27,7 @@ import java.security.SecureRandom
  * JUnit) requires either the file on disk OR a Robolectric
  * asset loader. The path used here is the relative path from
  * the test working directory (= the project root after
- * `cd baton-v2-privacy`).
+ * `cd kaavalan-note-v2-privacy`).
  */
 class MnemonicGeneratorTest {
 
