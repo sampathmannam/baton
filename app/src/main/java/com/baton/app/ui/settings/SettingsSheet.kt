@@ -93,6 +93,11 @@ fun SettingsSheet(
     // reachable from Settings. The chain has been writing
     // rows since v1.8.0; v2.0 surfaces them.
     onOpenAuditLog: () -> Unit = {},
+    // v2.0.2 (PM rating): the About screen is reachable
+    // from Settings. The version is already in the storage
+    // card; this is the canonical build-info + privacy-
+    // posture surface.
+    onOpenAbout: () -> Unit = {},
     onOpenSyncConflicts: () -> Unit = {},
     // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
     // the Drive backup / restore rows use
@@ -425,6 +430,16 @@ fun SettingsSheet(
                 value = stringResource(R.string.settings_audit_log_value),
                 explainer = stringResource(R.string.settings_audit_log_explainer),
                 onClick = onOpenAuditLog,
+            )
+            // v2.0.2 (PM rating): the About screen. The
+            // version is already in the storage card;
+            // this is the canonical build-info + privacy-
+            // posture surface.
+            PrivacyRow(
+                label = stringResource(R.string.settings_about),
+                value = "v${viewModel.appVersion.name}",
+                explainer = stringResource(R.string.settings_about_explainer),
+                onClick = onOpenAbout,
             )
 
             val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()

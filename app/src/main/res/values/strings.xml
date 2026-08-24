@@ -446,6 +446,11 @@
     <string name="settings_audit_log">Audit log</string>
     <string name="settings_audit_log_value">View the audit chain</string>
     <string name="settings_audit_log_explainer">Every state change in Baton is appended to a SHA-256 hash chain. Tap to see the entries and verify the chain.</string>
+    <!-- v2.0.2 (PM rating): the About screen. The version
+         is already in the storage card; this is the
+         canonical build-info + privacy-posture surface. -->
+    <string name="settings_about">About</string>
+    <string name="settings_about_explainer">Build info, privacy posture, and source repo link.</string>
     <string name="recovery_phrase_title">Recovery phrase</string>
     <string name="recovery_phrase_back">Back</string>
     <string name="recovery_phrase_subtitle">These 12 words are the master key for your data. Write them down on paper, in order. Do not screenshot. If this phone is lost, the phrase is the only way to recover.</string>
@@ -737,6 +742,22 @@
     <string name="audit_log_verify_broken_detail">First broken link at index %1$d · table %2$s · row %3$s</string>
     <string name="audit_log_recent_title">Recent events</string>
     <string name="audit_log_empty">No audit events yet. The chain is written by the SyncEngine on every state change.</string>
+    <!-- v2.0.2 (PM rating): the About screen. The
+         version is already in the Settings storage
+         card; this is the canonical build-info +
+         privacy-posture + source-repo surface. -->
+    <string name="about_title">About</string>
+    <string name="about_back">Back</string>
+    <string name="about_build_header">Build</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_version_code">Build %1$d</string>
+    <string name="about_build_type">Variant: %1$s</string>
+    <string name="about_privacy_header">Privacy</string>
+    <string name="about_privacy_local_only">All data stays on this device. SQLCipher-encrypted Room DB. No cloud sync, no remote auth, no analytics.</string>
+    <string name="about_privacy_ocr">ML Kit OCR is a Google SDK. Disable in Settings → Capture if that is in scope for you.</string>
+    <string name="about_repo_header">Source</string>
+    <string name="about_repo_url">github.com/sampathmannam/baton (private — public release pending)</string>
+    <string name="about_license">© 2026 Sampath Mannam. All rights reserved.</string>
 </resources>
 
 
