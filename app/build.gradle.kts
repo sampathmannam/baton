@@ -267,20 +267,15 @@ android {
         // — accessible from Settings, NOT a launch-time modal
         // per the v1.6.0 design rule), Obs-3 mlock (custom
         // SQLCipher preKey hook silences the 31 keying-phase
-        // v2.0.0: "Local-only by design". BREAKING CHANGE for
-        // pre-v8 users — the v2-v7 destructive Room migration
-        // will wipe the local DB on upgrade. Users MUST back
-        // up via Settings → Export before updating from a
-        // pre-v8 build. See release notes.
+        // v2.0.1: PM rating cleanup. Adds the in-app
+        // audit-log viewer, CSV/JSON import path,
+        // RetentionWorker firing test, BackupManager
+        // restore e2e, and a handful of doc updates.
+        // No DB schema changes; 10 new unit tests.
         //
-        // Schema: no DB changes from v1.9.11 (still at v15). The
-        // `sync_queue` table is in the schema for forward-compat
-        // with optional future cloud sync but no code writes to
-        // it in v2.0.0.
-        //
-        // versionCode 41 -> 42.
-        versionCode = 42
-        versionName = "2.0.0"
+        // versionCode 42 -> 43.
+        versionCode = 43
+        versionName = "2.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
