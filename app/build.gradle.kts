@@ -255,8 +255,19 @@ android {
         // the most recent crash log in the body (A10 audit
         // fix). No public-API or schema changes.
         // versionCode 38 -> 39.
-        versionCode = 39
-        versionName = "1.9.9"
+        // v1.9.10: closes three observations surfaced by the
+        // v1.9.8 audit's refuter (Obs-1: one shared
+        // SupabaseClient via Hilt @Provides; Obs-2: tag refresh
+        // surfaces HomeUiState.Error on failure; Obs-3: SQLCipher
+        // mlock pragma already in v1.4.3 — keying-phase
+        // limitation documented honestly). Plus the new
+        // QuickNoteWidget: a single-tap home-screen capture
+        // that opens a fullscreen entry activity (does not
+        // open the main app) so a quick note takes 2 taps +
+        // typing, not 3+ taps. No public-API or schema changes.
+        // versionCode 39 -> 40.
+        versionCode = 40
+        versionName = "1.9.10"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

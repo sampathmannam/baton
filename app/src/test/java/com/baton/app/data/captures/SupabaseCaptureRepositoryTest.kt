@@ -1,5 +1,7 @@
 package com.baton.app.data.captures
 
+import com.baton.app.data.supabase.BatonSupabase
+import com.baton.app.data.supabase.buildSupabaseClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -40,6 +42,27 @@ import org.junit.Test
  */
 class SupabaseCaptureRepositoryTest {
 
+    /**
+     * v1.9.10 (Obs-1 fix): test helper that wraps a [MockEngine]-backed
+     * [HttpClient] in the production [BatonSupabase] wrapper. Mirrors
+     * the production wiring in
+     * [com.baton.app.data.supabase.SupabaseModule].
+     */
+    private fun testBaton(
+        engine: MockEngine,
+        url: String = "https://test.supabase.co",
+        key: String = "sb_publishable_test",
+        withAuth: Boolean = false,
+    ): BatonSupabase = BatonSupabase.create {
+        val httpClient = HttpClient(engine)
+        buildSupabaseClient(
+            url = url,
+            key = key,
+            httpClient = httpClient,
+            withAuth = withAuth,
+        )
+    }
+
     @Test
     fun `create sets Prefer resolution=ignore-duplicates header and includes id in body`() = runTest {
         var capturedMethod: HttpMethod? = null
@@ -74,13 +97,7 @@ class SupabaseCaptureRepositoryTest {
                 headers = headersOf("Content-Type", "application/json"),
             )
         }
-        val httpClient = HttpClient(engine)
-        val repo = SupabaseCaptureRepository(
-            httpClient = httpClient,
-            url = "https://test.supabase.co",
-            key = "sb_publishable_test",
-            withAuth = false,
-        )
+        val repo = SupabaseCaptureRepository(testBaton(engine))
 
         val capture = repo.create(rawText = "hello", mode = CaptureMode.TEXT)
 
@@ -165,13 +182,7 @@ class SupabaseCaptureRepositoryTest {
                 headers = headersOf("Content-Type", "application/json"),
             )
         }
-        val httpClient = HttpClient(engine)
-        val repo = SupabaseCaptureRepository(
-            httpClient = httpClient,
-            url = "https://test.supabase.co",
-            key = "sb_publishable_test",
-            withAuth = false,
-        )
+        val repo = SupabaseCaptureRepository(testBaton(engine))
 
         // First POST with the same id we'll use on the retry.
         val first = repo.insertCapture(

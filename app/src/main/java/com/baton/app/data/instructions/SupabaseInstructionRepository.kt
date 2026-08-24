@@ -1,11 +1,8 @@
 package com.baton.app.data.instructions
 
-import com.baton.app.BuildConfig
-import com.baton.app.data.supabase.buildSupabaseClient
-import io.github.jan.supabase.SupabaseClient
+import com.baton.app.data.supabase.BatonSupabase
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
-import io.ktor.client.HttpClient
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNull
@@ -18,24 +15,18 @@ import kotlinx.serialization.json.buildJsonObject
  * Postgrest with `select()` to get the row back, decode. RLS restricts
  * reads + writes to the owning user.
  *
- * The [url] and [key] parameters default to the production
- * [BuildConfig] values; tests pass in a [HttpClient] built on top of
- * an [io.ktor.client.engine.mock.MockEngine] and explicit URL/key
- * values so no real network is touched.
+ * **v1.9.10 (Obs-1 fix):** the constructor now takes the shared
+ * [BatonSupabase] singleton instead of building a fresh
+ * `SupabaseClient` in a field initializer. Tests build their own
+ * [BatonSupabase] from a MockEngine-backed [io.ktor.client.HttpClient]
+ * so the wire format can still be exercised end-to-end without a
+ * real network.
  */
 class SupabaseInstructionRepository(
-    httpClient: HttpClient,
-    url: String = BuildConfig.SUPABASE_URL,
-    key: String = BuildConfig.SUPABASE_ANON_KEY,
-    withAuth: Boolean = true,
+    batonSupabase: BatonSupabase,
 ) : InstructionRepository {
 
-    private val client: SupabaseClient = buildSupabaseClient(
-        url = url,
-        key = key,
-        httpClient = httpClient,
-        withAuth = withAuth,
-    )
+    private val client = batonSupabase.client
 
     override suspend fun create(
         personId: String?,

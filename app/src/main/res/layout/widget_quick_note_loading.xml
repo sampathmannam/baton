@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v1.9.10: Preview / loading layout for the Quick Note widget
+  shown in the Android widget picker. The runtime layout is
+  rendered by Glance from [BatonQuickNoteWidget.provideGlance];
+  this XML is only the placeholder the picker shows before the
+  widget composes. Same shape as the live widget so the user
+  sees a faithful preview.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <ImageView
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:contentDescription="@string/quick_note_widget_capture_desc"
+        android:src="@drawable/ic_quick_note_widget" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/quick_note_widget_label"
+        android:textColor="@color/widget_text"
+        android:textSize="12sp" />
+</LinearLayout>

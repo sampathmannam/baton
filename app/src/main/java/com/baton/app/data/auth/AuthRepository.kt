@@ -1,53 +1,41 @@
 package com.baton.app.data.auth
 
-import android.content.Context
-import com.baton.app.BuildConfig
-import com.baton.app.data.supabase.buildSupabaseClient
-import dagger.hilt.android.qualifiers.ApplicationContext
-import io.github.jan.supabase.SupabaseClient
+import com.baton.app.data.supabase.BatonSupabase
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.OTP
 import io.github.jan.supabase.auth.status.SessionStatus
-import io.ktor.client.HttpClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /**
- * Auth repository wrapping Supabase Auth. The [SupabaseClient] is built
- * inside the constructor body (rather than bound through Hilt) for the
- * same reason as [com.baton.app.data.person.SupabasePersonRepository]:
- * Hilt's KSP1 processor cannot resolve KMP AAR types as binding-parameter
- * types. The result is a fully-wired singleton per consumer.
+ * Auth repository wrapping Supabase Auth. v1.9.10 (Obs-1 fix): the
+ * repository now takes the shared [BatonSupabase] singleton
+ * (which already has a [SupabaseEncryptedSessionManager]
+ * installed) instead of building its own client + session
+ * manager in the constructor body. This collapses the
+ * previously-separate [com.baton.app.data.person.SupabasePersonRepository],
+ * [com.baton.app.data.instructions.SupabaseInstructionRepository],
+ * [com.baton.app.data.captures.SupabaseCaptureRepository], and
+ * this class into one shared [io.github.jan.supabase.SupabaseClient]
+ * — one Realtime WebSocket, one HTTP pool, one auth state observer.
  *
- * v1.3 [BUG-AUTH-003]: the Supabase client is now configured with a
- * [SupabaseEncryptedSessionManager] so the JWT and refresh token are
- * persisted under the Keystore-backed master key instead of
- * `supabase_auth.xml` in plain text. The session manager is built
- * lazily from the application [Context] inside the constructor body —
- * the same place the client itself is built — to keep the KMP-AAR
- * out of the Hilt graph (see the note in
- * [com.baton.app.data.supabase.SupabaseClient]).
+ * The [SupabaseEncryptedSessionManager] is still installed (in
+ * [com.baton.app.data.supabase.SupabaseModule.provideBatonSupabase])
+ * so the JWT + refresh token are persisted under the Keystore-backed
+ * master key instead of `supabase_auth.xml` in plain text. v1.3
+ * [BUG-AUTH-003].
  *
  * v1.4.5: added [sendOtp] / [verifyOtp] for passwordless email OTP
- * sign-in (the alternative the user picked over Google OAuth). The
- * user types an email, gets a one-time code (or magic link) in their
- * inbox, types the code back, and the [SupabaseEncryptedSessionManager]
- * persists the session just like password sign-in.
+ * sign-in.
  */
 class AuthRepository @Inject constructor(
-    httpClient: HttpClient,
-    @ApplicationContext context: Context,
+    batonSupabase: BatonSupabase,
 ) {
 
-    private val client: SupabaseClient = buildSupabaseClient(
-        url = BuildConfig.SUPABASE_URL,
-        key = BuildConfig.SUPABASE_ANON_KEY,
-        httpClient = httpClient,
-        sessionManager = SupabaseEncryptedSessionManager.create(context),
-    )
+    private val client = batonSupabase.client
 
     suspend fun signIn(email: String, password: String): Result<Unit> = runCatching {
         client.auth.signInWith(Email) {

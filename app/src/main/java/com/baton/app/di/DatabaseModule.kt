@@ -151,6 +151,22 @@ object DatabaseModule {
      * the mlock off — encryption is unchanged, only the (unachievable
      * on Android) mlock-guarantee is dropped. See
      * https://www.zetetic.net/sqlcipher/sqlcipher-api/#cipher_memory_security
+     *
+     * **v1.9.10 (Obs-3) honest note:** the v1.9.8 audit's refuter
+     * surfaced 31 `sqlcipher: ERROR MEMORY sqlcipher_mlock: mlock()
+     * returned -1 errno=12` lines in the v1.9.9 cold-start logcat.
+     * Those warnings fire during the SQLCipher key derivation —
+     * which happens BEFORE [onOpen] runs. The pragma above is set
+     * on every connection open, but the keying (and the mlock
+     * attempt) is part of `SupportOpenHelperFactory(passphrase)`
+     * and is not exposed to a Room callback. To kill the warnings
+     * entirely we'd need a custom openHelper that sets the pragma
+     * before keying, which is a SQLCipher-Android library
+     * limitation, not a Baton bug. The pragma is still correct
+     * (no later mlock attempts are made on the same connection
+     * after [onOpen] sets the flag), and the encryption is
+     * unchanged. The remaining warnings are a known cosmetic
+     * issue — flagged in the v1.9.10 release notes' deferrals.
      */
     fun onOpenPragmaCallback(): RoomDatabase.Callback = object : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {

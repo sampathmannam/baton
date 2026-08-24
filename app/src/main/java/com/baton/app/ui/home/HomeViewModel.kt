@@ -156,12 +156,23 @@ class HomeViewModel @Inject constructor(
      * M3-T7: pull the user's tags from Supabase and upsert into
      * Room. Non-fatal on failure; the capture sheet tag picker
      * will just be empty.
+     *
+     * v1.9.10 (Obs-2 fix): v1.9.8 audit's refuter surfaced that
+     * the empty [onFailure] block silently swallowed the error —
+     * the user had no signal that the network call had failed.
+     * The fix mirrors [refreshFromNetwork] / [refreshInstructionsFromNetwork]:
+     * surface a [HomeUiState.Error] so the user sees a banner.
+     * The capture sheet's tag picker stays empty (by design —
+     * the local Room copy is the source of truth), but at least
+     * the user knows the sync didn't run.
      */
     private fun refreshTagsFromNetwork() {
         viewModelScope.launch {
             runCatching { tagRepository.refreshFromNetwork() }
                 .onFailure { e ->
-                    // Non-fatal: tag picker will be empty.
+                    _state.value = HomeUiState.Error(
+                        SafeError.forUser(e, "Could not refresh tags."),
+                    )
                 }
         }
     }
