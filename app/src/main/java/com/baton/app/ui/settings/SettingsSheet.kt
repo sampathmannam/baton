@@ -142,6 +142,27 @@ fun SettingsSheet(
             snackbarHostState.showSnackbar(msg)
         }
     }
+    // v2.1.0 (PM rating): the Drive backup event
+    // collector. Renders a snackbar for success / error
+    // outcomes from the [DriveBackupManager] round-trip.
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        viewModel.driveBackupEvent.collect { event ->
+            val msg = when (event) {
+                is com.baton.app.ui.settings.SettingsViewModel.DriveBackupEvent.BackUpSuccess ->
+                    "Backed up to Google Drive."
+                is com.baton.app.ui.settings.SettingsViewModel.DriveBackupEvent.BackUpFailed ->
+                    "Backup failed: ${event.reason}"
+                is com.baton.app.ui.settings.SettingsViewModel.DriveBackupEvent.RestoreSucceeded ->
+                    "Restored ${event.rows} rows from Google Drive."
+                is com.baton.app.ui.settings.SettingsViewModel.DriveBackupEvent.RestoreFailed ->
+                    "Restore failed: ${event.reason}"
+                is com.baton.app.ui.settings.SettingsViewModel.DriveBackupEvent.WrongPassphrase ->
+                    "Wrong passphrase."
+                else -> null
+            }
+            msg?.let { snackbarHostState.showSnackbar(it) }
+        }
+    }
     val appVersion = viewModel.appVersion
     // v1.6.1: the "Models" section is gone. The on-device
     // LLM and the whisper.cpp voice model are both removed.
@@ -189,6 +210,14 @@ fun SettingsSheet(
     // importer branches on the first non-whitespace
     // character.
     var plainImportOk by remember { mutableStateOf<String?>(null) }
+    // v2.1.0 (PM rating): the Drive backup passphrase
+    // prompt + the restore list dialog. The user
+    // enters the 12-word recovery phrase; the VM
+    // derives the AES key and encrypts the backup
+    // blob. For restore, the user picks from a
+    // list of available Drive backups.
+    var showDriveBackupPassphrasePrompt by remember { mutableStateOf(false) }
+    var showDriveRestoreList by remember { mutableStateOf(false) }
     var plainImportError by remember { mutableStateOf<String?>(null) }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -441,6 +470,58 @@ fun SettingsSheet(
                 explainer = stringResource(R.string.settings_about_explainer),
                 onClick = onOpenAbout,
             )
+
+            // v2.1.0 (PM rating): the Google Drive backup
+            // surface. The "WhatsApp-style" daily auto-backup
+            // + cross-device restore. The user signs in to
+            // Google, types the recovery phrase once (the
+            // worker re-uses the hash), and the daily
+            // WorkManager job takes it from there.
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(vertical = 4.dp),
+            )
+            Text(
+                text = stringResource(R.string.settings_drive_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(R.string.settings_drive_explainer),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            val driveSignedIn by viewModel.googleDriveSignedIn.collectAsStateWithLifecycle()
+            if (driveSignedIn) {
+                androidx.compose.material3.OutlinedButton(
+                    onClick = { showDriveBackupPassphrasePrompt = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.settings_drive_back_up_now))
+                }
+                Spacer(Modifier.height(4.dp))
+                androidx.compose.material3.TextButton(
+                    onClick = { viewModel.googleDriveListBackups() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.settings_drive_restore))
+                }
+                Spacer(Modifier.height(4.dp))
+                androidx.compose.material3.TextButton(
+                    onClick = { viewModel.googleDriveSignOut() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.settings_drive_sign_out))
+                }
+            } else {
+                androidx.compose.material3.Button(
+                    onClick = { viewModel.googleDriveSignIn() },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.settings_drive_sign_in))
+                }
+            }
 
             val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()
             if (stuckCount > 0) {
@@ -739,7 +820,7 @@ fun SettingsSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = stringResource(R.string.settings_drive_backup),
+                    text = stringResource(R.string.settings_drive_title),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(

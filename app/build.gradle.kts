@@ -267,16 +267,18 @@ android {
         // — accessible from Settings, NOT a launch-time modal
         // per the v1.6.0 design rule), Obs-3 mlock (custom
         // SQLCipher preKey hook silences the 31 keying-phase
-        // v2.0.2: PM rating cleanup round 2. Adds the
-        // About screen, the DatabasePreflight + a
-        // database-error recovery banner in Settings.
-        // No DB schema changes; 0 new unit tests (the
-        // preflight is integration-only — needs a real
-        // device + a deliberately-corrupt DB to test).
+        // v2.1.0: PM rating cleanup round 3. Adds:
+        //   - WhatsApp-style Google Drive backup with
+        //     AES-256-GCM client-side encryption
+        //   - The DatabasePreflight write+read
+        //     round-trip (catches silent corruption)
+        //   - Removal of the pre-v8 destructive
+        //     migration (6 explicit Migrations)
+        // No DB schema changes; 16 new unit tests.
         //
-        // versionCode 43 -> 44.
-        versionCode = 44
-        versionName = "2.0.2"
+        // versionCode 44 -> 45.
+        versionCode = 45
+        versionName = "2.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

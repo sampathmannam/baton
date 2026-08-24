@@ -10,6 +10,7 @@ import android.net.Uri
 
 import com.baton.app.data.export.PlainExporter
 import com.baton.app.data.export.PlainImporter
+import com.baton.app.data.backup.DriveBackupManager
 
 import com.baton.app.data.local.AppDatabase
 
@@ -212,6 +213,13 @@ class SettingsViewModel @Inject constructor(
     // button uses it to round-trip a v1.x export back
     // into the local DB.
     private val plainImporter: PlainImporter,
+    // v2.1.0 (PM rating): the Google Drive backup. The
+    // Settings sheet renders a "Sign in with Google" /
+    // "Back up now" / "Restore" surface that uses these
+    // three classes. The OAuth flow is the Custom Tabs
+    // path (no play-services-auth dep).
+    private val driveBackupManager: com.baton.app.data.backup.DriveBackupManager,
+    private val googleOAuthClient: com.baton.app.data.backup.GoogleOAuthClient,
 
     // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
     // the BackupManager is exposed so the
@@ -299,6 +307,156 @@ class SettingsViewModel @Inject constructor(
     val databaseCorrupt: StateFlow<Boolean> = MutableStateFlow(
         databaseHealth.isCorrupt(),
     ).asStateFlow()
+
+    /**
+     * v2.1.0 (PM rating): the Google Drive sign-in
+     * state. `true` when a refresh token is stored
+     * (i.e. the user has gone through the Custom Tabs
+     * OAuth flow at least once). The Settings sheet
+     * reads this on every open + after the OAuth
+     * callback activity finishes; the UI re-renders
+     * the "Sign in" / "Back up now" / "Sign out" surface
+     * accordingly.
+     */
+    val googleDriveSignedIn: StateFlow<Boolean> = MutableStateFlow(
+        googleOAuthClient.isSignedIn(),
+    ).asStateFlow()
+
+    /**
+     * v2.1.0: one-shot events for the Settings sheet's
+     * Drive backup surface. The [DriveBackupEvent] is a
+     * sealed class so the UI can branch on success /
+     * error / needs-passphrase without parsing strings.
+     * The [consume] helper clears the event after the
+     * UI renders it.
+     */
+    sealed class DriveBackupEvent {
+        object SignInRequired : DriveBackupEvent()
+        object PassphraseRequired : DriveBackupEvent()
+        data class BackUpSuccess(val fileId: String, val fileName: String) : DriveBackupEvent()
+        data class BackUpFailed(val reason: String) : DriveBackupEvent()
+        data class RestoreSucceeded(val rows: Int) : DriveBackupEvent()
+        data class RestoreFailed(val reason: String) : DriveBackupEvent()
+        data class BackupsListed(val files: List<com.baton.app.data.backup.DriveRestApi.DriveFile>) : DriveBackupEvent()
+        data class WrongPassphrase(val message: String) : DriveBackupEvent()
+    }
+
+    private val _driveBackupEvent = kotlinx.coroutines.flow.MutableSharedFlow<DriveBackupEvent>(extraBufferCapacity = 1)
+    val driveBackupEvent: kotlinx.coroutines.flow.SharedFlow<DriveBackupEvent> = _driveBackupEvent
+
+    /**
+     * v2.1.0: refresh the "signed in" state. Called by
+     * the Settings sheet on resume (so a successful
+     * OAuth round-trip is reflected in the UI). Also
+     * called after the user taps "Sign out".
+     */
+    fun refreshGoogleDriveSignedIn() {
+        (googleDriveSignedIn as MutableStateFlow).value = googleOAuthClient.isSignedIn()
+    }
+
+    /**
+     * v2.1.0: open the Custom Tabs OAuth flow. The
+     * activity bounces the user to Google's OAuth
+     * page, then back to the OAuthCallbackActivity.
+     * On return, the user is signed in (or not — if
+     * they cancelled).
+     */
+    fun googleDriveSignIn() {
+        googleOAuthClient.signIn()
+    }
+
+    /**
+     * v2.1.0: clear the stored refresh token + in-memory
+     * access token. The Settings sheet re-renders the
+     * "Sign in" CTA.
+     */
+    fun googleDriveSignOut() {
+        googleOAuthClient.signOut()
+        refreshGoogleDriveSignedIn()
+    }
+
+    /**
+     * v2.1.0: back up the local DB to Drive. [passphrase]
+     * is the user's 12-word recovery phrase (space-joined);
+     * its SHA-256 hash is what the worker re-uses for
+     * daily auto-backups. The hash is stored in
+     * [SecurePreferences] so the user only has to enter
+     * the phrase once.
+     */
+    fun googleDriveBackUpNow(passphrase: String) {
+        viewModelScope.launch {
+            try {
+                if (passphrase.isBlank()) {
+                    _driveBackupEvent.emit(DriveBackupEvent.PassphraseRequired)
+                    return@launch
+                }
+                if (!googleOAuthClient.isSignedIn()) {
+                    _driveBackupEvent.emit(DriveBackupEvent.SignInRequired)
+                    return@launch
+                }
+                val hash = com.baton.app.data.vault.IdentityCrypto
+                    .sha256Hex(passphrase)
+                securePreferences.setBackupEncryptionKeyHash(hash)
+                val file = driveBackupManager.backUpNow(passphrase.toCharArray())
+                _driveBackupEvent.emit(
+                    DriveBackupEvent.BackUpSuccess(file.id, file.name),
+                )
+            } catch (e: Throwable) {
+                _driveBackupEvent.emit(
+                    DriveBackupEvent.BackUpFailed(e.message ?: e::class.java.simpleName),
+                )
+            }
+        }
+    }
+
+    /**
+     * v2.1.0: list the existing Drive backups. The
+     * Settings sheet shows the result in an
+     * AlertDialog so the user can pick one to restore.
+     */
+    fun googleDriveListBackups() {
+        viewModelScope.launch {
+            try {
+                if (!googleOAuthClient.isSignedIn()) {
+                    _driveBackupEvent.emit(DriveBackupEvent.SignInRequired)
+                    return@launch
+                }
+                val files = driveBackupManager.listBackups()
+                _driveBackupEvent.emit(DriveBackupEvent.BackupsListed(files))
+            } catch (e: Throwable) {
+                _driveBackupEvent.emit(
+                    DriveBackupEvent.BackUpFailed(e.message ?: e::class.java.simpleName),
+                )
+            }
+        }
+    }
+
+    /**
+     * v2.1.0: restore from a specific Drive backup by
+     * ID. The user enters the recovery phrase that
+     * was used to encrypt the backup; the same
+     * encryption key is required to decrypt.
+     */
+    fun googleDriveRestore(fileId: String, passphrase: String) {
+        viewModelScope.launch {
+            try {
+                if (passphrase.isBlank()) {
+                    _driveBackupEvent.emit(DriveBackupEvent.PassphraseRequired)
+                    return@launch
+                }
+                val report = driveBackupManager.restore(fileId, passphrase.toCharArray())
+                _driveBackupEvent.emit(
+                    DriveBackupEvent.RestoreSucceeded(report.total),
+                )
+            } catch (e: com.baton.app.data.backup.DriveBackupManager.DriveBackupException.WrongPassphrase) {
+                _driveBackupEvent.emit(DriveBackupEvent.WrongPassphrase(e.message ?: "wrong passphrase"))
+            } catch (e: Throwable) {
+                _driveBackupEvent.emit(
+                    DriveBackupEvent.RestoreFailed(e.message ?: e::class.java.simpleName),
+                )
+            }
+        }
+    }
 
 
 
