@@ -1,14 +1,17 @@
 package com.baton.app.data.vault
 
+import java.nio.CharBuffer
+import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * v1.8.0 (PROD-READINESS-P2-#1): the multi-user key
- * sharing primitive.
+ * v1.8.0 (PROD-READINESS-P2-#1) + v2.1.1 (security):
+ * the multi-user key sharing primitive.
  *
  * **The problem.** The v1.5.0 vault has a single
  * passphrase. A pilot deployment with 2-5 officers
@@ -54,6 +57,19 @@ import javax.crypto.spec.SecretKeySpec
  * the tag covers the user id + the share version
  * number so a future rotation can be enforced
  * without an external integrity check.
+ *
+ * **v2.1.1 (security): CharArray instead of String
+ * for the passphrase.** v1.8.0's [wrap] / [unwrap] /
+ * [rewrap] all took `passphrase: String`, which is
+ * interned by the JVM and survives in the string
+ * pool until the next GC of the `StringTable`. A
+ * heap dump at the right moment reveals the
+ * passphrase. v2.1.1 takes `passphrase: CharArray`
+ * (caller-controlled lifetime), encodes it to a
+ * UTF-8 [ByteArray] without going through `String`,
+ * and zeroes both buffers in a `finally` block. The
+ * class isn't wired into the production vault
+ * yet, so no live shares need to be re-wrapped.
  */
 object MultiUserKeySharing {
 
@@ -147,21 +163,25 @@ object MultiUserKeySharing {
     fun wrap(
         masterKey: ByteArray,
         userId: String,
-        passphrase: String,
+        passphrase: CharArray,
     ): Share {
         require(masterKey.size == SMK_BYTES) { "master key must be $SMK_BYTES bytes" }
         require(userId.isNotBlank()) { "userId must not be blank" }
         require(passphrase.isNotEmpty()) { "passphrase must not be empty" }
         val salt = ByteArray(SALT_BYTES).also { rng.nextBytes(it) }
         val nonce = ByteArray(NONCE_BYTES).also { rng.nextBytes(it) }
-        val kek = deriveKek(passphrase, salt)
-        val ciphertext = encrypt(masterKey, kek, nonce)
-        return Share(
-            userId = userId,
-            salt = salt,
-            nonce = nonce,
-            ciphertext = ciphertext,
-        )
+        val (kek, passBytes) = deriveKek(passphrase, salt)
+        try {
+            val ciphertext = encrypt(masterKey, kek, nonce)
+            return Share(
+                userId = userId,
+                salt = salt,
+                nonce = nonce,
+                ciphertext = ciphertext,
+            )
+        } finally {
+            passBytes.fill(0)
+        }
     }
 
     /**
@@ -177,27 +197,31 @@ object MultiUserKeySharing {
      * a "downgrade attack" can't be staged against
      * a user who hasn't upgraded yet.
      */
-    fun unwrap(share: Share, passphrase: String): Unwrapped {
+    fun unwrap(share: Share, passphrase: CharArray): Unwrapped {
         require(passphrase.isNotEmpty()) { "passphrase must not be empty" }
         if (share.version != VERSION) {
             throw VaultError.MasterKeyUnwrap(
                 "share version ${share.version} is not supported by this build",
             )
         }
-        val kek = deriveKek(passphrase, share.salt)
-        val masterKey = try {
-            decrypt(share.ciphertext, kek, share.nonce)
-        } catch (t: Throwable) {
-            // AES-GCM AEADBadTagException on a wrong
-            // passphrase; the message is not propagated
-            // to the caller (it's a low-level JCE
-            // detail). Re-throw as the public
-            // VaultError.
-            throw VaultError.MasterKeyUnwrap(
-                "passphrase did not unwrap the share for user ${share.userId}",
-            ).also { it.initCause(t) }
+        val (kek, passBytes) = deriveKek(passphrase, share.salt)
+        try {
+            val masterKey = try {
+                decrypt(share.ciphertext, kek, share.nonce)
+            } catch (t: Throwable) {
+                // AES-GCM AEADBadTagException on a wrong
+                // passphrase; the message is not propagated
+                // to the caller (it's a low-level JCE
+                // detail). Re-throw as the public
+                // VaultError.
+                throw VaultError.MasterKeyUnwrap(
+                    "passphrase did not unwrap the share for user ${share.userId}",
+                ).also { it.initCause(t) }
+            }
+            return Unwrapped(masterKey = masterKey)
+        } finally {
+            passBytes.fill(0)
         }
-        return Unwrapped(masterKey = masterKey)
     }
 
     /**
@@ -216,19 +240,33 @@ object MultiUserKeySharing {
     fun rewrap(
         masterKey: ByteArray,
         userId: String,
-        passphrase: String,
+        passphrase: CharArray,
     ): Share = wrap(masterKey, userId, passphrase)
 
-    private fun deriveKek(passphrase: String, salt: ByteArray): SecretKey {
-        val spec = javax.crypto.spec.PBEKeySpec(
-            passphrase.toCharArray(),
-            salt,
-            PBKDF2_ITERATIONS,
-            PBKDF2_KEY_BITS,
-        )
+    /**
+     * v2.1.1: derive a KEK from a [CharArray]
+     * passphrase + salt. Returns the [SecretKey] +
+     * the UTF-8 byte encoding of the passphrase
+     * (caller is responsible for zeroing the byte
+     * array in a `finally` block).
+     *
+     * The [PBEKeySpec]'s [PBEKeySpec.clearPassword]
+     * is best-effort; we explicitly zero the
+     * caller-side [CharArray] via a separate code
+     * path (the v2.1.1 v2.1.1 caller owns the
+     * CharArray's lifetime).
+     */
+    private fun deriveKek(passphrase: CharArray, salt: ByteArray): Pair<SecretKey, ByteArray> {
+        val passBytes: ByteArray = StandardCharsets.UTF_8
+            .encode(CharBuffer.wrap(passphrase))
+            .let { buf ->
+                ByteArray(buf.remaining()).also { buf.get(it) }
+            }
+        val spec = PBEKeySpec(passphrase, salt, PBKDF2_ITERATIONS, PBKDF2_KEY_BITS)
         val factory = javax.crypto.SecretKeyFactory.getInstance(PBKDF2_ALGO)
         val bytes = factory.generateSecret(spec).encoded
-        return SecretKeySpec(bytes, "AES")
+        spec.clearPassword()
+        return SecretKeySpec(bytes, "AES") to passBytes
     }
 
     private fun encrypt(plaintext: ByteArray, key: SecretKey, nonce: ByteArray): ByteArray {

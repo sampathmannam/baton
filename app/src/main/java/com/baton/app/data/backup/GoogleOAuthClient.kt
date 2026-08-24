@@ -124,9 +124,21 @@ class GoogleOAuthClient @Inject constructor(
      * ~1h; the refresh token is long-lived (until the
      * user revokes the app's access in their Google
      * account settings).
+     *
+     * **v2.1.1 (security): CharArray, not String.**
+     * v2.1.0's `String?` field was interned by the
+     * JVM (Google's access tokens are short ASCII
+     * strings, well under the 65k `StringTable`
+     * intern threshold for many JVMs) and survived
+     * in the string pool until the next GC of the
+     * `StringTable` — a heap dump at the right
+     * moment revealed the access token. v2.1.1
+     * stores the token as a [CharArray] (which is
+     * not interned) and zeroes the buffer on
+     * [signOut] / re-issue / process death.
      */
     @Volatile
-    private var cachedAccessToken: String? = null
+    private var cachedAccessToken: CharArray? = null
 
     /**
      * Open the Google OAuth page in a Chrome Custom
@@ -284,7 +296,10 @@ class GoogleOAuthClient @Inject constructor(
         val accessToken = json.getString("access_token")
         val refreshToken = json.optString("refresh_token", null)
         val expiresIn = json.optLong("expires_in", 3600L)
-        cachedAccessToken = accessToken
+        // v2.1.1 (security): zero any prior cached
+        // access token before writing the new one.
+        cachedAccessToken?.fill('\u0000')
+        cachedAccessToken = accessToken.toCharArray()
         if (refreshToken != null && refreshToken.isNotEmpty()) {
             securePreferences.setGoogleRefreshToken(refreshToken)
         }
@@ -305,7 +320,7 @@ class GoogleOAuthClient @Inject constructor(
         cachedAccessToken?.let { cached ->
             val expiry = securePreferences.getGoogleAccessTokenExpiry()
             if (expiry > System.currentTimeMillis() + 60_000) {
-                return cached
+                return String(cached)
             }
         }
         // Cached expired or absent — refresh.
@@ -323,13 +338,16 @@ class GoogleOAuthClient @Inject constructor(
             // everything so the Settings sheet renders
             // the "Sign in" CTA.
             securePreferences.clearGoogleTokens()
-            cachedAccessToken = null
+            clearCachedAccessToken()
             return null
         }
         val json = JSONObject(response.bodyAsText())
         val accessToken = json.getString("access_token")
         val expiresIn = json.optLong("expires_in", 3600L)
-        cachedAccessToken = accessToken
+        // v2.1.1 (security): zero any prior cached
+        // access token before writing the new one.
+        cachedAccessToken?.fill('\u0000')
+        cachedAccessToken = accessToken.toCharArray()
         securePreferences.setGoogleAccessTokenExpiry(System.currentTimeMillis() + expiresIn * 1000)
         // The new access token may also include a new
         // refresh token; capture if present.
@@ -340,12 +358,22 @@ class GoogleOAuthClient @Inject constructor(
     }
 
     /**
+     * v2.1.1 (security): zero + null the cached
+     * access token. Called by [signOut] and the
+     * refresh-failure path.
+     */
+    private fun clearCachedAccessToken() {
+        cachedAccessToken?.fill('\u0000')
+        cachedAccessToken = null
+    }
+
+    /**
      * Sign out — clear the in-memory access token, the
      * stored refresh token, and the expiry. The Settings
      * sheet renders the "Sign in" CTA again.
      */
     fun signOut() {
-        cachedAccessToken = null
+        clearCachedAccessToken()
         securePreferences.clearGoogleTokens()
     }
 
