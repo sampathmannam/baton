@@ -1,10 +1,10 @@
-package com.baton.app.data.local
+package com.kaavalan.note.data.local
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.baton.app.data.local.entities.DeliveryReceiptEntity
+import com.kaavalan.note.data.local.entities.DeliveryReceiptEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
