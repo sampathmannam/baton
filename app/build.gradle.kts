@@ -342,6 +342,7 @@ android {
                     ?: "baton://oauth-callback"
             ) + "\"",
         )
+    }
 
     signingConfigs {
         // v1.3 (F-CRIT-03): proper production keystore. Generated
