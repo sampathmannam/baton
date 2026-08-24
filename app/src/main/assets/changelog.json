@@ -1,0 +1,54 @@
+{
+  "changelog": [
+    {
+      "version": "1.9.11",
+      "code": 41,
+      "date": "2026-08-24",
+      "highlights": [
+        "Quick Note widget now has 3 sizes: 2x2 capture button, 4x2 with today's count, 4x4 with recent notes",
+        "In-app 'What's new' screen on first launch after a version bump",
+        "Recovery-phrase flow is now end-to-end tested (wipe device + 12-word restore + 56 people + 200 instructions)",
+        "Single shared Supabase client (was 4, now 1) — fewer battery + bandwidth use at cold start",
+        "Tag refresh failures now surface a visible error in the Home screen (was silent)",
+        "A11y: every interactive element has a contentDescription; touch targets are 48dp minimum",
+        "APK size budget set to 40MB; release build is 38MB (debug is 47MB)"
+      ]
+    },
+    {
+      "version": "1.9.10",
+      "code": 40,
+      "date": "2026-08-24",
+      "highlights": [
+        "Quick Note widget — one-tap capture from the home screen (no need to open the app)",
+        "Tag refresh errors now surface a visible error (was silent)",
+        "Single shared Supabase client (was 4, now 1)"
+      ]
+    },
+    {
+      "version": "1.9.9",
+      "code": 39,
+      "date": "2026-08-23",
+      "highlights": [
+        "Atomic instruction creation (4-table write now in a single transaction — no partial data on crash)",
+        "Auto-reseed is debug-gated (release builds no longer wipe user data on first launch)",
+        "One-tap 'Report a problem' mailto in Settings — embeds the latest crash log in the body"
+      ]
+    },
+    {
+      "version": "1.9.8",
+      "code": 38,
+      "date": "2026-08-23",
+      "highlights": [
+        "Production & enterprise gap audit: 18 items identified, 3 closed in v1.9.9, 3 closed in v1.9.10, 5+ more in v1.9.11"
+      ]
+    },
+    {
+      "version": "1.9.7",
+      "code": 37,
+      "date": "2026-08-22",
+      "highlights": [
+        "a11y improvements: drive label, onboarding polish"
+      ]
+    }
+  ]
+}

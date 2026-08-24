@@ -45,6 +45,33 @@ interface CaptureDao {
     suspend fun snapshot(): List<CaptureEntity>
 
     /**
+     * v1.9.11 (QuickNoteWidget): count of captures whose
+     * `createdAt` ISO string is >= the supplied threshold. Used
+     * by the widget to render "N notes today". Returns Int (not
+     * List) because the widget only needs the count, not the
+     * rows. ISO-8601 strings sort in time order, so the
+     * lexicographic compare is a valid time compare.
+     */
+    @Query("SELECT COUNT(*) FROM captures WHERE createdAt >= :sinceMsIso")
+    suspend fun countSince(sinceMsIso: String): Int
+
+    /**
+     * v1.9.11 (QuickNoteWidget): up to [limit] most recent TEXT
+     * captures. Limited to TEXT mode so the widget doesn't
+     * surface OCR'd photo text or transcribed voice — the home
+     * screen should show what the user typed, not what an
+     * automatic system read. Returns at most [limit] rows in
+     * createdAt DESC order.
+     */
+    @Query(
+        "SELECT * FROM captures " +
+            "WHERE mode = 'TEXT' " +
+            "ORDER BY createdAt DESC " +
+            "LIMIT :limit",
+    )
+    suspend fun recentText(limit: Int): List<CaptureEntity>
+
+    /**
      * v1.4.2 (F-09 / F-20): the [com.baton.app.data.sync.CaptureSyncWorker]
      * reads every row whose `syncStatus` is not `SYNCED` and pushes
      * it to Supabase. Returns the rows in `id ASC` order so the

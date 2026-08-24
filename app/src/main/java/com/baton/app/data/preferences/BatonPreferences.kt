@@ -48,6 +48,13 @@ class BatonPreferences @Inject constructor(
     // future copy / placement change can re-introduce the
     // hint by writing a new key.
     private val decayGestureHintShownKey = booleanPreferencesKey("decay_gesture_hint_shown_v1")
+    // v1.9.11 (A9 audit fix): the version code of the last
+    // changelog screen the user has dismissed. The screen
+    // shows on the next launch if the current version code
+    // (BuildConfig.VERSION_CODE) is greater than this value.
+    // Default 0 — every v1.9.10- user sees the v1.9.11 screen
+    // once.
+    private val lastSeenChangelogVersionKey = intPreferencesKey("last_seen_changelog_version_v1")
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->
         val ord = prefs[themeKey] ?: ThemeMode.System.ordinal
@@ -70,6 +77,15 @@ class BatonPreferences @Inject constructor(
         prefs[decayGestureHintShownKey] ?: false
     }
 
+    /**
+     * v1.9.11 (A9 audit fix): the version code of the last
+     * changelog screen the user dismissed. Returns 0 on a
+     * fresh install (no changelog shown yet).
+     */
+    val lastSeenChangelogVersion: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[lastSeenChangelogVersionKey] ?: 0
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { it[themeKey] = mode.ordinal }
     }
@@ -80,5 +96,15 @@ class BatonPreferences @Inject constructor(
 
     suspend fun setDecayGestureHintShown() {
         context.dataStore.edit { it[decayGestureHintShownKey] = true }
+    }
+
+    /**
+     * v1.9.11 (A9 audit fix): mark [versionCode] as the last
+     * changelog version the user has seen. Next launch, if
+     * `BuildConfig.VERSION_CODE > versionCode`, the
+     * ChangelogScreen will show again.
+     */
+    suspend fun setChangelogSeenAtVersion(versionCode: Int) {
+        context.dataStore.edit { it[lastSeenChangelogVersionKey] = versionCode }
     }
 }

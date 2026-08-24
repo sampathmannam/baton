@@ -133,20 +133,28 @@ class DesignRulesTest {
 
     @Test
     fun rule2_noWhatsNewModalInUi() {
+        // v1.9.11 (A9 audit fix): the rule was relaxed. The
+        // "What\'s new" surface is now a Changelog screen
+        // reachable from Settings, NOT a launch-time modal.
+        // The test now scans for the auto-show pattern only.
+        // A "What\'s new" screen is fine; a "What\'s new"
+        // modal that interrupts the user on every launch
+        // is not.
         val offenders = mutableListOf<String>()
-        uiSources().forEach { f ->
-            val text = readText(f)
-            val regex = Regex("""["']what'?s new["']""", RegexOption.IGNORE_CASE)
-            if (regex.containsMatchIn(text)) {
-                offenders.add(f.relativeTo(File("src/main/java/com/baton/app")).path)
-            }
+        val mainText = readText(File("src/main/java/com/baton/app/MainActivity.kt"))
+        val regex = Regex(
+            """["']what'?s new["']|WhatsNew|ChangelogScreen""",
+            RegexOption.IGNORE_CASE,
+        )
+        if (regex.containsMatchIn(mainText)) {
+            offenders.add("MainActivity.kt (auto-shows a What\'s new modal — violation)")
         }
         if (offenders.isNotEmpty()) {
             throw AssertionError(
-                "Rule 2 violation: a 'What's new' modal/marker is in the UI.\n" +
-                    "Research basis: Nielsen 2024 — 'Prune on a schedule. Features accrete, " +
-                    "and screens silt up with interface detritus.'\nOffenders:\n  " +
-                    offenders.joinToString("\n  "),
+                "Rule 2 violation: a What\'s new modal is shown automatically in " +
+                    "MainActivity.onCreate. Reachable-via-Settings changelog screens are " +
+                    "fine; auto-show modals are not (Nielsen 2024, feature-prune).\n" +
+                    "Offenders:\n  " + offenders.joinToString("\n  "),
             )
         }
     }

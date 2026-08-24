@@ -694,6 +694,14 @@
     <string name="quick_note_save">Save</string>
     <string name="quick_note_cancel">Cancel</string>
     <string name="quick_note_saved_toast">Note saved</string>
+
+    <!-- v1.9.11 (A9 audit fix): the in-app "What's new" screen.
+         Reads from assets/changelog.json on first launch after a
+         version bump. The "Got it" button writes the current
+         version code to BatonPreferences so the screen doesn't
+         show again until the next version bump. -->
+    <string name="changelog_title">What\'s new</string>
+    <string name="changelog_got_it">Got it</string>
 </resources>
 
 
