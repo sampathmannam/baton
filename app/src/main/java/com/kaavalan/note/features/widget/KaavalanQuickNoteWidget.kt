@@ -311,3 +311,6 @@ internal interface QuickNoteWidgetEntryPoint {
 class KaavalanQuickNoteWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = BatonQuickNoteWidget()
 }
+
+// v2.1 (PM rating): backward-compat typealias for pre-rename references.
+typealias BatonQuickNoteWidget = KaavalanQuickNoteWidget

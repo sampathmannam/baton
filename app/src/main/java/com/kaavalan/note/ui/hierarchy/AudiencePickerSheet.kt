@@ -37,7 +37,7 @@ fun AudiencePickerSheet(roster: RosterPicker, onPicked: (AudienceRef) -> Unit, o
                 Mode.Designations -> DesignationList(roster, onPick = { d -> onPicked(AudienceRef.ByDesignation(d, "All $d")); scope.launch { sheetState.hide() } })
                 Mode.Stations -> StationList(roster, onPick = { s -> onPicked(AudienceRef.ByStation(s, "Everyone at $s")); scope.launch { sheetState.hide() } })
                 is Mode.PeopleByDesignation -> {
-                    val p = mode
+                    val p = mode as Mode.PeopleByDesignation
                     PersonList(p.people, p.designation ?: stringResource(R.string.hierarchy_audience_by_person), onPick = { per -> onPicked(AudienceRef.ByPerson(per.id, per.name)); scope.launch { sheetState.hide() } })
                 }
             }

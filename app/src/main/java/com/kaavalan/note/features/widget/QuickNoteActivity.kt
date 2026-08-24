@@ -45,7 +45,7 @@ import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.R
 import com.kaavalan.note.data.captures.CaptureMode
 import com.kaavalan.note.data.captures.CaptureRepository
-import com.kaavalan.note.ui.theme.KaavalanNoteTheme
+import com.kaavalan.note.ui.theme.BatonTheme
 import com.kaavalan.note.ui.util.SafeError
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel

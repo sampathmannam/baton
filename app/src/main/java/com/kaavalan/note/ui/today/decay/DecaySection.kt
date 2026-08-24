@@ -56,14 +56,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
-import com.kaavalan.note.ui.theme.KaavalanColors
+import com.kaavalan.note.ui.theme.BatonColors
 import kotlin.math.roundToInt
 
 /**
  * v2.0 Tier 2 (§2.1, §2.13, §2.14): the "Haven't touched in N
  * days" section rendered above the existing Today brief. Calm
  * palette, no red — the [ReachOutPill] uses
- * [KaavalanColors.Quiet] / [KaavalanColors.Done] / muted brown, never
+ * [BatonColors.Quiet] / [BatonColors.Done] / muted brown, never
  * error colour.
  *
  * The section is hidden entirely when the list is empty; the
@@ -497,8 +497,8 @@ private const val SWIPE_THRESHOLD_DP = 96
 /**
  * v2.0 Tier 2 (§2.13): the reach-out status pill. The colour
  * tokens are taken from the existing calm palette
- * ([KaavalanColors.Quiet] = amber for "Quiet a while",
- * `tertiaryContainer` for "Getting due", [KaavalanColors.Done] for
+ * ([BatonColors.Quiet] = amber for "Quiet a while",
+ * `tertiaryContainer` for "Getting due", [BatonColors.Done] for
  * "On track"). We never use `MaterialTheme.colorScheme.error` or
  * `Color.Red` here - spec §3.3 forbids red "overdue" semantics.
  */
@@ -506,9 +506,9 @@ private const val SWIPE_THRESHOLD_DP = 96
 @Composable
 fun ReachOutPill(state: ReachOutStatus) {
     val (color, label) = when (state) {
-        ReachOutStatus.QuietAWhile -> KaavalanColors.Quiet to R.string.status_quiet_a_while
-        ReachOutStatus.GettingDue -> KaavalanColors.PriorityLow to R.string.status_getting_due
-        ReachOutStatus.OnTrack -> KaavalanColors.Done to R.string.status_on_track
+        ReachOutStatus.QuietAWhile -> BatonColors.Quiet to R.string.status_quiet_a_while
+        ReachOutStatus.GettingDue -> BatonColors.PriorityLow to R.string.status_getting_due
+        ReachOutStatus.OnTrack -> BatonColors.Done to R.string.status_on_track
     }
     Surface(
         shape = RoundedCornerShape(50),

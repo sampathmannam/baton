@@ -15,7 +15,7 @@ import javax.inject.Singleton
 /**
  * v2.0 Tier 2 (§2.7, §2.9): thin ContentResolver wrapper over
  * `CalendarContract.Events`. Two methods:
- *  - [upcomingBatonEvents] — return events in the next 15 min
+ *  - [upcomingKaavalanNoteEvents] — return events in the next 15 min
  *    whose title or description mentions a app's person name
  *    (case-insensitive). Used by the "Brief me before a meeting"
  *    card.
@@ -53,7 +53,7 @@ class CalendarBriefSource @Inject constructor(
      * sorted by start time ASC. Returns an empty list if the
      * permission is not held.
      */
-    suspend fun upcomingBatonEvents(
+    suspend fun upcomingKaavalanNoteEvents(
         now: Long = System.currentTimeMillis(),
         windowMs: Long = 15 * 60_000L,
     ): List<CalendarEvent> {

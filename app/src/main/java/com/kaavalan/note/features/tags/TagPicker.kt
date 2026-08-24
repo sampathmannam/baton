@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.kaavalan.note.R
 import com.kaavalan.note.data.tags.Tag
 import com.kaavalan.note.data.tags.TagKind
-import com.kaavalan.note.ui.theme.KaavalanNoteThemeTokens
+import com.kaavalan.note.ui.theme.BatonThemeTokens
 
 /**
  * M3-T7: tag picker for the capture sheet. Shows the user's existing
