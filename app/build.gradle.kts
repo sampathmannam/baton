@@ -267,15 +267,16 @@ android {
         // — accessible from Settings, NOT a launch-time modal
         // per the v1.6.0 design rule), Obs-3 mlock (custom
         // SQLCipher preKey hook silences the 31 keying-phase
-        // v2.0.1: PM rating cleanup. Adds the in-app
-        // audit-log viewer, CSV/JSON import path,
-        // RetentionWorker firing test, BackupManager
-        // restore e2e, and a handful of doc updates.
-        // No DB schema changes; 10 new unit tests.
+        // v2.0.2: PM rating cleanup round 2. Adds the
+        // About screen, the DatabasePreflight + a
+        // database-error recovery banner in Settings.
+        // No DB schema changes; 0 new unit tests (the
+        // preflight is integration-only — needs a real
+        // device + a deliberately-corrupt DB to test).
         //
-        // versionCode 42 -> 43.
-        versionCode = 43
-        versionName = "2.0.1"
+        // versionCode 43 -> 44.
+        versionCode = 44
+        versionName = "2.0.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 

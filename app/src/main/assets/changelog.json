@@ -1,6 +1,15 @@
 {
   "changelog": [
     {
+      "version": "2.0.2",
+      "code": 44,
+      "date": "2026-08-24",
+      "highlights": [
+        "Settings → Privacy → About: build info, privacy posture, source repo link.",
+        "SQLCipher DB-error recovery: a 'Database error — Erase and restart' banner appears if the preflight detects a corrupt DB. The 'Erase all data' flow is the recovery path."
+      ]
+    },
+    {
       "version": "2.0.1",
       "code": 43,
       "date": "2026-08-24",
