@@ -98,6 +98,10 @@ class SettingsVaultPinTest {
             // v2.0.0 (no cloud sync), but the DAO is still in
             // the schema and the VM still observes it.
             syncConflictDao = mockk<com.baton.app.data.local.SyncConflictDao>(relaxed = true),
+            // v2.1.0 (PM rating): the database-health flag.
+            // The vault-pin tests don't exercise the preflight
+            // path; a relaxed mock is sufficient.
+            databaseHealth = mockk<com.baton.app.data.local.DatabaseHealth>(relaxed = true),
             appContext = mockk<android.content.Context>(relaxed = true),
         )
         return Triple(vm, vaultModeHolder, securePreferences)
