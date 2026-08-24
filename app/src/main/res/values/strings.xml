@@ -451,6 +451,14 @@
          canonical build-info + privacy-posture surface. -->
     <string name="settings_about">About</string>
     <string name="settings_about_explainer">Build info, privacy posture, and source repo link.</string>
+    <!-- v2.0.2 (PM rating): the database-error banner.
+         Renders when the preflight detected a runtime
+         DB open failure (wrong passphrase, corrupt file).
+         The only safe recovery is "Erase all data" +
+         restore from backup. -->
+    <string name="settings_db_error_title">Database error</string>
+    <string name="settings_db_error_body">Baton could not open the local database. The most likely cause is a corrupt file after a force-stop. Tap "Erase and restart" to wipe the local data; you can then restore from a backup.</string>
+    <string name="settings_db_error_action">Erase and restart</string>
     <string name="recovery_phrase_title">Recovery phrase</string>
     <string name="recovery_phrase_back">Back</string>
     <string name="recovery_phrase_subtitle">These 12 words are the master key for your data. Write them down on paper, in order. Do not screenshot. If this phone is lost, the phrase is the only way to recover.</string>

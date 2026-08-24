@@ -33,6 +33,16 @@ class BatonApplication : Application(), Configuration.Provider {
      */
     @Inject lateinit var userBootstrap: com.baton.app.data.user.UserBootstrap
 
+    // v2.0.2 (PM rating): the DB preflight. Runs a
+    // `SELECT 1` on first launch and sets the
+    // "database corrupt" flag in [SecurePreferences]
+    // if the open throws. The Settings sheet reads
+    // the flag and surfaces a "Database error — tap
+    // to erase and start fresh" banner. The preflight
+    // is async so a slow DB open doesn't block the
+    // launcher activity.
+    @Inject lateinit var databasePreflight: com.baton.app.data.local.DatabasePreflight
+
     override fun onCreate() {
         super.onCreate()
         // v1.9.0 (PROD-READINESS-P3-P1-#1): install
@@ -51,6 +61,16 @@ class BatonApplication : Application(), Configuration.Provider {
             previous?.uncaughtException(thread, throwable)
         }
         appInitializer.runOnAppStart()
+        // v2.0.2 (PM rating): the database preflight.
+        // Runs after [appInitializer] (which has loaded
+        // the lib + pre-warmed the passphrase) but
+        // before any UI code reads a DAO. The preflight
+        // is async so a slow DB open doesn't block the
+        // launcher activity; the Settings sheet reads
+        // the flag on its first render.
+        GlobalScope.launch(Dispatchers.IO) {
+            runCatching { databasePreflight.runPreflight() }
+        }
         // v1.8.0 (PROD-READINESS-P2-#3): ensure the
         // device-owner row exists. Idempotent; the row
         // is in place before any UI code reads the

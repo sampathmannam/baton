@@ -450,6 +450,22 @@ fun SettingsSheet(
                 )
             }
 
+            // v2.0.2 (PM rating): the database-error banner.
+            // Renders only when the preflight detected a
+            // runtime DB open failure. The CTA is the
+            // existing "Erase all data" flow (with a
+            // confirmation dialog) — the same path the
+            // runbook documents for "the app is broken, I
+            // need a fresh start".
+            val dbCorrupt by viewModel.databaseCorrupt.collectAsStateWithLifecycle()
+            if (dbCorrupt) {
+                DatabaseErrorCard(
+                    onErase = {
+                        showEraseConfirmation = true
+                    },
+                )
+            }
+
             HorizontalDivider(
                 color = MaterialTheme.colorScheme.outlineVariant,
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -1525,6 +1541,50 @@ private fun ThemeRow(
 private fun ts(): String =
     java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
         .format(java.util.Date())
+
+/**
+ * v2.0.2 (PM rating): the database-error banner. Renders
+ * a red-bordered card with a "Erase all data" CTA when
+ * the preflight detected a runtime DB open failure. The
+ * user has one path forward: wipe the local DB and
+ * restore from a backup. The card explains why this is
+ * the right thing to do (the local data is unreadable —
+ * a wrong passphrase or a corrupt file — and the
+ * "Erase all data" path is the only safe recovery).
+ */
+@Composable
+private fun DatabaseErrorCard(
+    onErase: () -> Unit,
+) {
+    androidx.compose.material3.Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
+    ) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.settings_db_error_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Text(
+                text = stringResource(R.string.settings_db_error_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            androidx.compose.material3.TextButton(
+                onClick = onErase,
+            ) {
+                Text(stringResource(R.string.settings_db_error_action))
+            }
+        }
+    }
+}
 
 @Composable
 private fun StuckOutboxCard(
