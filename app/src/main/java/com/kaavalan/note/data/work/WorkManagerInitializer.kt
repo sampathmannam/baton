@@ -319,7 +319,7 @@ object WorkManagerInitializer {
         )
     }
 
-    private const val DRIVE_BACKUP_PERIODIC_NAME = kaavalan-note-drive-backup-periodic"
-    private const val DRIVE_BACKUP_ONE_SHOT_NAME = kaavalan-note-drive-backup-now"
+    private const val DRIVE_BACKUP_PERIODIC_NAME = "kaavalan-note-drive-backup-periodic"
+    private const val DRIVE_BACKUP_ONE_SHOT_NAME = "kaavalan-note-drive-backup-now"
     private const val DRIVE_BACKUP_PERIODIC_INTERVAL_HOURS = 24L
 }

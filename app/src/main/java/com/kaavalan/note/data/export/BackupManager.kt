@@ -154,7 +154,7 @@ class BackupManager @Inject constructor(
      * List the backup files in [backupDir] sorted newest-first.
      */
     fun listBackups(): List<File> =
-        backupDir.listFiles { f -> f.isFile && f.name.startsWith(kaavalan-note-backup-") && f.name.endsWith(".json") }
+        backupDir.listFiles { f -> f.isFile && f.name.startsWith("kaavalan-note-backup-") && f.name.endsWith(".json") }
             ?.sortedByDescending { it.lastModified() }
             ?: emptyList()
 

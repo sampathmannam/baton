@@ -139,7 +139,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun deliveryReceiptDao(): com.kaavalan.note.data.local.DeliveryReceiptDao
 
     companion object {
-        const val NAME = kaavalan-note.db"
+        const val NAME = "kaavalan-note.db"
 
         /**
          * v1.4.2 (DATA-FINDING-04): add the UNIQUE INDEX on

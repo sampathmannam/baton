@@ -54,7 +54,7 @@ class DatabaseHealth @Inject constructor(
     fun isCorrupt(): Boolean = prefs.getBoolean(KEY_CORRUPT, false)
 
     private companion object {
-        const val FILE_NAME = kaavalan-note_db_health"
+        const val FILE_NAME = "kaavalan-note_db_health"
         const val KEY_CORRUPT = "corrupt_v1"
     }
 }
