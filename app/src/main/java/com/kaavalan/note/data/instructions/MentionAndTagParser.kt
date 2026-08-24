@@ -1,4 +1,4 @@
-package com.baton.app.data.instructions
+package com.kaavalan.note.data.instructions
 
 object MentionAndTagParser {
     data class Token(val kind: Kind, val text: String, val start: Int, val end: Int) { enum class Kind { AT_MENTION, HASHTAG } }

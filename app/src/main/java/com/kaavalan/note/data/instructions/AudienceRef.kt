@@ -1,4 +1,4 @@
-package com.baton.app.data.instructions
+package com.kaavalan.note.data.instructions
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
