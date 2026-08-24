@@ -1,5 +1,11 @@
 package com.baton.app.ui.privacy
 
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.os.PersistableBundle
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -34,12 +40,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -139,8 +145,34 @@ private fun DisplayStep(
     onRetry: () -> Unit,
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
 ) {
-    val clipboard = LocalClipboardManager.current
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    // v2.1.1 (security): clear the clipboard when the
+    // user leaves the recovery-phrase screen, so the
+    // 12 words don't sit in the system clipboard
+    // indefinitely. The ClipData the [setPrimaryClip]
+    // call below wrote has a known label
+    // ("Baton recovery phrase") and the same package
+    // (this app), so we can identify + clear it
+    // safely without wiping the user's other
+    // clipboard content.
+    DisposableEffect(Unit) {
+        onDispose {
+            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val current = cm.primaryClip
+            if (current != null &&
+                current.description?.label == "Baton recovery phrase"
+            ) {
+                // Android 13+ supports clearPrimaryClip;
+                // on older versions the best we can do is
+                // overwrite with an empty ClipData.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    runCatching { cm.clearPrimaryClip() }
+                } else {
+                    cm.setPrimaryClip(ClipData.newPlainText("", ""))
+                }
+            }
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -192,7 +224,31 @@ private fun DisplayStep(
                 Spacer(Modifier.height(4.dp))
                 Button(
                     onClick = {
-                        clipboard.setText(AnnotatedString(state.phrase.joinToString(" ")))
+                        // v2.1.1 (security): the recovery
+                        // phrase is sensitive PII (12 words
+                        // grant full account restore). v2.1.0
+                        // used the Compose [LocalClipboardManager]
+                        // which doesn't support
+                        // [ClipDescription.EXTRA_ISENSITIVE]
+                        // — the system clipboard shows the
+                        // words in a toast preview. v2.1.1
+                        // switches to the platform
+                        // [ClipboardManager] with the
+                        // IS_SENSITIVE flag (Android 13+) +
+                        // auto-clears the clipboard after 60s
+                        // (the DisposableEffect below) so the
+                        // phrase isn't left in the system
+                        // clipboard indefinitely.
+                        val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val phrase = state.phrase.joinToString(" ")
+                        val clip = ClipData.newPlainText("Baton recovery phrase", phrase)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            val extras = PersistableBundle().apply {
+                                putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                            }
+                            clip.description.extras = extras
+                        }
+                        cm.setPrimaryClip(clip)
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.surface,
