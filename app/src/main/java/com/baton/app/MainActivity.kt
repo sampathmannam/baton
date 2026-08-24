@@ -61,11 +61,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.baton.app.data.auth.AuthRepository
-import com.baton.app.data.auth.AuthSessionState
 import com.baton.app.data.preferences.BatonPreferences
 import com.baton.app.data.preferences.ThemeMode
-import com.baton.app.data.sync.NetworkObserver
 import com.baton.app.data.undo.UndoController
 import com.baton.app.features.capture.ShareIntake
 import com.baton.app.features.onboarding.OnboardingScreen
@@ -73,8 +70,6 @@ import com.baton.app.features.search.SearchViewModel
 import com.baton.app.features.theme.ThemeViewModel
 import com.baton.app.features.vault.VaultExportSheet
 import com.baton.app.features.vault.VaultImportSheet
-import com.baton.app.ui.auth.AuthScreen
-import com.baton.app.ui.components.OfflineIndicator
 import com.baton.app.ui.home.HomeScreen
 import com.baton.app.ui.privacy.RecoveryPhraseScreen
 import com.baton.app.ui.privacy.ThreatModelScreen
@@ -117,7 +112,6 @@ class MainActivity : ComponentActivity() {
 
     private val rootViewModel: RootViewModel by viewModels()
     @javax.inject.Inject lateinit var briefNotifier: com.baton.app.data.brief.BriefNotifier
-    @javax.inject.Inject lateinit var networkObserver: NetworkObserver
     @javax.inject.Inject lateinit var preferences: BatonPreferences
     @javax.inject.Inject lateinit var undoController: UndoController
 
@@ -144,7 +138,6 @@ class MainActivity : ComponentActivity() {
                     } else {
                         MainScaffold(
                             rootViewModel = rootViewModel,
-                            networkObserver = networkObserver,
                             undoController = undoController,
                             preferences = preferences,
                             onRequestNotificationsPermission = ::requestPostNotifications,
@@ -157,11 +150,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        networkObserver.start()
     }
 
     override fun onStop() {
-        networkObserver.stop()
         super.onStop()
     }
 
@@ -256,7 +247,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MainScaffold(
     rootViewModel: RootViewModel,
-    networkObserver: NetworkObserver,
     undoController: UndoController,
     preferences: BatonPreferences,
     onRequestNotificationsPermission: () -> Unit,
@@ -267,7 +257,6 @@ private fun MainScaffold(
     var showVaultImport by remember { mutableStateOf(false) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: Routes.HOME
-    val isOnline by networkObserver.isOnline.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -382,6 +371,16 @@ private fun MainScaffold(
                         onClose = { navController.popBackStack() },
                     )
                 }
+                // v1.9.12 (A9 wire-up): the changelog screen.
+                // Reachable from Settings → Privacy → What's
+                // new. The screen reads assets/changelog.json
+                // and marks the current version as "seen" on
+                // dismiss.
+                composable(Routes.CHANGELOG) {
+                    com.baton.app.features.changelog.ChangelogScreen(
+                        onDismiss = { navController.popBackStack() },
+                    )
+                }
                 // v1.8.0 (PROD-READINESS-P2-#2): the
                 // sync-conflict list screen. Reachable
                 // from Settings → Sync conflicts. The
@@ -389,6 +388,11 @@ private fun MainScaffold(
                 // when the count is 0, so the screen
                 // is dormant in the vault-mode build.
                 composable(Routes.SYNC_CONFLICTS) {
+                    // v2.0.0: SyncConflictListScreen is no longer
+                    // reachable. The sync queue is a no-op stub in
+                    // v2.0.0 (no cloud). The screen file remains for
+                    // forward-compat; the Settings sheet just doesn't
+                    // link to it.
                     com.baton.app.ui.settings.SyncConflictListScreen(
                         onBack = { navController.popBackStack() },
                         onOpenConflict = { id ->
@@ -410,13 +414,6 @@ private fun MainScaffold(
                     )
                 }
             }
-            OfflineIndicator(
-                isOnline = isOnline,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .padding(8.dp),
-            )
         }
     }
 
@@ -433,10 +430,22 @@ private fun MainScaffold(
                 showSettings = false
                 navController.navigate(Routes.THREAT_MODEL)
             },
-            onOpenSyncConflicts = {
+            // v1.9.12 (A9 wire-up): the changelog screen is
+            // reachable from Settings. The v1.6.0 design rule
+            // forbids auto-showing it at first launch as a
+            // modal; the Settings row is the canonical entry
+            // point. The screen reads assets/changelog.json
+            // and marks the current version as "seen" on
+            // dismiss.
+            onOpenChangelog = {
                 showSettings = false
-                navController.navigate(Routes.SYNC_CONFLICTS)
+                navController.navigate(Routes.CHANGELOG)
             },
+            // v2.0.0: onOpenSyncConflicts removed — the sync
+            // queue is a no-op stub (no cloud). The Settings
+            // sheet no longer links to the sync-conflict
+            // screen; the screen file is kept for forward-
+            // compat but is dormant.
         )
     }
     if (showVaultExport) {
@@ -663,6 +672,11 @@ object Routes {
     // itself to the right window.
     const val RECOVERY_PHRASE = "privacy/recovery-phrase"
     const val THREAT_MODEL = "privacy/threat-model"
+    // v1.9.12 (A9 wire-up): the changelog screen. Reachable
+    // from Settings → Privacy → What's new. The v1.6.0
+    // design rule forbids auto-showing it at first launch as
+    // a modal — Settings is the canonical entry point.
+    const val CHANGELOG = "privacy/changelog"
     // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
     // routes. The list screen is reachable from
     // Settings; the diff screen is pushed when a

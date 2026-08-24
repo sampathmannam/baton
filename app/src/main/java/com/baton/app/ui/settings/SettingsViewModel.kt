@@ -33,7 +33,6 @@ import androidx.lifecycle.viewModelScope
 import com.baton.app.BuildConfig
 
 
-import com.baton.app.data.auth.AuthRepository
 
 
 import com.baton.app.data.auth.SecurePreferences
@@ -48,13 +47,11 @@ import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.PersonDao
 
 
-import com.baton.app.data.local.SyncEngine
 
 
 import com.baton.app.data.local.TagDao
 
 
-import com.baton.app.data.sync.RealtimeSync
 
 
 import com.baton.app.data.tags.RoomTagRepository
@@ -168,19 +165,10 @@ import java.io.File
 class SettingsViewModel @Inject constructor(
 
 
-    private val authRepository: AuthRepository,
-
-
     private val appInitializer: AppInitializer,
 
 
     private val tagRepository: RoomTagRepository,
-
-
-    private val realtimeSync: RealtimeSync,
-
-
-    private val syncEngine: SyncEngine,
 
 
     private val personDao: PersonDao,
@@ -286,25 +274,8 @@ class SettingsViewModel @Inject constructor(
      */
 
 
-    val stuckOutboxCount: StateFlow<Int> = syncEngine
-
-
-        .observeStuckCount()
-
-
-        .stateIn(
-
-
-            scope = viewModelScope,
-
-
-            started = SharingStarted.WhileSubscribed(5_000),
-
-
-            initialValue = 0,
-
-
-        )
+    val stuckOutboxCount: StateFlow<Int> = MutableStateFlow(0)  // v2.0.0: no sync engine
+        .asStateFlow()
 
 
 
@@ -556,13 +527,14 @@ class SettingsViewModel @Inject constructor(
             //    server-side refresh-token revocation is best-effort).
 
 
-            realtimeSync.stop()
+            // realtimeSync.stop() -- v2.0.0: no realtime
 
 
             runCatching { appInitializer.runOnSignOut() }
 
 
-            authRepository.signOut()  // returns Result<Unit>; ignored on failure
+            // authRepository.signOut() -- v2.0.0: no auth; clear local data instead
+            // v2.0.0: in a local-only app, sign-out is a "wipe local" operation
 
 
             // The session observer in MainActivity will transition
@@ -667,7 +639,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
 
 
-            runCatching { syncEngine.retryPermanentlyFailed() }
+            runCatching { /* syncEngine.retryPermanentlyFailed() -- v2.0.0: no sync engine */ Unit }
 
 
         }

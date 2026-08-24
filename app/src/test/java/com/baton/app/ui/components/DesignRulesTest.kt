@@ -140,20 +140,43 @@ class DesignRulesTest {
         // A "What\'s new" screen is fine; a "What\'s new"
         // modal that interrupts the user on every launch
         // is not.
+        //
+        // v1.9.12 (A9 wire-up): the Changelog screen is now
+        // reachable as a nav destination
+        // (`composable(Routes.CHANGELOG) { ChangelogScreen(...) }`).
+        // That's a nav route, not an auto-show modal — the
+        // test must NOT flag it. The flag is now: any
+        // `ChangelogScreen(` that is NOT preceded by
+        // `composable(Routes.CHANGELOG)` (or a
+        // `composable(.*CHANGELOG.*)`) on the same / previous
+        // line.
         val offenders = mutableListOf<String>()
-        val mainText = readText(File("src/main/java/com/baton/app/MainActivity.kt"))
-        val regex = Regex(
-            """["']what'?s new["']|WhatsNew|ChangelogScreen""",
-            RegexOption.IGNORE_CASE,
-        )
-        if (regex.containsMatchIn(mainText)) {
-            offenders.add("MainActivity.kt (auto-shows a What\'s new modal — violation)")
+        val mainFile = File("src/main/java/com/baton/app/MainActivity.kt")
+        val mainText = readText(mainFile)
+        val lines = mainText.lines()
+        // Per-line: look for `ChangelogScreen(` that is
+        // NOT on a line that also contains `composable(...CHANGELOG`.
+        lines.forEachIndexed { idx, line ->
+            if (line.contains("ChangelogScreen(") &&
+                !line.contains("composable(") &&
+                !line.contains("composable(Routes.CHANGELOG)")
+            ) {
+                // Also check the previous line — Kotlin's
+                // `composable(...) { ChangelogScreen(...) }`
+                // format can wrap across lines.
+                val prev = lines.getOrNull(idx - 1) ?: ""
+                if (!prev.contains("composable(Routes.CHANGELOG)") &&
+                    !prev.contains("composable(")
+                ) {
+                    offenders.add("MainActivity.kt line ${idx + 1}: $line")
+                }
+            }
         }
         if (offenders.isNotEmpty()) {
             throw AssertionError(
                 "Rule 2 violation: a What\'s new modal is shown automatically in " +
-                    "MainActivity.onCreate. Reachable-via-Settings changelog screens are " +
-                    "fine; auto-show modals are not (Nielsen 2024, feature-prune).\n" +
+                    "MainActivity. Reachable-via-Settings changelog screens are fine; " +
+                    "auto-show modals are not (Nielsen 2024, feature-prune).\n" +
                     "Offenders:\n  " + offenders.joinToString("\n  "),
             )
         }

@@ -31,11 +31,11 @@ class UpdateCheckerTest {
     @Test
     fun `check returns UpToDate when the latest tag matches the running version`() = runTest {
         // The mock returns a single release at
-        // v1.8.0, which matches
+        // v2.0.0, which matches
         // BuildConfig.VERSION_NAME (set in
-        // app/build.gradle.kts to "1.8.0" for
+        // app/build.gradle.kts to "2.0.0" for
         // the test environment).
-        val client = mockClient(releasesJson = singleReleaseJson(tag = "v1.8.0"))
+        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.0.0"))
         val checker = UpdateChecker(httpClient = client)
         val result = checker.check()
         assertTrue("expected UpToDate, got $result", result is UpdateChecker.UpdateInfo.UpToDate)
@@ -43,7 +43,11 @@ class UpdateCheckerTest {
 
     @Test
     fun `check returns UpdateAvailable when the latest tag is newer`() = runTest {
-        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.0.0"))
+        // v2.0.0 is the running build. A future
+        // v2.0.1 is "newer" (compareVersions
+        // splits on '.', so "2.0.1" > "2.0.0"
+        // because the 3rd segment is 1 > 0).
+        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.0.1"))
         val checker = UpdateChecker(httpClient = client)
         val result = checker.check()
         assertTrue(
@@ -51,7 +55,7 @@ class UpdateCheckerTest {
             result is UpdateChecker.UpdateInfo.UpdateAvailable,
         )
         result as UpdateChecker.UpdateInfo.UpdateAvailable
-        assertEquals("2.0.0", result.latestVersion)
+        assertEquals("2.0.1", result.latestVersion)
     }
 
     @Test

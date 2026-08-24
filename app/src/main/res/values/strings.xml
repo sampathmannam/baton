@@ -427,6 +427,12 @@
     <string name="settings_recovery_phrase_explainer">Your recovery phrase is a 12-word master key. It\'s the only way to recover your data if this phone is lost. Write the words on paper. Do not screenshot.</string>
     <string name="settings_threat_model">Threat model</string>
     <string name="settings_threat_model_value">Read the threat model</string>
+    <!-- v1.9.12 (A9 wire-up): the changelog is reachable
+         from Settings so the user can review release notes at
+         any time. The v1.6.0 design rule forbids auto-showing
+         it at first launch as a modal. -->
+    <string name="settings_changelog">What\'s new</string>
+    <string name="settings_changelog_explainer">Release notes for every Baton version. Tap to see what changed.</string>
     <string name="recovery_phrase_title">Recovery phrase</string>
     <string name="recovery_phrase_back">Back</string>
     <string name="recovery_phrase_subtitle">These 12 words are the master key for your data. Write them down on paper, in order. Do not screenshot. If this phone is lost, the phrase is the only way to recover.</string>

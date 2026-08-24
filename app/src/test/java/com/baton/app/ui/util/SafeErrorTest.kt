@@ -1,19 +1,7 @@
 package com.baton.app.ui.util
 
 import com.baton.app.features.capture.ErrorType
-import io.github.jan.supabase.exceptions.BadRequestRestException
-import io.github.jan.supabase.exceptions.HttpRequestException
-import io.github.jan.supabase.exceptions.UnauthorizedRestException
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.request.get
-import io.ktor.client.statement.HttpResponse
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -21,53 +9,27 @@ import org.junit.Test
 import java.io.IOException
 
 /**
- * v1.2 regression test (BEAU-NEW-01 / BUG-AUTH-008).
+ * v2.0.0 (drop Supabase): [SafeError] is local-only. The
+ * v1.x HTTP-status-code mapper (RestException 401/403/422/429/5xx
+ * → specific user-facing strings) is gone — the cloud is gone.
+ * The v2.0 contract is much simpler:
  *
- * Locks the security-relevant property of [SafeError.forUser]:
- * the returned string MUST NOT contain the URL, JWT, apikey,
- * X-Client-Info header, or any other PII / SDK identifier that
- * supabase-kt / Ktor attach to the raw exception's `message`.
+ *  - [SafeError.forUser] / [SafeError.forUserSave]: `IOException`
+ *    (or any subclass — covers SQLiteException, SocketTimeout, etc.)
+ *    → "Local storage error. Check available space." Anything else
+ *    → the caller's `default` string.
+ *  - [SafeError.classifyForCapture]: `IOException` → NETWORK_UNAVAILABLE,
+ *    anything else → UNKNOWN.
+ *  - [SafeError.forCaptureErrorType]: maps the small enum set to the
+ *    locked user-facing strings. Returns `null` for the cases the
+ *    VM owns the message for.
  *
- * If a future change reverts to `e.message` (or fails to redact
- * a new exception type), this test fails the build.
+ * **BEAU-NEW-01 invariant (still in force):** the returned string
+ * must never contain the underlying throwable's `message`. The
+ * "default fallback" tests in the v1.x file are kept here so the
+ * invariant stays locked.
  */
 class SafeErrorTest {
-
-    /** A canonical secret-looking URL + JWT we expect SafeError to NEVER surface. */
-    private val secretUrl = "https://cfnmpqwfvhlnbblxqesm.supabase.co/rest/v1/instructions?select=%2A"
-    private val secretJwt = "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.dozjgNryXcZVm5lTHb8KDXGwY4H8Jz9w"
-    private val secretApikey = "sb_publishable_ueOz-C6YKZM8CDPJSqsSgQ_UtYoPJVm"
-    private val secretClientInfo = "supabase-kt/3.1.1"
-
-    private fun assertSafe(s: String) {
-        assertFalse("SafeError leaked URL: $s", s.contains("supabase.co", ignoreCase = true))
-        assertFalse("SafeError leaked URL path: $s", s.contains("/rest/v1/", ignoreCase = true))
-        assertFalse("SafeError leaked JWT: $s", s.contains("eyJ", ignoreCase = true))
-        assertFalse("SafeError leaked Bearer: $s", s.contains("Bearer", ignoreCase = true))
-        assertFalse("SafeError leaked apikey: $s", s.contains("sb_publishable", ignoreCase = true))
-        assertFalse("SafeError leaked SDK name: $s", s.contains("supabase-kt", ignoreCase = true))
-        assertFalse("SafeError leaked X-Client-Info: $s", s.contains("X-Client-Info", ignoreCase = true))
-        assertFalse("SafeError leaked SDK version: $s", s.contains("/3.1.1"))
-    }
-
-    /**
-     * Build a real [HttpResponse] with the desired status. Ktor's
-     * [MockEngine] returns real responses with realistic status
-     * codes that supabase-kt's [RestException] can consume.
-     */
-    private suspend fun fakeResponse(
-        status: HttpStatusCode,
-        withLeakyBody: String = "",
-    ): HttpResponse {
-        val engine = MockEngine {
-            respond(
-                content = withLeakyBody,
-                status = status,
-                headers = headersOf("X-Client-Info", secretClientInfo),
-            )
-        }
-        return HttpClient(engine).get("https://example.invalid/")
-    }
 
     @Test
     fun `default string is returned for unknown throwable`() {
@@ -76,191 +38,81 @@ class SafeErrorTest {
     }
 
     @Test
-    fun `default string is returned for unknown throwable - never leaks e_message`() = runBlocking {
-        val rawMsg = "something at $secretUrl with $secretJwt and $secretApikey and $secretClientInfo"
+    fun `default string is returned for unknown throwable - never leaks e_message`() {
+        // A throwable with a security-sensitive message must not
+        // leak via the default branch. The v2.0 default branch
+        // returns the caller's `default` verbatim — there is no
+        // way for the raw `e.message` to reach the UI.
+        val rawMsg = "leaky-secret-DB-path-/data/data/com.baton.app/databases/baton.db"
         val msg = SafeError.forUser(IllegalStateException(rawMsg), "Safe fallback.")
         assertEquals("Safe fallback.", msg)
-        assertSafe(msg)
+        assert(!msg.contains(rawMsg, ignoreCase = true)) { "SafeError leaked message: $msg" }
     }
 
     @Test
-    fun `RestException 401 returns invalid email or password`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.Unauthorized, withLeakyBody = "x")
-        val e = UnauthorizedRestException("invalid credentials", response, "ignored")
+    fun `IOException returns local-storage-error string (forUser)`() {
+        val e = IOException("Connection timed out reaching server")
         val msg = SafeError.forUser(e, "ignored")
-        assertEquals("Invalid email or password.", msg)
-        assertSafe(msg)
+        assertEquals("Local storage error. Check available space.", msg)
     }
 
     @Test
-    fun `RestException 400 returns invalid email or password`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.BadRequest, withLeakyBody = "bad")
-        val e = BadRequestRestException("bad request with $secretUrl $secretJwt", response, "ignored")
+    fun `IOException subclass also maps to local-storage-error string (forUser)`() {
+        // SQLiteException is an IOException subclass — this is
+        // the path that fires when the SQLCipher-encrypted Room
+        // DB write fails (e.g. disk full).
+        val e = java.io.FileNotFoundException("/data/data/com.baton.app/databases/baton.db")
         val msg = SafeError.forUser(e, "ignored")
-        assertEquals("Invalid email or password.", msg)
-        assertSafe(msg)
+        assertEquals("Local storage error. Check available space.", msg)
     }
 
     @Test
-    fun `RestException 422 returns invalid email string`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.UnprocessableEntity, withLeakyBody = "x")
-        val e = BadRequestRestException("validation failed: $secretJwt $secretApikey $secretClientInfo", response, "ignored")
-        val msg = SafeError.forUser(e, "ignored")
-        assertEquals("That email looks invalid.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `RestException 429 returns rate limit string`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.TooManyRequests, withLeakyBody = "x")
-        val e = BadRequestRestException("rate limited $secretUrl", response, "ignored")
-        val msg = SafeError.forUser(e, "ignored")
-        assertEquals("Too many attempts. Try again in a minute.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `RestException 500 range returns unavailable string`() = runBlocking {
-        for (status in listOf(HttpStatusCode.InternalServerError, HttpStatusCode.BadGateway, HttpStatusCode.ServiceUnavailable, HttpStatusCode.GatewayTimeout)) {
-            val response = fakeResponse(status, withLeakyBody = "x")
-            val e = BadRequestRestException("server boom $secretUrl $secretJwt", response, "ignored")
-            val msg = SafeError.forUser(e, "ignored")
-            assertEquals("Sign-in service unavailable. Try again later.", msg)
-            assertSafe(msg)
-        }
-    }
-
-    @Test
-    fun `RestException unknown status returns default`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.fromValue(418), withLeakyBody = "x")
-        val e = BadRequestRestException("weird status $secretUrl", response, "ignored")
-        val msg = SafeError.forUser(e, "Custom.")
-        assertEquals("Custom.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `HttpRequestException returns no-connection string`() {
-        // HttpRequestException extends IOException and takes (message, HttpRequestBuilder).
-        // We don't need a real request to exercise SafeError - any throwable of that type
-        // is enough to lock the mapping.
-        val builder = io.ktor.client.request.HttpRequestBuilder().apply {
-            url.host = "example.invalid"
-            url.protocol = io.ktor.http.URLProtocol.HTTPS
-        }
-        val e = HttpRequestException("Failed to connect to $secretUrl: $secretClientInfo", builder)
-        val msg = SafeError.forUser(e, "ignored")
-        assertEquals("No connection. Check your network.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `IOException returns no-connection string`() {
-        val e = IOException("Connection timed out reaching $secretUrl")
-        val msg = SafeError.forUser(e, "ignored")
-        assertEquals("No connection. Check your network.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `null throwable message still returns default`() {
+    fun `null throwable message still returns default (forUser)`() {
         val e = IllegalStateException() // null message
         val msg = SafeError.forUser(e, "Default works.")
         assertEquals("Default works.", msg)
     }
 
     // -----------------------------------------------------------------
-    // v1.4 (PHONE-FINDING-7): save-context mapper.
+    // v1.4 (PHONE-FINDING-7): save-context mapper. v2.0.0: same
+    // shape, same IOException handling, same default fallback.
     // -----------------------------------------------------------------
 
     @Test
-    fun `v14 forUserSave - RestException 401 returns session expired string`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.Unauthorized, withLeakyBody = "x")
-        val e = UnauthorizedRestException("jwt expired $secretUrl", response, "ignored")
+    fun `forUserSave returns local-storage-error string for IOException`() {
+        val e = IOException("disk full")
         val msg = SafeError.forUserSave(e, "ignored")
-        assertEquals("Your session expired. Please sign in again.", msg)
-        assertSafe(msg)
+        assertEquals("Local storage error. Check available space.", msg)
     }
 
     @Test
-    fun `v14 forUserSave - RestException 403 returns session expired string`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.Forbidden, withLeakyBody = "x")
-        val e = BadRequestRestException("forbidden $secretUrl", response, "ignored")
-        val msg = SafeError.forUserSave(e, "ignored")
-        assertEquals("Your session expired. Please sign in again.", msg)
-        assertSafe(msg)
+    fun `forUserSave returns default for unknown throwable`() {
+        val msg = SafeError.forUserSave(IllegalStateException("boom"), "Save default.")
+        assertEquals("Save default.", msg)
     }
 
     @Test
-    fun `v14 forUserSave - RestException 429 returns rate limit string`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.TooManyRequests, withLeakyBody = "x")
-        val e = BadRequestRestException("rate limited $secretUrl", response, "ignored")
-        val msg = SafeError.forUserSave(e, "ignored")
-        assertEquals("Too many saves. Try again in a minute.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `v14 forUserSave - RestException 500 range returns unavailable string`() = runBlocking {
-        for (status in listOf(HttpStatusCode.InternalServerError, HttpStatusCode.BadGateway, HttpStatusCode.ServiceUnavailable, HttpStatusCode.GatewayTimeout)) {
-            val response = fakeResponse(status, withLeakyBody = "x")
-            val e = BadRequestRestException("server boom $secretUrl $secretJwt", response, "ignored")
-            val msg = SafeError.forUserSave(e, "ignored")
-            assertEquals("Save service unavailable. Try again later.", msg)
-            assertSafe(msg)
-        }
-    }
-
-    @Test
-    fun `v14 forUserSave - RestException unknown status returns default`() = runBlocking {
-        val response = fakeResponse(HttpStatusCode.fromValue(418), withLeakyBody = "x")
-        val e = BadRequestRestException("weird status $secretUrl", response, "ignored")
-        val msg = SafeError.forUserSave(e, "Custom save default.")
-        assertEquals("Custom save default.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `v14 forUserSave - HttpRequestException returns no-connection string`() {
-        val builder = io.ktor.client.request.HttpRequestBuilder().apply {
-            url.host = "example.invalid"
-            url.protocol = io.ktor.http.URLProtocol.HTTPS
-        }
-        val e = HttpRequestException("Failed to connect to $secretUrl: $secretClientInfo", builder)
-        val msg = SafeError.forUserSave(e, "ignored")
-        assertEquals("No connection. Check your network.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `v14 forUserSave - IOException returns no-connection string`() {
-        val e = IOException("Connection timed out reaching $secretUrl")
-        val msg = SafeError.forUserSave(e, "ignored")
-        assertEquals("No connection. Check your network.", msg)
-        assertSafe(msg)
-    }
-
-    @Test
-    fun `v14 forUserSave - unknown throwable returns default and never leaks e_message`() = runBlocking {
-        val rawMsg = "something at $secretUrl with $secretJwt and $secretApikey and $secretClientInfo"
+    fun `forUserSave never leaks e_message`() {
+        val rawMsg = "leaky-secret-DB-path-/data/data/com.baton.app/databases/baton.db"
         val msg = SafeError.forUserSave(IllegalStateException(rawMsg), "Safe save fallback.")
         assertEquals("Safe save fallback.", msg)
-        assertSafe(msg)
+        assert(!msg.contains(rawMsg, ignoreCase = true)) { "SafeError leaked message: $msg" }
     }
 
     @Test
-    fun `v14 forUserSave - null throwable message still returns default`() {
+    fun `forUserSave null throwable message still returns default`() {
         val e = IllegalStateException() // null message
         val msg = SafeError.forUserSave(e, "Save default works.")
         assertEquals("Save default works.", msg)
     }
 
-    /**
-     * v1.4 (PHONE-FINDING-7): the user-facing string for the
-     * NEEDS_PERSON_FIRST error type is locked here.
-     */
+    // -----------------------------------------------------------------
+    // v1.4 (PHONE-FINDING-7): capture-context mapper. The enum and
+    // the user-facing strings are stable; v2.0.0 keeps them.
+    // -----------------------------------------------------------------
+
     @Test
-    fun `v14 forCaptureErrorType - NEEDS_PERSON_FIRST returns the locked fallback text`() {
+    fun `forCaptureErrorType - NEEDS_PERSON_FIRST returns the locked fallback text`() {
         val s = SafeError.forCaptureErrorType(ErrorType.NEEDS_PERSON_FIRST)
         assertNotNull(s)
         assertTrue(
@@ -271,66 +123,55 @@ class SafeErrorTest {
             "NEEDS_PERSON_FIRST message must guide the user ('Add a person first')",
             s.contains("Add a person first", ignoreCase = true),
         )
-        assertSafe(s)
     }
 
     @Test
-    fun `v14 forCaptureErrorType - NONE returns null so the sheet renders nothing`() {
+    fun `forCaptureErrorType - NONE returns null so the sheet renders nothing`() {
         assertNull(SafeError.forCaptureErrorType(ErrorType.NONE))
     }
 
     @Test
-    fun `v14 forCaptureErrorType - NETWORK and PERMISSION and UNKNOWN return null (VM owns the message)`() {
-        assertNull(SafeError.forCaptureErrorType(ErrorType.NETWORK_UNAVAILABLE))
+    fun `forCaptureErrorType - NETWORK_UNAVAILABLE returns the local-storage message`() {
+        // v2.0.0: NETWORK_UNAVAILABLE is the IOException
+        // bucket — the user sees the same message as the
+        // forUser mapper. The v1.x convention was to return
+        // null here and let the VM render; v2.0.0 inlines the
+        // message because there's no separate "network
+        // unavailable" condition (local disk-full is the only
+        // thing that maps here).
+        val s = SafeError.forCaptureErrorType(ErrorType.NETWORK_UNAVAILABLE)
+        assertEquals("Local storage error. Check available space.", s)
+    }
+
+    @Test
+    fun `forCaptureErrorType - PERMISSION_DENIED returns null (VM owns the message)`() {
         assertNull(SafeError.forCaptureErrorType(ErrorType.PERMISSION_DENIED))
+    }
+
+    @Test
+    fun `forCaptureErrorType - UNKNOWN returns null (VM owns the message)`() {
         assertNull(SafeError.forCaptureErrorType(ErrorType.UNKNOWN))
     }
 
     @Test
-    fun `v14 classifyForCapture - HttpRequestException is NETWORK_UNAVAILABLE`() {
-        val builder = io.ktor.client.request.HttpRequestBuilder().apply {
-            url.host = "example.invalid"
-            url.protocol = io.ktor.http.URLProtocol.HTTPS
-        }
-        val e = HttpRequestException("connect failed", builder)
-        assertEquals(ErrorType.NETWORK_UNAVAILABLE, SafeError.classifyForCapture(e))
-    }
-
-    @Test
-    fun `v14 classifyForCapture - IOException is NETWORK_UNAVAILABLE`() {
+    fun `classifyForCapture - IOException is NETWORK_UNAVAILABLE`() {
         assertEquals(ErrorType.NETWORK_UNAVAILABLE, SafeError.classifyForCapture(IOException("disk full")))
     }
 
     @Test
-    fun `v14 classifyForCapture - RestException 5xx is NETWORK_UNAVAILABLE`() = runBlocking {
-        for (status in listOf(HttpStatusCode.InternalServerError, HttpStatusCode.BadGateway, HttpStatusCode.ServiceUnavailable, HttpStatusCode.GatewayTimeout)) {
-            val response = fakeResponse(status, withLeakyBody = "x")
-            val e = BadRequestRestException("server boom", response, "ignored")
-            assertEquals(
-                "RestException $status should classify to NETWORK_UNAVAILABLE",
-                ErrorType.NETWORK_UNAVAILABLE,
-                SafeError.classifyForCapture(e),
-            )
-        }
+    fun `classifyForCapture - IOException subclass is NETWORK_UNAVAILABLE`() {
+        // FileNotFoundException is an IOException subclass — the
+        // path that fires when a SAF-chosen export URI is
+        // revoked between the user picking it and the export
+        // writing to it.
+        val e: Throwable = java.io.FileNotFoundException("/no/such/dir/export.csv")
+        assertEquals(ErrorType.NETWORK_UNAVAILABLE, SafeError.classifyForCapture(e))
     }
 
     @Test
-    fun `v14 classifyForCapture - RestException 4xx is UNKNOWN`() = runBlocking {
-        for (status in listOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden, HttpStatusCode.TooManyRequests, HttpStatusCode.fromValue(422))) {
-            val response = fakeResponse(status, withLeakyBody = "x")
-            val e = BadRequestRestException("user error", response, "ignored")
-            assertEquals(
-                "RestException $status should classify to UNKNOWN",
-                ErrorType.UNKNOWN,
-                SafeError.classifyForCapture(e),
-            )
-        }
-    }
-
-    @Test
-    fun `v14 classifyForCapture - any other throwable is UNKNOWN`() {
+    fun `classifyForCapture - any non-IOException is UNKNOWN`() {
         assertEquals(ErrorType.UNKNOWN, SafeError.classifyForCapture(IllegalStateException("boom")))
         assertEquals(ErrorType.UNKNOWN, SafeError.classifyForCapture(RuntimeException()))
+        assertEquals(ErrorType.UNKNOWN, SafeError.classifyForCapture(NullPointerException()))
     }
 }
-

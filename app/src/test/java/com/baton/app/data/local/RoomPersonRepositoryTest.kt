@@ -2,29 +2,22 @@ package com.baton.app.data.local
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import app.cash.turbine.test
-import com.baton.app.data.person.Person
-import com.baton.app.data.person.SupabasePersonRepository
-import com.baton.app.data.person.toEntity
-import com.baton.app.data.local.entities.SyncQueueEntity
+import com.baton.app.data.local.entities.PersonEntity
 import com.baton.app.data.local.entities.SyncStatus
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.mockk
-import kotlinx.coroutines.CoroutineScope
+import com.baton.app.data.person.Person
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.ExperimentalCoroutinesApi as ExperimentalCoroutinesApi1
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -33,12 +26,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Tests for [RoomPersonRepository] using an in-memory Room database
- * and a mocked [SupabasePersonRepository]. Verifies the write-through
- * pattern: every local insert creates a Room row + a sync-queue entry
- * + a (fire-and-forget) drain call.
+ * v2.0.0 (drop Supabase): tests for the local-only
+ * [RoomPersonRepository]. The v1.x `write-through to Supabase
+ * via SyncEngine` path is gone — `create()` and `setSensitive()`
+ * are pure Room writes. The `sync_queue` table is in the schema
+ * for forward-compat with a future optional cloud sync, but no
+ * rows are written in v2.0.0.
  */
-@OptIn(ExperimentalCoroutinesApi1::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class RoomPersonRepositoryTest {
@@ -46,9 +41,6 @@ class RoomPersonRepositoryTest {
     private lateinit var db: AppDatabase
     private lateinit var personDao: PersonDao
     private lateinit var syncQueueDao: SyncQueueDao
-    private lateinit var remote: SupabasePersonRepository
-    private lateinit var syncEngine: SyncEngine
-    private lateinit var appScope: CoroutineScope
     private lateinit var repo: RoomPersonRepository
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -62,32 +54,9 @@ class RoomPersonRepositoryTest {
             .build()
         personDao = db.personDao()
         syncQueueDao = db.syncQueueDao()
-        remote = mockk(relaxed = true)
-        // M2-T6: the SyncEngine has its own DAO + remote deps. The
-        // drain path in this test is best-effort; we exercise the
-        // "enqueue" path and the "drain" call site separately.
-        val captureRemote = mockk<com.baton.app.data.captures.SupabaseCaptureRepository>(relaxed = true)
-        val instructionRemote =
-            mockk<com.baton.app.data.instructions.SupabaseInstructionRepository>(relaxed = true)
-        val captureDao = db.captureDao()
-        val instructionDao = db.instructionDao()
-        syncEngine = SyncEngine(
-            syncQueueDao = syncQueueDao,
-            personDao = personDao,
-            captureDao = captureDao,
-            instructionDao = instructionDao,
-            syncConflictDao = db.syncConflictDao(),
-            personRemote = remote,
-            captureRemote = captureRemote,
-            instructionRemote = instructionRemote,
-        )
-        appScope = CoroutineScope(testDispatcher)
         repo = RoomPersonRepository(
             dao = personDao,
             syncQueueDao = syncQueueDao,
-            remote = remote,
-            syncEngine = syncEngine,
-            appScope = appScope,
         )
     }
 
@@ -98,257 +67,146 @@ class RoomPersonRepositoryTest {
     }
 
     @Test
-    fun `create writes Room row with PENDING_INSERT, enqueues, fires drain`() = runTest {
-        // Mock echoes the clientId so the drain's upsert replaces
-        // the local row (same id) instead of inserting a second one.
-        coEvery { remote.create(any(), any(), any(), any()) } answers {
-            val name = args[0] as String
-            val designation = args[1] as String?
-            val station = args[2] as String?
-            val clientId = args[3] as String?
-            Person(id = clientId ?: "fallback", name = name, designation = designation, station = station, phone = null)
-        }
-
+    fun `create writes Room row with PENDING_INSERT and returns the domain Person`() = runTest {
         val result = repo.create(name = "Ramu", designation = "SHO", station = "Bandipora")
-        // Drive the drain synchronously (the production code fires
-        // it on appScope.launch, which is hard to await from a
-        // runTest; calling drainOne directly is the equivalent).
-        syncEngine.drainOne(result.id, "persons", SyncQueueEntity.OP_INSERT)
         advanceUntilIdle()
 
-        // Returns the local Person (with the client-generated id).
+        // Returns the domain Person (with the client-generated id).
         assertEquals("Ramu", result.name)
-        // The Room row exists; the drain's upsert replaced the
-        // PENDING row in place (same id) so we still have one row.
+        assertEquals("SHO", result.designation)
+        assertEquals("Bandipora", result.station)
+        // The Room row exists with PENDING_INSERT sync status.
         val rows = personDao.snapshot()
         assertEquals(1, rows.size)
         assertEquals("Ramu", rows[0].name)
-        // After the drain, the row is SYNCED.
-        assertEquals(SyncStatus.SYNCED, rows[0].syncStatus)
-        // A sync queue entry was created and then deleted on success.
-        assertEquals(0, syncQueueDao.snapshot().size)
-        // The remote was called with the client id.
-        coVerify { remote.create(name = "Ramu", designation = "SHO", station = "Bandipora", clientId = result.id) }
-    }
-
-    @Test
-    fun `create keeps local row when remote fails (offline tolerance)`() = runTest {
-        coEvery { remote.create(any(), any(), any(), any()) } throws RuntimeException("Network down")
-
-        val result = repo.create(name = "Ramu", designation = "SHO", station = "Bandipora")
-        // Synchronous drain — the production appScope.launch would
-        // race the test dispatcher; calling drainOne directly is
-        // the equivalent for the test. Both the explicit call and
-        // the appScope.launch will fail and bump `attempts`; the
-        // total depends on dispatcher ordering. We assert
-        // `attempts >= 1` rather than `== 1` to be order-agnostic.
-        syncEngine.drainOne(result.id, "persons", SyncQueueEntity.OP_INSERT)
-        advanceUntilIdle()
-
-        // Returns the local row.
-        assertEquals("Ramu", result.name)
-        // The local row is still in Room.
-        val rows = personDao.snapshot()
-        assertEquals(1, rows.size)
-        assertEquals("Ramu", rows[0].name)
-        // The syncStatus stays PENDING_INSERT (drain failed).
         assertEquals(SyncStatus.PENDING_INSERT, rows[0].syncStatus)
-        // The sync queue entry remains for the next drain.
-        val queue = syncQueueDao.snapshot()
-        assertEquals(1, queue.size)
-        assertEquals("persons", queue[0].table)
-        assertEquals(SyncQueueEntity.OP_INSERT, queue[0].op)
-        assert(queue[0].attempts >= 1) { "expected at least 1 attempt, got ${queue[0].attempts}" }
-        assertNotNull(queue[0].lastError)
+        // v2.0.0: no sync_queue entry is written. The schema
+        // still has the table (forward-compat) but no rows.
+        assertEquals(0, syncQueueDao.snapshot().size)
     }
 
     @Test
-    fun `refreshFromNetwork upserts server rows into Room`() = runTest {
-        coEvery { remote.fetchAll() } returns listOf(
-            Person(id = "srv-1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
-            Person(id = "srv-2", name = "Priya", designation = "DSP", station = "Srinagar", phone = null),
+    fun `create accepts an explicit clientId and reuses it`() = runTest {
+        val result = repo.create(
+            name = "Priya",
+            designation = "DSP",
+            station = "Srinagar",
+            clientId = "explicit-1",
         )
+        advanceUntilIdle()
+
+        assertEquals("explicit-1", result.id)
+        val rows = personDao.snapshot()
+        assertEquals(1, rows.size)
+        assertEquals("explicit-1", rows[0].id)
+    }
+
+    @Test
+    fun `observeAllInMode filters by the vault mode (visible vs hidden)`() = runTest {
+        personDao.upsert(
+            PersonEntity(
+                id = "v-1", name = "Visible1", designation = null, station = null,
+                phone = null, userId = "",
+                createdAt = "2026-08-12T00:00:00Z", updatedAt = "2026-08-12T00:00:00Z",
+                syncStatus = SyncStatus.SYNCED, vaultMode = "visible",
+            ),
+        )
+        personDao.upsert(
+            PersonEntity(
+                id = "h-1", name = "Hidden1", designation = null, station = null,
+                phone = null, userId = "",
+                createdAt = "2026-08-12T00:00:00Z", updatedAt = "2026-08-12T00:00:00Z",
+                syncStatus = SyncStatus.SYNCED, vaultMode = "hidden",
+            ),
+        )
+        advanceUntilIdle()
+
+        val visible = repo.observeAllInMode("visible").first()
+        val hidden = repo.observeAllInMode("hidden").first()
+
+        assertEquals(1, visible.size)
+        assertEquals("Visible1", visible[0].name)
+        assertEquals(1, hidden.size)
+        assertEquals("Hidden1", hidden[0].name)
+    }
+
+    @Test
+    fun `findByName returns the local Room row`() = runTest {
+        repo.create(name = "LocalRamu", designation = "SHO", station = "B")
+        advanceUntilIdle()
+
+        val found = repo.findByName("LocalRamu")
+        assertNotNull(found)
+        assertEquals("LocalRamu", found!!.name)
+        assertEquals("SHO", found.designation)
+    }
+
+    @Test
+    fun `findByName returns null when not present`() = runTest {
+        val found = repo.findByName("Ghost")
+        assertNull(found)
+    }
+
+    @Test
+    fun `findOrCreate creates when absent and returns existing when present`() = runTest {
+        val first = repo.findOrCreate("NewPerson", "SHO", "B")
+        advanceUntilIdle()
+        assertEquals(1, personDao.snapshot().size)
+
+        val second = repo.findOrCreate("NewPerson", "SHO", "B")
+        advanceUntilIdle()
+        // No duplicate row.
+        assertEquals(1, personDao.snapshot().size)
+        // Same id.
+        assertEquals(first.id, second.id)
+    }
+
+    @Test
+    fun `setSensitive flips the local row and marks SYNCED immediately (no wire push)`() = runTest {
+        // v2.0.0: there's no wire push. The setSensitive call
+        // updates Room and marks the row SYNCED. The v1.x
+        // behaviour (PENDING_UPDATE + sync_queue + drain) is
+        // gone.
+        val created = repo.create(name = "Ramu", designation = "SHO", station = "B")
+        advanceUntilIdle()
+        // The new row starts PENDING_INSERT.
+        assertEquals(SyncStatus.PENDING_INSERT, personDao.getById(created.id)!!.syncStatus)
+
+        repo.setSensitive(created.id, true)
+        advanceUntilIdle()
+
+        val row = personDao.getById(created.id)!!
+        assertTrue("isSensitive should be true", row.isSensitive)
+        // v2.0.0: setSensitive immediately marks the row SYNCED
+        // (no wire to wait on). The sync_queue stays empty.
+        assertEquals(SyncStatus.SYNCED, row.syncStatus)
+        assertEquals(0, syncQueueDao.snapshot().size)
+    }
+
+    @Test
+    fun `setSensitive with non-existent id is a silent no-op`() = runTest {
+        // v2.0.0: the DAO's getById returns null and the repo
+        // silently returns. No exception, no row created.
+        repo.setSensitive("ghost-id", true)
+        advanceUntilIdle()
+
+        assertEquals(0, personDao.snapshot().size)
+        assertEquals(0, syncQueueDao.snapshot().size)
+    }
+
+    @Test
+    fun `refreshFromNetwork is a no-op in v2_0_0`() = runTest {
+        // v2.0.0: there's no remote. The function exists for
+        // forward-compat; calling it is a no-op (no rows are
+        // touched).
+        repo.create(name = "Ramu", designation = "SHO", station = "B")
+        advanceUntilIdle()
+        val beforeCount = personDao.snapshot().size
 
         repo.refreshFromNetwork()
         advanceUntilIdle()
 
-        val rows = personDao.snapshot()
-        assertEquals(2, rows.size)
-        assertEquals(listOf("Priya", "Ramu"), rows.map { it.name })
-        // All marked SYNCED.
-        rows.forEach { assertEquals(SyncStatus.SYNCED, it.syncStatus) }
-    }
-
-    @Test
-    fun `findByName falls back to remote when not in Room`() = runTest {
-        coEvery { remote.findByName("missing") } returns
-            Person(id = "srv-3", name = "missing", designation = "DSP", station = "Srinagar", phone = null)
-
-        val found = repo.findByName("missing")
-        advanceUntilIdle()
-
-        assertNotNull(found)
-        assertEquals("missing", found!!.name)
-        // The remote hit was also written to Room.
-        assertEquals(1, personDao.snapshot().size)
-    }
-
-    @Test
-    fun `findByName returns Room row when present, no remote call`() = runTest {
-        personDao.upsert(
-            com.baton.app.data.local.entities.PersonEntity(
-                id = "local-1",
-                name = "Ramu",
-                designation = "SHO",
-                station = "Bandipora",
-                phone = null,
-                userId = "u-1",
-                createdAt = "2026-08-12T00:00:00Z",
-                updatedAt = "2026-08-12T00:00:00Z",
-                syncStatus = SyncStatus.SYNCED,
-            )
-        )
-        val found = repo.findByName("Ramu")
-        advanceUntilIdle()
-
-        assertNotNull(found)
-        assertEquals("Ramu", found!!.name)
-        // Remote was NOT called.
-        coVerify(exactly = 0) { remote.findByName(any()) }
-    }
-
-    // ----- v1.1.1 root-cause: setSensitive wire flow -----
-
-    @Test
-    fun `setSensitive ON updates local, enqueues UPDATE, and PATCHes server with true`() = runTest {
-        // Seed a SYNCED row.
-        personDao.upsert(
-            com.baton.app.data.local.entities.PersonEntity(
-                id = "local-1",
-                name = "Ramu",
-                designation = "SHO",
-                station = "Bandipora",
-                phone = null,
-                userId = "u-1",
-                createdAt = "2026-08-12T00:00:00Z",
-                updatedAt = "2026-08-12T00:00:00Z",
-                syncStatus = SyncStatus.SYNCED,
-            )
-        )
-        // The wire PATCH succeeds.
-        coEvery { remote.findById("local-1") } returns null
-        coEvery { remote.setSensitive(any(), any()) } returns Unit
-
-        repo.setSensitive("local-1", true)
-        // Drain synchronously (production fires-and-forgets via
-        // appScope.launch; in the test we drive the drain
-        // explicitly so the assertion sees the wire call before
-        // the test returns).
-        syncEngine.drainOne("local-1", "persons", SyncQueueEntity.OP_UPDATE)
-        advanceUntilIdle()
-
-        // Local row is sensitive and SYNCED.
-        val local = personDao.getById("local-1")
-        assertNotNull(local)
-        assertEquals(true, local!!.isSensitive)
-        assertEquals(SyncStatus.SYNCED, local.syncStatus)
-        // Wire call PATCHed is_sensitive = true.
-        coVerify(exactly = 1) { remote.setSensitive("local-1", true) }
-        // No create() — v1.1's else-branch bug.
-        coVerify(exactly = 0) { remote.create(any(), any(), any(), any()) }
-        // Queue drained cleanly.
-        assertEquals(0, syncQueueDao.snapshot().size)
-    }
-
-    @Test
-    fun `setSensitive OFF PATCHes server with false (v1_1_1 regression guard)`() = runTest {
-        // v1.1.1 fix: toggling OFF must PATCH `is_sensitive = false`
-        // — NOT call `create()`. v1.1's else-branch bug would
-        // re-INSERT the row. The AssertionError in the create
-        // mock will fail the test if the bug regresses.
-        personDao.upsert(
-            com.baton.app.data.local.entities.PersonEntity(
-                id = "local-1",
-                name = "Ramu",
-                designation = "SHO",
-                station = "Bandipora",
-                phone = null,
-                userId = "u-1",
-                createdAt = "2026-08-12T00:00:00Z",
-                updatedAt = "2026-08-12T00:00:00Z",
-                isSensitive = true,  // already sensitive
-                syncStatus = SyncStatus.SYNCED,
-            )
-        )
-        coEvery { remote.findById("local-1") } returns null
-        coEvery { remote.setSensitive(any(), any()) } returns Unit
-        coEvery { remote.create(any(), any(), any(), any()) } throws
-            AssertionError("v1.1.1 fix: setSensitive(false) must NOT call create()")
-
-        repo.setSensitive("local-1", false)
-        syncEngine.drainOne("local-1", "persons", SyncQueueEntity.OP_UPDATE)
-        advanceUntilIdle()
-
-        // Local row is no longer sensitive and SYNCED.
-        val local = personDao.getById("local-1")
-        assertNotNull(local)
-        assertEquals(false, local!!.isSensitive)
-        assertEquals(SyncStatus.SYNCED, local.syncStatus)
-        // Wire call PATCHed is_sensitive = false.
-        coVerify(exactly = 1) { remote.setSensitive("local-1", false) }
-        assertEquals(0, syncQueueDao.snapshot().size)
-    }
-
-    @Test
-    fun `setSensitive wire failure leaves entry in outbox for retry`() = runTest {
-        // Offline tolerance: if the PATCH throws, the sync queue
-        // entry stays and the local row stays PENDING_UPDATE so
-        // the next drain retries.
-        personDao.upsert(
-            com.baton.app.data.local.entities.PersonEntity(
-                id = "local-1",
-                name = "Ramu",
-                designation = "SHO",
-                station = "Bandipora",
-                phone = null,
-                userId = "u-1",
-                createdAt = "2026-08-12T00:00:00Z",
-                updatedAt = "2026-08-12T00:00:00Z",
-                syncStatus = SyncStatus.SYNCED,
-            )
-        )
-        coEvery { remote.findById("local-1") } returns null
-        coEvery { remote.setSensitive(any(), any()) } throws
-            RuntimeException("network down")
-
-        repo.setSensitive("local-1", true)
-        syncEngine.drainOne("local-1", "persons", SyncQueueEntity.OP_UPDATE)
-        advanceUntilIdle()
-
-        // Local row is sensitive but PENDING_UPDATE (drain failed).
-        val local = personDao.getById("local-1")
-        assertNotNull(local)
-        assertEquals(true, local!!.isSensitive)
-        assertEquals(SyncStatus.PENDING_UPDATE, local.syncStatus)
-        // Sync queue entry remains.
-        val queue = syncQueueDao.snapshot()
-        assertEquals(1, queue.size)
-        assertEquals("persons", queue[0].table)
-        assertEquals(SyncQueueEntity.OP_UPDATE, queue[0].op)
-        assertTrue(queue[0].attempts >= 1)
-        assertNotNull(queue[0].lastError)
-    }
-
-    @Test
-    fun `setSensitive with non-existent id is a no-op`() = runTest {
-        // Edge case: the user tapped the toggle on a person that
-        // was just deleted. The DAO's getById returns null and
-        // the repo silently returns. No sync queue entry, no
-        // wire call.
-        repo.setSensitive("ghost", true)
-        advanceUntilIdle()
-
-        assertEquals(0, syncQueueDao.snapshot().size)
-        coVerify(exactly = 0) { remote.setSensitive(any(), any()) }
+        val afterCount = personDao.snapshot().size
+        assertEquals(beforeCount, afterCount)
     }
 }

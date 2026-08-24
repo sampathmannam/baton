@@ -2,7 +2,6 @@ package com.baton.app.data.instructions
 
 import com.baton.app.data.local.InstructionDao
 import com.baton.app.data.local.InstructionFtsDao
-import com.baton.app.data.local.SyncEngine
 import com.baton.app.data.local.SyncQueueDao
 import com.baton.app.data.local.TouchPersonOnActivity
 import com.baton.app.data.local.entities.InstructionEntity
@@ -77,7 +76,6 @@ open class RoomInstructionRepository @Inject constructor(
     private val dao: InstructionDao,
     private val ftsDao: InstructionFtsDao,
     private val syncQueueDao: SyncQueueDao,
-    private val syncEngine: SyncEngine,
     private val touchOnActivity: TouchPersonOnActivity,
     @ApplicationScope private val appScope: CoroutineScope,
 ) : InstructionRepository {
@@ -95,33 +93,9 @@ open class RoomInstructionRepository @Inject constructor(
      * them and we don't want a refresh to clobber them).
      */
     suspend fun refreshFromNetwork() {
-        // We don't have a Supabase client wired in here — pass it via
-        // a wrapper. Simpler: have the caller pass it in. The single
-        // caller (HomeViewModel) already injects both DAOs and the
-        // Supabase repo via Hilt. We expose the network read as an
-        // extension function instead of pulling another Hilt graph
-        // dependency in here.
-        throw UnsupportedOperationException(
-            "Use the suspend overload that takes a SupabaseInstructionRepository",
-        )
-    }
-
-    /**
-     * Hilt-injected overload that does the actual pull + upsert.
-     * Kept separate so the network dependency stays explicit at the
-     * call site (HomeViewModel.refreshInstructionsFromNetwork) and
-     * this class remains trivially unit-testable with a fake DAO.
-     */
-    suspend fun refreshFromNetwork(remote: SupabaseInstructionRepository) {
-        val remoteRows = remote.fetchAll()
-        val entities = remoteRows.map { it.toEntity() }
-        // v1.0: filter out any is_sensitive rows the server may have
-        // somehow returned. By spec these are local-only and should
-        // not be in the network response, but defensive filtering
-        // keeps the local mirror clean if a future migration drops
-        // the row-level gate.
-        val nonSensitive = entities.filter { !it.isSensitive }
-        dao.upsertAll(nonSensitive)
+        // v2.0.0: no remote to refresh from. The function
+        // shape is preserved for any future change. Local Room
+        // is the source of truth.
     }
 
     private fun Instruction.toEntity(): InstructionEntity = InstructionEntity(
@@ -396,6 +370,10 @@ open class RoomInstructionRepository @Inject constructor(
      * sync_queue only carries `(table, rowId, op)`.
      */
     private suspend fun enqueueUpdate(id: String) {
+        // v2.0.0: no remote to drain to. The sync_queue row is
+        // still enqueued (forward-compat) but no drain will
+        // ever run. A future v2.x pass that adds cloud sync
+        // would re-insert the drain call here.
         syncQueueDao.enqueue(
             SyncQueueEntity(
                 table = "instructions",
@@ -405,9 +383,6 @@ open class RoomInstructionRepository @Inject constructor(
                 createdAt = System.currentTimeMillis(),
             )
         )
-        appScope.launch {
-            syncEngine.drainOne(id, "instructions", SyncQueueEntity.OP_UPDATE)
-        }
     }
 
     /**
