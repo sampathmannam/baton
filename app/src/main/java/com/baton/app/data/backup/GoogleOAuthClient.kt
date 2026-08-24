@@ -25,17 +25,19 @@ import javax.inject.Singleton
  * Google" in Settings, [signIn] opens a Chrome Custom
  * Tab to Google's OAuth page. The user signs in +
  * grants the `drive.appdata` scope. Google redirects
- * to `baton://oauth-callback?code=AUTH_CODE`. The
- * [com.baton.app.features.auth.OAuthCallbackActivity]
- * catches the redirect, extracts the code, and calls
+ * to `baton://oauth-callback?code=AUTH_CODE&state=STATE`.
+ * The [com.baton.app.features.auth.OAuthCallbackActivity]
+ * catches the redirect, validates the `state` against
+ * the persisted value, extracts the code, and calls
  * [completeSignIn].
  *
- * [completeSignIn] exchanges the auth code for an
- * access + refresh token via Google's token endpoint
- * (using a Ktor [HttpClient] — no Play Services Auth
- * needed). The refresh token is stored in
- * [SecurePreferences]; the access token is held in
- * memory and refreshed on demand by [getAccessToken].
+ * [completeSignIn] exchanges the auth code + PKCE
+ * `code_verifier` for an access + refresh token via
+ * Google's token endpoint (using a Ktor [HttpClient] —
+ * no Play Services Auth needed). The refresh token is
+ * stored in [SecurePreferences]; the access token is
+ * held in memory and refreshed on demand by
+ * [getAccessToken].
  *
  * **Why Custom Tabs instead of GoogleSignInClient.**
  * The offline build cache doesn't have
@@ -52,12 +54,60 @@ import javax.inject.Singleton
  * intent filter for `baton://oauth-callback` in the
  * manifest. The OAuthCallbackActivity is a transparent
  * activity that catches the intent, extracts the
- * `code` parameter, calls [completeSignIn], and
- * finishes. The Custom Tabs flow is the standard
- * "Authorization Code with PKCE" pattern; we omit
- * PKCE for v2.1.0 (the redirect URI is on a
- * client-controlled scheme, which is the standard
- * public-client flow).
+ * `code` + `state` parameters, validates `state`
+ * against the persisted value, calls [completeSignIn],
+ * and finishes.
+ *
+ * **v2.1.1 (security): `state` + PKCE.** The v2.1.0
+ * OAuth flow was missing two standard defences against
+ * authorization-code injection (the
+ * "any-installed-app-can-fire-baton://oauth-callback
+ * with-an-attacker's-code" attack):
+ *
+ *  1. **`state` (RFC 6749 §10.12).** [signIn] generates
+ *     a 32-byte random secret, base64url-encodes it,
+ *     sends it as `state=...` in the auth URL, and
+ *     persists it to a private file in `filesDir`. The
+ *     callback activity reads the same file and rejects
+ *     the redirect if the inbound `state` doesn't match
+ *     (or if the file is missing — which means the
+ *     legitimate flow already consumed it). A
+ *     malicious `am start -a android.intent.action.VIEW
+ *     -d "baton://oauth-callback?code=ATTACKER_CODE"`
+ *     fires the activity but the state file is absent
+ *     (or already consumed) so the exchange is
+ *     rejected.
+ *
+ *  2. **PKCE (RFC 7636, S256).** [signIn] generates a
+ *     32-byte random `code_verifier`, base64url-encodes
+ *     it, sends `code_challenge = base64url(SHA256(verifier))`
+ *     and `code_challenge_method=S256` in the auth
+ *     URL, and persists the verifier alongside the
+ *     state. [completeSignIn] sends the verifier in
+ *     the token POST. Google hashes it and compares to
+ *     the `code_challenge` from the auth URL; if they
+ *     don't match, the exchange is rejected. This
+ *     binds the auth code to this device — a stolen
+ *     code redeemed from a different device would fail
+ *     the challenge comparison.
+ *
+ * **v2.1.1 (security): token-exchange response body
+ * is no longer logged.** Google's error responses can
+ * echo the offending `client_id` and the malformed
+ * `code` value; the v2.1.0 `require(...)` message
+ * dumped the full body to logcat. The v2.1.1 message
+ * only includes the HTTP status code.
+ *
+ * **v2.1.1 (security): CustomTabs `FLAG_ACTIVITY_NEW_TASK`.**
+ * [signIn] is called from a Hilt-injected
+ * [GoogleOAuthClient] (which holds an `@ApplicationContext`),
+ * not from an Activity. Without `FLAG_ACTIVITY_NEW_TASK`,
+ * `CustomTabsIntent.launchUrl` throws
+ * `AndroidRuntimeException: Calling startActivity() from
+ * outside of an Activity context requires the
+ * FLAG_ACTIVITY_NEW_TASK flag`. The flag is added to the
+ * Custom Tabs intent so the OAuth flow can be initiated
+ * from any context.
  */
 @Singleton
 class GoogleOAuthClient @Inject constructor(
@@ -81,20 +131,26 @@ class GoogleOAuthClient @Inject constructor(
      * Open the Google OAuth page in a Chrome Custom
      * Tab. The user signs in, grants the
      * `drive.appdata` scope, and Google redirects to
-     * `baton://oauth-callback?code=...`. The
+     * `baton://oauth-callback?code=...&state=...`. The
      * [com.baton.app.features.auth.OAuthCallbackActivity]
-     * catches the redirect and calls [completeSignIn].
+     * catches the redirect, validates the `state`, and
+     * calls [completeSignIn].
      */
     fun signIn() {
-        // The OAuth 2.0 Authorization Code flow (no PKCE
-        // for v2.1.0). The scopes are:
-        //   - drive.appdata: per-app hidden folder
-        //   - email: read the user's email (so the Settings
-        //     sheet can show "Signed in as foo@bar.com")
-        // The `access_type=offline` request is critical —
-        // without it, Google returns an access token but
-        // no refresh token, and the user has to re-sign
-        // in every time the access token expires (~1h).
+        // v2.1.1 (security): the OAuth flow now uses the
+        // `state` parameter + PKCE (S256). Without these,
+        // any installed app on the device can fire
+        // `baton://oauth-callback?code=ATTACKER_CODE` and
+        // have Baton exchange the attacker's auth code
+        // for a real access + refresh token (the
+        // settings sheet will then show "Signed in as
+        // attacker@evil.com" and every Drive backup
+        // lands in the attacker's appDataFolder).
+        val state = generateState()
+        val verifier = generatePkceVerifier()
+        val challenge = sha256Base64Url(verifier)
+        persistOAuthState(state, verifier)
+
         val authUrl = Uri.parse("https://accounts.google.com/o/oauth2/v2/auth")
             .buildUpon()
             .appendQueryParameter("client_id", CLIENT_ID)
@@ -106,30 +162,110 @@ class GoogleOAuthClient @Inject constructor(
             )
             .appendQueryParameter("access_type", "offline")
             .appendQueryParameter("include_granted_scopes", "true")
+            .appendQueryParameter("state", state)
+            .appendQueryParameter("code_challenge", challenge)
+            .appendQueryParameter("code_challenge_method", "S256")
             .build()
 
         val intent = CustomTabsIntent.Builder().build()
+        // v2.1.1 (security): CustomTabs requires an
+        // Activity context. The injected @ApplicationContext
+        // is the application context, which means
+        // `launchUrl` throws `AndroidRuntimeException:
+        // Calling startActivity() from outside of an
+        // Activity context requires the
+        // FLAG_ACTIVITY_NEW_TASK flag`. Set the flag
+        // here so the OAuth flow can be initiated from
+        // any context (e.g. the Hilt-injected
+        // GoogleOAuthClient inside a ViewModel).
+        intent.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         intent.launchUrl(context, authUrl)
+    }
+
+    private fun generateState(): String {
+        val bytes = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+        return android.util.Base64.encodeToString(
+            bytes,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
+        )
+    }
+
+    private fun generatePkceVerifier(): String {
+        // RFC 7636: 43-128 chars, [A-Z][a-z][0-9]-._~
+        val bytes = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+        return android.util.Base64.encodeToString(
+            bytes,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
+        )
+    }
+
+    private fun sha256Base64Url(input: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(Charsets.US_ASCII))
+        return android.util.Base64.encodeToString(
+            digest,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
+        )
+    }
+
+    /**
+     * Persist the OAuth `state` and `code_verifier` to a
+     * private file in the app's filesDir so the
+     * OAuthCallbackActivity (a separate Activity) can
+     * read them. The file is deleted on
+     * [completeSignIn] success.
+     */
+    private fun persistOAuthState(state: String, verifier: String) {
+        val file = java.io.File(context.filesDir, "oauth_state.tmp")
+        file.writeText("$state\n$verifier")
+    }
+
+    /**
+     * Read + consume the persisted OAuth state. Returns
+     * (state, verifier) on hit, or null if the file
+     * doesn't exist / is malformed. The caller is
+     * expected to [deleteOAuthStateFile] on success.
+     */
+    fun consumeOAuthState(): Pair<String, String>? {
+        val file = java.io.File(context.filesDir, "oauth_state.tmp")
+        if (!file.exists()) return null
+        val text = runCatching { file.readText() }.getOrNull() ?: return null
+        val parts = text.split("\n", limit = 2)
+        if (parts.size != 2) return null
+        return parts[0] to parts[1]
+    }
+
+    fun deleteOAuthStateFile() {
+        java.io.File(context.filesDir, "oauth_state.tmp").delete()
     }
 
     /**
      * Called by [com.baton.app.features.auth.OAuthCallbackActivity]
      * once the user has been redirected back with
-     * `?code=...`. Exchanges the code for an access +
-     * refresh token. The refresh token is stored in
-     * [SecurePreferences] for next-time silent sign-in.
+     * `?code=...&state=...`. The activity has already
+     * validated `state` against the persisted value
+     * (see [consumeOAuthState]); this function
+     * exchanges the code + PKCE verifier for an
+     * access + refresh token. The refresh token is
+     * stored in [SecurePreferences] for next-time
+     * silent sign-in.
      */
     suspend fun completeSignIn(authCode: String) {
-        // Google's token endpoint. Public-client flow:
-        // POST with form-encoded body (no client_secret
-        // for installed-app clients — Google does
-        // PKCE-style verification via the redirect URI
-        // match). In production the client_id would
-        // come from a BuildConfig field or a
-        // strings.xml resource. The v2.1.0 build uses
-        // a placeholder client_id — replace with a real
-        // Google Cloud Console OAuth 2.0 client ID
-        // before shipping to the Play Store.
+        // v2.1.1 (security): PKCE. The token endpoint
+        // receives the `code_verifier` we generated in
+        // [signIn] and persisted. Google hashes it and
+        // compares to the `code_challenge` from the auth
+        // URL; if they don't match, the exchange is
+        // rejected. This binds the code to this device —
+        // a stolen code redeemed from a different device
+        // would fail the challenge comparison.
+        val (_, verifier) = consumeOAuthState()
+            ?: error("OAuth state file missing — sign-in flow was not initiated on this device")
+        // v2.1.1 (security): never log the full response
+        // body. Google's error responses can echo the
+        // offending `client_id` and the malformed
+        // `code` value, which are tokens we don't want in
+        // logcat.
         val response = httpClient.submitForm(
             url = "https://oauth2.googleapis.com/token",
             formParameters = Parameters.build {
@@ -137,10 +273,11 @@ class GoogleOAuthClient @Inject constructor(
                 append("client_id", CLIENT_ID)
                 append("redirect_uri", REDIRECT_URI)
                 append("grant_type", "authorization_code")
+                append("code_verifier", verifier)
             },
         )
         require(response.status.value in 200..299) {
-            "Token exchange failed: ${response.status} ${response.bodyAsText()}"
+            "Token exchange failed: ${response.status}"
         }
         val json = JSONObject(response.bodyAsText())
         val accessToken = json.getString("access_token")
@@ -151,6 +288,10 @@ class GoogleOAuthClient @Inject constructor(
             securePreferences.setGoogleRefreshToken(refreshToken)
         }
         securePreferences.setGoogleAccessTokenExpiry(System.currentTimeMillis() + expiresIn * 1000)
+        // v2.1.1: delete the state file once the exchange
+        // is done. The file contains the `code_verifier`
+        // (a one-shot secret) and should not persist.
+        deleteOAuthStateFile()
     }
 
     /**
