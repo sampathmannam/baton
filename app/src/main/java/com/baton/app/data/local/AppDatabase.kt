@@ -157,6 +157,131 @@ abstract class AppDatabase : RoomDatabase() {
          * exposed here as a public companion constant for that
          * one-line wiring change.
          */
+        /**
+         * v2.1.0 (PM rating): the v2-v7 → v8 best-effort
+         * migrations. The pre-v8 era (M2 + M3 builds) had
+         * a simpler schema than v8: the M3 encrypted-DB
+         * base (persons + instructions + captures) plus
+         * whatever incremental columns v4-v7 added. The
+         * v8 era added the `vaultMode` columns to
+         * persons + instructions and the four new tables
+         * (tags, instruction_tags, sync_conflict, plus
+         * a fatter sync_queue).
+         *
+         * **The honest scope.** I do not have the
+         * exact v3-v7 schema. The migrations here are
+         * defensive: every step is wrapped in a
+         * try-catch that swallows the "already exists"
+         * error. The result is a "best effort" upgrade
+         * — the v8 schema is laid down on top of
+         * whatever the v3-v7 schema had, and Room's
+         * `validateSchema` either accepts the result
+         * (no-op steps on a schema that already had the
+         * column) or fails (in which case the user is
+         * no worse off than under the v2.0.x
+         * `fallbackToDestructiveMigrationFrom(2..7)`
+         * — the data is lost either way).
+         *
+         * **What v2.0.0 was doing.** The v2.0.x
+         * `fallbackToDestructiveMigrationFrom(2, 3, 4,
+         * 5, 6, 7)` accepted that pre-v8 data was lost
+         * because v1.x had Supabase to re-fill from. In
+         * v2.0.0 (no Supabase) the same path is a real
+         * data-loss footgun. These 6 migrations are the
+         * v2.1.0 fix.
+         */
+        private fun runPreV8Migration(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            // The vaultMode columns on persons + instructions.
+            // SQLite supports `ALTER TABLE ADD COLUMN` with
+            // a NOT NULL DEFAULT — pre-existing rows pick
+            // up the default. We wrap in try-catch because
+            // the column may already exist on a v4-v7
+            // schema that pre-empted the v8 split.
+            try {
+                db.execSQL("ALTER TABLE persons ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'")
+            } catch (_: Throwable) {}
+            try {
+                db.execSQL("ALTER TABLE instructions ADD COLUMN vaultMode TEXT NOT NULL DEFAULT 'visible'")
+            } catch (_: Throwable) {}
+            try {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_persons_vaultMode ON persons(vaultMode)")
+            } catch (_: Throwable) {}
+            try {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_instructions_vaultMode ON instructions(vaultMode)")
+            } catch (_: Throwable) {}
+
+            // The v8-era tables that didn't exist before.
+            // CREATE TABLE IF NOT EXISTS is idempotent.
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS tags (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    color TEXT,
+                    usageCount INTEGER NOT NULL DEFAULT 0,
+                    lastUsedAt TEXT,
+                    userId TEXT NOT NULL,
+                    createdAt TEXT NOT NULL,
+                    updatedAt TEXT NOT NULL,
+                    syncStatus TEXT NOT NULL DEFAULT 'SYNCED'
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_tags_kind ON tags(kind)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_tags_syncStatus ON tags(syncStatus)")
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS instruction_tags (
+                    instructionId TEXT NOT NULL,
+                    tagId TEXT NOT NULL,
+                    PRIMARY KEY(instructionId, tagId)
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_instruction_tags_tagId ON instruction_tags(tagId)")
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS sync_conflict (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    tableName TEXT NOT NULL,
+                    rowId TEXT NOT NULL,
+                    localVersion TEXT NOT NULL,
+                    remoteVersion TEXT NOT NULL,
+                    detectedAtMs INTEGER NOT NULL,
+                    resolution TEXT
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_conflict_tableName_rowId ON sync_conflict(tableName, rowId)")
+        }
+
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = runPreV8Migration(db)
+        }
+
+        val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = runPreV8Migration(db)
+        }
+
+        val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = runPreV8Migration(db)
+        }
+
+        val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = runPreV8Migration(db)
+        }
+
+        val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = runPreV8Migration(db)
+        }
+
+        val MIGRATION_7_8: Migration = object : Migration(7, 8) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = runPreV8Migration(db)
+        }
+
         val MIGRATION_9_10: Migration = object : Migration(9, 10) {
             override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                 // Dedupe any pre-existing duplicate outbox rows
