@@ -785,6 +785,37 @@
     <string name="about_repo_header">Source</string>
     <string name="about_repo_url">github.com/sampathmannam/baton (private — public release pending)</string>
     <string name="about_license">© 2026 Sampath Mannam. All rights reserved.</string>
+
+    <!-- v2.0 (Hierarchy): the audience + due chip + dispatch surface. -->
+    <string name="hierarchy_audience_picker_title">Send to…</string>
+    <string name="hierarchy_audience_picker_subtitle">Choose a station, designation, person, or broadcast</string>
+    <string name="hierarchy_audience_by_person">Person</string>
+    <string name="hierarchy_audience_by_designation">Designation</string>
+    <string name="hierarchy_audience_by_station">Station</string>
+    <string name="hierarchy_audience_by_all">Everyone</string>
+    <string name="hierarchy_audience_summary_to_person">To %1$s</string>
+    <string name="hierarchy_audience_summary_to_designation">To all %1$s</string>
+    <string name="hierarchy_audience_summary_to_station">To everyone at %1$s</string>
+    <string name="hierarchy_audience_summary_to_all">To everyone on the roster</string>
+    <string name="hierarchy_audience_recipient_count_one">1 recipient</string>
+    <string name="hierarchy_audience_recipient_count_other">%1$d recipients</string>
+    <string name="hierarchy_dispatch_title">Send</string>
+    <string name="hierarchy_dispatch_channel_sms">SMS</string>
+    <string name="hierarchy_dispatch_channel_whatsapp">WhatsApp</string>
+    <string name="hierarchy_dispatch_receipts_one">1 of 1 delivered</string>
+    <string name="hierarchy_dispatch_receipts_other">%1$d of %2$d delivered</string>
+    <string name="hierarchy_due_chip_set">Due %1$s</string>
+    <string name="hierarchy_due_chip_tap_to_set">Set due</string>
+    <string name="hierarchy_due_chip_clear">Clear due</string>
+    <string name="hierarchy_contact_sync_picker_title">Pick from contacts</string>
+    <string name="hierarchy_contact_sync_permission_rationale">Read your contacts so you can quickly add a person + phone to the roster.</string>
+    <string name="hierarchy_contact_sync_no_results">No matching contacts on this device.</string>
+    <string name="hierarchy_section_outbox">Outbox</string>
+    <string name="hierarchy_section_inbox">Inbox</string>
+    <string name="hierarchy_section_tags">#tags</string>
+    <string name="hierarchy_tag_chip_count">%1$d</string>
+    <string name="hierarchy_inbound_draft_title">Draft from inbound</string>
+    <string name="hierarchy_inbound_draft_save">Save as outgoing</string>
 </resources>
 
 

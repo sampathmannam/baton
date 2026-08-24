@@ -113,6 +113,12 @@ open class RoomInstructionRepository @Inject constructor(
         updatedAt = updatedAt,
         isSensitive = isSensitive,
         syncStatus = SyncStatus.SYNCED,
+        audienceKind = audience?.kind,
+        audienceTarget = audience?.target,
+        audienceLabel = audience?.label,
+        audienceIsBroadcast = audience?.isBroadcast ?: false,
+        dueAtMs = dueAtMs,
+        channel = channel,
     )
 
     /**
@@ -274,6 +280,97 @@ open class RoomInstructionRepository @Inject constructor(
         enqueueUpdate(id)
     }
 
+    // ---- v2.0 (Hierarchy): audience + due chip + channel ----
+
+    override suspend fun createWithAudience(
+        personId: String?,
+        audience: AudienceRef?,
+        source: Source,
+        priority: Priority,
+        title: String,
+        rawText: String,
+        dueAt: String?,
+        dueAtMs: Long?,
+        channel: String?,
+    ): Instruction {
+        val now = Instant.now().toString()
+        val id = UUID.randomUUID().toString()
+        val entity = InstructionEntity(
+            id = id,
+            personId = personId,
+            direction = Direction.OUTGOING.name,
+            status = Status.OPEN.name,
+            source = source.name,
+            priority = priority.name,
+            title = title,
+            rawText = rawText,
+            dueAt = dueAt,
+            capturedAt = now,
+            createdAt = now,
+            updatedAt = now,
+            isSensitive = false,
+            syncStatus = SyncStatus.PENDING_INSERT,
+            audienceKind = audience?.kind,
+            audienceTarget = audience?.target,
+            audienceLabel = audience?.label,
+            audienceIsBroadcast = audience?.isBroadcast ?: false,
+            dueAtMs = dueAtMs,
+            channel = channel,
+        )
+        db.withTransaction {
+            dao.upsert(entity)
+            val newRowid = ftsDao.maxInstructionRowid() ?: 0L
+            ftsDao.upsert(
+                InstructionFtsEntity(
+                    rowid = newRowid,
+                    title = title,
+                    rawText = rawText,
+                    personId = personId,
+                    capturedAt = now,
+                ),
+            )
+            enqueueInsert(id)
+            touchOnActivity.touch(personId)
+        }
+        return entity.toDomain()
+    }
+
+    override suspend fun setAudience(id: String, audience: AudienceRef?) {
+        val now = Instant.now().toString()
+        dao.setAudience(
+            id = id,
+            audienceKind = audience?.kind,
+            audienceTarget = audience?.target,
+            audienceLabel = audience?.label,
+            audienceIsBroadcast = audience?.isBroadcast ?: false,
+            now = now,
+            syncStatus = SyncStatus.PENDING_UPDATE,
+        )
+        enqueueUpdate(id)
+    }
+
+    override suspend fun setDueChip(id: String, dueAtMs: Long?) {
+        val now = Instant.now().toString()
+        dao.setDueChip(
+            id = id,
+            dueAtMs = dueAtMs,
+            now = now,
+            syncStatus = SyncStatus.PENDING_UPDATE,
+        )
+        enqueueUpdate(id)
+    }
+
+    override suspend fun setChannel(id: String, channel: String?) {
+        val now = Instant.now().toString()
+        dao.setChannel(
+            id = id,
+            channel = channel,
+            now = now,
+            syncStatus = SyncStatus.PENDING_UPDATE,
+        )
+        enqueueUpdate(id)
+    }
+
     // ---- existing direct-call helpers (unchanged) ----
 
     /**
@@ -426,4 +523,7 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     isSensitive = isSensitive,
     completedAt = completedAt,
     droppedReason = droppedReason,
+    audience = audienceFromColumns(audienceKind, audienceTarget, audienceLabel),
+    dueAtMs = dueAtMs,
+    channel = channel,
 )

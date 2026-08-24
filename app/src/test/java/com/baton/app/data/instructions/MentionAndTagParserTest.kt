@@ -1,9 +1,7 @@
 package com.baton.app.data.instructions
-
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
 class MentionAndTagParserTest {
     @Test fun `empty body returns empty result`() { val r = MentionAndTagParser.parse(""); assertEquals("", r.body); assertTrue(r.tokens.isEmpty()); assertTrue(r.mentions.isEmpty()); assertTrue(r.hashtags.isEmpty()) }
     @Test fun `single at-name mention`() { val r = MentionAndTagParser.parse("Call @ramesh about the file"); assertEquals(1, r.mentions.size); assertEquals("ramesh", r.mentions[0].payload); assertEquals(MentionAndTagParser.Mention.Prefix.NAME, r.mentions[0].prefix) }

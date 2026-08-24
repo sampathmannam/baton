@@ -33,6 +33,10 @@ import androidx.room.PrimaryKey
         Index(value = ["dueAt"]),
         Index(value = ["syncStatus"]),
         Index(value = ["urgency"]),
+        Index(value = ["audienceKind"]),
+        Index(value = ["audienceTarget"]),
+        Index(value = ["dueAtMs"]),
+        Index(value = ["channel"]),
     ],
 )
 data class InstructionEntity(
@@ -69,4 +73,13 @@ data class InstructionEntity(
     // v2.0 Tier 2 (§2.10): if urgency == "worry_with_date", the
     // epoch-day on which the user wants to revisit the worry.
     val reviewAtEpochDay: Long? = null,
+    // v2.0 (Hierarchy): audience pointer columns.
+    val audienceKind: String? = null,
+    val audienceTarget: String? = null,
+    val audienceLabel: String? = null,
+    val audienceIsBroadcast: Boolean = false,
+    // v2.0 (Hierarchy): manual due chip (epoch millis).
+    val dueAtMs: Long? = null,
+    // v2.0 (Hierarchy): outbound delivery channel.
+    val channel: String? = null,
 )

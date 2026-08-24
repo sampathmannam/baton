@@ -1,9 +1,7 @@
 package com.baton.app.data.instructions
-
 import com.baton.app.data.person.Person
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
 class AudienceResolverTest {
     private fun p(id: String, name: String, designation: String? = null, station: String? = null) = Person(id = id, name = name, designation = designation, station = station, phone = null)
     private val roster = RosterBuilder.build(listOf(p("p1", "Senthil", "SI", "RedHills"), p("p2", "Ramesh", "SI", "RedHills"), p("p3", "Anu", "Constable", "Tambaram")))

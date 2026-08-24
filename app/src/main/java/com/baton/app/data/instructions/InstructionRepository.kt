@@ -57,4 +57,26 @@ interface InstructionRepository {
      * v1.1: convenience wrapper for `update(id, DROPPED, null, reason, ...)`.
      */
     suspend fun markDropped(id: String, reason: String?, at: String)
+
+    /** v2.0 (Hierarchy): create with audience pointer. */
+    suspend fun createWithAudience(
+        personId: String?,
+        audience: AudienceRef?,
+        source: Source,
+        priority: Priority,
+        title: String,
+        rawText: String,
+        dueAt: String?,
+        dueAtMs: Long?,
+        channel: String?,
+    ): Instruction
+
+    /** v2.0 (Hierarchy): replace the audience pointer. */
+    suspend fun setAudience(id: String, audience: AudienceRef?)
+
+    /** v2.0 (Hierarchy): set / clear the manual due chip. */
+    suspend fun setDueChip(id: String, dueAtMs: Long?)
+
+    /** v2.0 (Hierarchy): set the outbound delivery channel. */
+    suspend fun setChannel(id: String, channel: String?)
 }

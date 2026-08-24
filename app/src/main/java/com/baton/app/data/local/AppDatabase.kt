@@ -107,13 +107,16 @@ import com.baton.app.data.user.UserEntity
         ImportantDateEntity::class,
         PersonLinkEntity::class,
         UserEntity::class,
+        com.baton.app.data.local.entities.DeliveryReceiptEntity::class,
     ],
     // v1.8.0 (PROD-READINESS-P2-#3 + #4): v14 adds the
     // audit_chain_events table; v1.8.0 also adds the
     // users table. The chain is a forward-only append;
     // the users table starts with one row (the device
     // owner). No destructive migration needed.
-    version = 15,
+    // v2.0 (Hierarchy): v16 adds the audience + due chip +
+    // channel columns and the delivery_receipts table.
+    version = 16,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -131,6 +134,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun personLinkDao(): PersonLinkDao
     abstract fun auditChainEventDao(): AuditChainEventDao
     abstract fun userDao(): com.baton.app.data.user.UserDao
+    abstract fun deliveryReceiptDao(): com.baton.app.data.local.DeliveryReceiptDao
 
     companion object {
         const val NAME = "baton.db"
@@ -573,6 +577,49 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_users_deviceOwner` " +
                         "ON `users`(`deviceOwner`) WHERE `deviceOwner` = 1",
                 )
+            }
+        }
+
+        /**
+         * v2.0 (Hierarchy) MIGRATION_15_16. Adds:
+         *  - `audienceKind`, `audienceTarget`, `audienceLabel`,
+         *    `audienceIsBroadcast` on `instructions`
+         *  - `dueAtMs` on `instructions`
+         *  - `channel` on `instructions`
+         *  - new `delivery_receipts` table
+         */
+        val MIGRATION_15_16: Migration = object : Migration(15, 16) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE instructions ADD COLUMN audienceKind TEXT")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN audienceTarget TEXT")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN audienceLabel TEXT")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN audienceIsBroadcast INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN dueAtMs INTEGER")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN channel TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_audienceKind` ON `instructions`(`audienceKind`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_audienceTarget` ON `instructions`(`audienceTarget`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_dueAtMs` ON `instructions`(`dueAtMs`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_channel` ON `instructions`(`channel`)")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `delivery_receipts` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `instructionId` TEXT NOT NULL,
+                        `recipientPersonId` TEXT NOT NULL,
+                        `recipientName` TEXT NOT NULL,
+                        `recipientDesignation` TEXT,
+                        `recipientPhone` TEXT,
+                        `channel` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `errorMessage` TEXT,
+                        `sentAt` TEXT NOT NULL,
+                        `syncStatus` TEXT NOT NULL DEFAULT 'SYNCED'
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_delivery_receipts_instructionId` ON `delivery_receipts`(`instructionId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_delivery_receipts_status` ON `delivery_receipts`(`status`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_delivery_receipts_channel` ON `delivery_receipts`(`channel`)")
             }
         }
     }

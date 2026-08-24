@@ -1,5 +1,6 @@
 package com.baton.app.ui.home
 
+import com.baton.app.data.instructions.Instruction
 import com.baton.app.data.person.Person
 
 sealed interface HomeUiState {
@@ -7,16 +8,25 @@ sealed interface HomeUiState {
     data object Loading : HomeUiState
 
     /**
-     * M3-T5: the loaded state now carries a per-person open
-     * instruction count. The People list shows the count as a
-     * badge to the right of the name. Counts are zero for persons
-     * who have no open instructions (the map's `getOrDefault`).
+     * v2.0 (Hierarchy): the loaded state carries the "outbox" and
+     * "inbox" sections and the popular #tag chips in addition to
+     * the pre-v2.0 person list.
      */
     data class Loaded(
         val persons: List<Person>,
         val openCountByPersonId: Map<String, Int> = emptyMap(),
         val stalePersonIds: Set<String> = emptySet(),
+        val outgoingOpen: List<Instruction> = emptyList(),
+        val incomingOpen: List<Instruction> = emptyList(),
+        val popularTags: List<TagCount> = emptyList(),
     ) : HomeUiState
 
     data class Error(val message: String) : HomeUiState
 }
+
+/** v2.0 (Hierarchy): a single popular #tag chip. */
+data class TagCount(
+    val tagId: String,
+    val name: String,
+    val count: Int,
+)

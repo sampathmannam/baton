@@ -191,6 +191,51 @@ interface InstructionDao {
         """,
     )
     suspend fun keepWorry(id: String, now: String, syncStatus: String)
+
+    // ---- v2.0 (Hierarchy): audience + due chip + channel ----
+
+    @Query(
+        '''SELECT * FROM instructions WHERE direction = 'OUTGOING' AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') ORDER BY capturedAt DESC LIMIT 50'''
+    )
+    fun observeOutgoingOpen(): Flow<List<InstructionEntity>>
+
+    @Query(
+        '''SELECT * FROM instructions WHERE direction = 'INCOMING' AND status NOT IN ('DONE', 'CARRIED_OVER', 'DROPPED') ORDER BY capturedAt DESC LIMIT 50'''
+    )
+    fun observeIncomingOpen(): Flow<List<InstructionEntity>>
+
+    @Query(
+        '''UPDATE instructions SET audienceKind = :audienceKind, audienceTarget = :audienceTarget, audienceLabel = :audienceLabel, audienceIsBroadcast = :audienceIsBroadcast, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id'''
+    )
+    suspend fun setAudience(
+        id: String,
+        audienceKind: String?,
+        audienceTarget: String?,
+        audienceLabel: String?,
+        audienceIsBroadcast: Boolean,
+        now: String,
+        syncStatus: String,
+    )
+
+    @Query(
+        '''UPDATE instructions SET dueAtMs = :dueAtMs, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id'''
+    )
+    suspend fun setDueChip(
+        id: String,
+        dueAtMs: Long?,
+        now: String,
+        syncStatus: String,
+    )
+
+    @Query(
+        '''UPDATE instructions SET channel = :channel, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id'''
+    )
+    suspend fun setChannel(
+        id: String,
+        channel: String?,
+        now: String,
+        syncStatus: String,
+    )
 }
 
 /**

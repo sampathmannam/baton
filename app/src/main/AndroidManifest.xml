@@ -37,6 +37,16 @@
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
+        <!-- v2.0 (Hierarchy): outbound SMS dispatch -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <!-- v2.0 (Hierarchy): outbound WhatsApp dispatch -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 
     <!-- M1-T6: Calendar integration via CalendarContract.ACTION_INSERT.
@@ -65,6 +75,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- v2.0 (Hierarchy): contact sync -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <application
         android:name=".BatonApplication"

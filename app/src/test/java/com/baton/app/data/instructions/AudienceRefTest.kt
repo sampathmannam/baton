@@ -1,11 +1,9 @@
 package com.baton.app.data.instructions
-
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
 class AudienceRefTest {
     @Test fun `kind maps to canonical string`() { assertEquals("PERSON", AudienceRef.ByPerson("p", "P").kind); assertEquals("DESIGNATION", AudienceRef.ByDesignation("si", "SI").kind); assertEquals("STATION", AudienceRef.ByStation("RedHills", "RedHills").kind); assertEquals("ALL", AudienceRef.ByAll("all", "all").kind) }
     @Test fun `target maps to payload`() { assertEquals("p", AudienceRef.ByPerson("p", "P").target); assertEquals("si", AudienceRef.ByDesignation("si", "SI").target); assertEquals("RedHills", AudienceRef.ByStation("RedHills", "RedHills").target); assertEquals("all", AudienceRef.ByAll("all", "all").target) }
