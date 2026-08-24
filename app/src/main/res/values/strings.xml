@@ -433,6 +433,12 @@
          it at first launch as a modal. -->
     <string name="settings_changelog">What\'s new</string>
     <string name="settings_changelog_explainer">Release notes for every Baton version. Tap to see what changed.</string>
+    <!-- v2.0 (PM rating): the in-app audit-log viewer is
+         reachable from Settings. The chain has been writing
+         rows since v1.8.0; v2.0 surfaces them. -->
+    <string name="settings_audit_log">Audit log</string>
+    <string name="settings_audit_log_value">View the audit chain</string>
+    <string name="settings_audit_log_explainer">Every state change in Baton is appended to a SHA-256 hash chain. Tap to see the entries and verify the chain.</string>
     <string name="recovery_phrase_title">Recovery phrase</string>
     <string name="recovery_phrase_back">Back</string>
     <string name="recovery_phrase_subtitle">These 12 words are the master key for your data. Write them down on paper, in order. Do not screenshot. If this phone is lost, the phrase is the only way to recover.</string>
@@ -708,6 +714,22 @@
          show again until the next version bump. -->
     <string name="changelog_title">What\'s new</string>
     <string name="changelog_got_it">Got it</string>
+    <!-- v2.0 (PM rating): the in-app audit-log viewer. The
+         audit chain has been writing rows since v1.8.0;
+         v2.0.0 surfaces them in a dedicated screen. The
+         "verify" action runs the chain hash check and
+         reports the first broken link. -->
+    <string name="audit_log_title">Audit log</string>
+    <string name="audit_log_back">Back</string>
+    <string name="audit_log_verify_title">Verify audit chain</string>
+    <string name="audit_log_verify_explainer">Walks the SHA-256 chain in id-order and checks that every prevHash matches the previous row\'s thisHash. Reports the first broken link, or "intact" if the chain is whole.</string>
+    <string name="audit_log_verify_button">Verify now</string>
+    <string name="audit_log_verify_idle">Tap "Verify now" to walk the chain. The check is fast even on a year of data.</string>
+    <string name="audit_log_verify_intact">Chain intact · %1$d events</string>
+    <string name="audit_log_verify_broken">Chain broken</string>
+    <string name="audit_log_verify_broken_detail">First broken link at index %1$d · table %2$s · row %3$s</string>
+    <string name="audit_log_recent_title">Recent events</string>
+    <string name="audit_log_empty">No audit events yet. The chain is written by the SyncEngine on every state change.</string>
 </resources>
 
 

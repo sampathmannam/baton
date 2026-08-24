@@ -381,6 +381,16 @@ private fun MainScaffold(
                         onDismiss = { navController.popBackStack() },
                     )
                 }
+                // v2.0 (PM rating): the in-app audit-log
+                // viewer. Reachable from Settings → Privacy →
+                // Audit log. The chain has been writing rows
+                // since v1.8.0 (see AuditChainWriter); v2.0
+                // surfaces them.
+                composable(Routes.AUDIT_LOG) {
+                    com.baton.app.features.audit.AuditLogScreen(
+                        onClose = { navController.popBackStack() },
+                    )
+                }
                 // v1.8.0 (PROD-READINESS-P2-#2): the
                 // sync-conflict list screen. Reachable
                 // from Settings → Sync conflicts. The
@@ -440,6 +450,14 @@ private fun MainScaffold(
             onOpenChangelog = {
                 showSettings = false
                 navController.navigate(Routes.CHANGELOG)
+            },
+            // v2.0 (PM rating): the in-app audit-log viewer
+            // is reachable from Settings. The chain has
+            // been writing rows since v1.8.0; v2.0 surfaces
+            // them.
+            onOpenAuditLog = {
+                showSettings = false
+                navController.navigate(Routes.AUDIT_LOG)
             },
             // v2.0.0: onOpenSyncConflicts removed — the sync
             // queue is a no-op stub (no cloud). The Settings
@@ -677,6 +695,11 @@ object Routes {
     // design rule forbids auto-showing it at first launch as
     // a modal — Settings is the canonical entry point.
     const val CHANGELOG = "privacy/changelog"
+    // v2.0 (PM rating): the in-app audit-log viewer.
+    // Reachable from Settings → Privacy → Audit log. The
+    // chain has been writing rows since v1.8.0; v2.0
+    // surfaces them.
+    const val AUDIT_LOG = "privacy/audit-log"
     // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
     // routes. The list screen is reachable from
     // Settings; the diff screen is pushed when a

@@ -89,6 +89,10 @@ fun SettingsSheet(
     // a no-op default so tests can construct the sheet without
     // a navigation host.
     onOpenChangelog: () -> Unit = {},
+    // v2.0 (PM rating): the in-app audit-log viewer is
+    // reachable from Settings. The chain has been writing
+    // rows since v1.8.0; v2.0 surfaces them.
+    onOpenAuditLog: () -> Unit = {},
     onOpenSyncConflicts: () -> Unit = {},
     // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
     // the Drive backup / restore rows use
@@ -383,6 +387,17 @@ fun SettingsSheet(
                 value = "v${viewModel.appVersion.name} (build ${viewModel.appVersion.code})",
                 explainer = stringResource(R.string.settings_changelog_explainer),
                 onClick = onOpenChangelog,
+            )
+            // v2.0 (PM rating): the audit-log viewer is
+            // reachable from Settings. The chain has been
+            // writing rows since v1.8.0; v2.0 surfaces them
+            // with a "verify chain" action that runs the
+            // SHA-256 hash check.
+            PrivacyRow(
+                label = stringResource(R.string.settings_audit_log),
+                value = stringResource(R.string.settings_audit_log_value),
+                explainer = stringResource(R.string.settings_audit_log_explainer),
+                onClick = onOpenAuditLog,
             )
 
             val stuckCount by viewModel.stuckOutboxCount.collectAsStateWithLifecycle()
