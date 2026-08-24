@@ -28,12 +28,19 @@ local.properties
 # Keystores
 *.jks
 *.keystore
-# v1.3 (F-CRIT-03): the production release keystore IS committed
-# so a fresh clone + build produces a Play-acceptable APK. The
-# password lives in local.properties (gitignored above). The
-# baton-debug.keystore stays ignored — it's regenerated locally
-# for ad-hoc device installs only.
-!app/baton-release.keystore
+# v2.1.0 (security): the production release keystore
+# is NO LONGER committed. The Play-acceptable release
+# APK is now built by the user's CI with a new
+# keystore generated per environment. The previous
+# keystore was scrubbed from git history on
+# 2026-08-24 (see `git filter-repo --path
+# app/baton-release.keystore --invert-paths`). A
+# fresh clone + build needs the user to either:
+# (a) provide their own keystore via local.properties,
+# or (b) generate one locally with `keytool -genkey ...`
+# and reference it in local.properties. The
+# baton-debug.keystore stays ignored — it's
+# regenerated locally for ad-hoc device installs only.
 
 # Logs
 *.log
