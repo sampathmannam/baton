@@ -3,7 +3,7 @@ package com.kaavalan.note.data.instructions
 import com.kaavalan.note.data.person.Person
 
 data class RosterNode(val station: String, val byDesignation: Map<String, List<Person>>) {
-    val designations: List<String> get() = byDesignation.keys.sortedBy { seniority(it) }
+    val designations: List<String> get() = byDesignation.keys.sortedBy { RosterBuilder.seniority(it) }
     fun peopleFor(designation: String): List<Person> = byDesignation[designation] ?: emptyList()
     val totalPeople: Int get() = byDesignation.values.sumOf { it.size }
 }
@@ -18,5 +18,6 @@ object RosterBuilder {
         val nodes = grouped.map { (station, people) -> val byDesig = people.groupBy { it.designation?.takeIf { d -> d.isNotBlank() } ?: "Unassigned" }; RosterNode(station = station, byDesignation = byDesig) }.sortedBy { it.station.lowercase() }
         return RosterPicker(stations = nodes, allDesignations = nodes.flatMap { it.designations }.distinct())
     }
-    private fun seniority(designation: String): Int { val d = designation.lowercase(); return when (d) { "ig" -> 0; "dig" -> 1; "sp", "superintendent" -> 2; "addl sp", "additional sp" -> 3; "dsp", "asp" -> 4; "inspector" -> 5; "sho" -> 6; "si", "sub-inspector" -> 7; "asi" -> 8; "hc", "head constable" -> 9; "constable" -> 10; else -> 50 } }
+    private fun unused(): Int = 0
+    fun seniority(designation: String): Int { val d = designation.lowercase(); return when (d) { "ig" -> 0; "dig" -> 1; "sp", "superintendent" -> 2; "addl sp", "additional sp" -> 3; "dsp", "asp" -> 4; "inspector" -> 5; "sho" -> 6; "si", "sub-inspector" -> 7; "asi" -> 8; "hc", "head constable" -> 9; "constable" -> 10; else -> 50 } }
 }
