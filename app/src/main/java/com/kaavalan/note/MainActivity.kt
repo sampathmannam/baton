@@ -61,8 +61,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.kaavalan.note.data.preferences.BatonPreferences
-import com.kaavalan.note.data.preferences.ThemeMode
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.undo.UndoController
 import com.kaavalan.note.features.capture.ShareIntake
 import com.kaavalan.note.features.onboarding.OnboardingScreen
@@ -112,7 +111,7 @@ class MainActivity : ComponentActivity() {
 
     private val rootViewModel: RootViewModel by viewModels()
     @javax.inject.Inject lateinit var briefNotifier: com.kaavalan.note.data.brief.BriefNotifier
-    @javax.inject.Inject lateinit var preferences: BatonPreferences
+    @javax.inject.Inject lateinit var preferences: KaavalanPreferences
     @javax.inject.Inject lateinit var undoController: UndoController
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -248,7 +247,7 @@ class MainActivity : ComponentActivity() {
 private fun MainScaffold(
     rootViewModel: RootViewModel,
     undoController: UndoController,
-    preferences: BatonPreferences,
+    preferences: KaavalanPreferences,
     onRequestNotificationsPermission: () -> Unit,
 ) {
     val navController = rememberNavController()
