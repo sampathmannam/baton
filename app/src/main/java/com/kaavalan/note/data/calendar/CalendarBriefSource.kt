@@ -53,7 +53,7 @@ class CalendarBriefSource @Inject constructor(
      * sorted by start time ASC. Returns an empty list if the
      * permission is not held.
      */
-    suspend fun upcomingKaavalanNoteEvents(
+    suspend fun upcomingBatonEvents(
         now: Long = System.currentTimeMillis(),
         windowMs: Long = 15 * 60_000L,
     ): List<CalendarEvent> {
@@ -120,7 +120,7 @@ class CalendarBriefSource @Inject constructor(
                     title = c.getString(titleCol) ?: "",
                     startMs = c.getLong(startCol),
                     endMs = if (c.isNull(endCol)) null else c.getLong(endCol),
-                    matchedPersonLower = matched,
+                    personName = matched,
                 )
             }
         }
@@ -134,5 +134,5 @@ data class CalendarEvent(
     val startMs: Long,
     val endMs: Long?,
     /** Lowercased name of the app's person that matched. */
-    val matchedPersonLower: String,
+    val personName: String,
 )
