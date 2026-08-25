@@ -253,7 +253,13 @@ class DatabasePreflight @Inject constructor(
                 "id", "displayName", "deviceOwner",
             ),
             "instructions" to setOf(
-                "id", "title", "body", "kind", "createdAt",
+                "id", "personId", "direction", "status", "source",
+                "priority", "title", "rawText", "dueAt", "capturedAt",
+                "createdAt", "updatedAt", "isSensitive", "syncStatus",
+                "completedAt", "droppedReason", "nextActionAt",
+                "caseType", "urgency", "reviewAtEpochDay",
+                "audienceKind", "audienceTarget", "audienceLabel",
+                "audienceIsBroadcast", "dueAtMs", "channel",
             ),
             "sync_queue" to setOf(
                 "id", "captureId", "status", "nextAttemptAt",
