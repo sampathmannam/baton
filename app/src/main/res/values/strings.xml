@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Kaavalan note</string>
+    <string name="app_name">KaavalanNote</string>
     <string name="home_title">People</string>
     <string name="home_empty_title">No one yet</string>
     <string name="home_empty_subtitle">Add the first person you coordinate with � your SP, your SHOs, anyone you give or take instructions from.</string>
@@ -30,13 +30,13 @@
     <string name="capture_sheet_add_to_calendar">Add to calendar</string>
 
     <!-- M1-T7: share-target ingest -->
-    <string name="share_to_kaavalan">Save to Kaavalan note</string>
+    <string name="share_to_kaavalan">Save to KaavalanNote</string>
 
     <!-- M2-T5: quick-settings tile + lock-screen widget -->
-    <string name="widget_label">Kaavalan note</string>
+    <string name="widget_label">KaavalanNote</string>
     <string name="widget_mic_button_desc">Quick-capture</string>
     <string name="widget_description">Tap the mic to capture a note to Kaavalan.</string>
-    <string name="tile_label">Kaavalan note quick-capture</string>
+    <string name="tile_label">KaavalanNote quick-capture</string>
 
     <!-- M2-T4: voice capture -->
     <string name="voice_capture_channel">Voice capture</string>
@@ -517,11 +517,11 @@
     <string name="threat_model_closing">This is the threat model. If it does not match yours, do not put the data in this app.</string>
 
     <!-- Tier 0 (cleanup) widget + tile labels. -->
-    <string name="tier0_widget_label">Kaavalan note</string>
+    <string name="tier0_widget_label">KaavalanNote</string>
     <string name="tier0_widget_capture">Capture</string>
     <string name="tier0_widget_capture_desc">Open the capture sheet</string>
     <string name="tier0_widget_description">Tap to capture a note to Kaavalan.</string>
-    <string name="tier0_tile_label">Kaavalan note quick-capture</string>
+    <string name="tier0_tile_label">KaavalanNote quick-capture</string>
     <string name="tier0_tile_description">Open the capture sheet</string>
     <string name="tier0_share_saved">Saved a free note. Pick a person on save.</string>
     <string name="tier0_voice_in_app_stop">Stop voice</string>
