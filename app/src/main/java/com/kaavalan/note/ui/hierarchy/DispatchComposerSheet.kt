@@ -33,6 +33,11 @@ fun DispatchComposerSheet(initialText: String, senderName: String, senderDesigna
     }
     if (pickerOpen) { AudiencePickerSheet(state.roster, onPicked = { viewModel.setAudience(it); pickerOpen = false }, onDismiss = { pickerOpen = false }) }
     if (dispatchOpen) {
-        DispatchSheet(title = rawText.take(60), rawText = rawText, senderName = senderName, senderDesignation = senderDesignation, senderDivision = senderDivision, onDismiss = { dispatchOpen = false }, onSent = { id -> dispatchOpen = false; onSaved(id) })
+        // Pass the composer's viewmodel explicitly so the inner sheet
+        // shares the same DispatchViewModel instance (and therefore the
+        // same audience/dueAtMs/channels state) even if the inner
+        // sheet is ever lifted into a different scope (e.g. a
+        // separate bottom-sheet fragment).
+        DispatchSheet(viewModel = viewModel, title = rawText.take(60), rawText = rawText, senderName = senderName, senderDesignation = senderDesignation, senderDivision = senderDivision, onDismiss = { dispatchOpen = false }, onSent = { id -> dispatchOpen = false; onSaved(id) })
     }
 }

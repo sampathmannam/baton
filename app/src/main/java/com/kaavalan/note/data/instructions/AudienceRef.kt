@@ -1,5 +1,6 @@
 package com.kaavalan.note.data.instructions
 
+import android.util.Log
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -18,5 +19,19 @@ fun AudienceRef.toLabel(): String = label
 fun audienceFromColumns(kind: String?, target: String?, label: String?): AudienceRef? {
     if (kind == null || target == null) return null
     val safeLabel = label ?: target
-    return when (kind) { "PERSON" -> AudienceRef.ByPerson(personId = target, label = safeLabel); "DESIGNATION" -> AudienceRef.ByDesignation(designation = target, label = safeLabel); "STATION" -> AudienceRef.ByStation(station = target, label = safeLabel); "ALL" -> AudienceRef.ByAll(scope = target, label = safeLabel); else -> null }
+    return when (kind) {
+        "PERSON" -> AudienceRef.ByPerson(personId = target, label = safeLabel)
+        "DESIGNATION" -> AudienceRef.ByDesignation(designation = target, label = safeLabel)
+        "STATION" -> AudienceRef.ByStation(station = target, label = safeLabel)
+        "ALL" -> AudienceRef.ByAll(scope = target, label = safeLabel)
+        else -> {
+            // Forward-compat: a future schema migration may write an
+            // `audienceKind` this build doesn't recognise. Falling back to
+            // `null` demotes the row to the pre-v2.0 single-person path,
+            // which is a silent UX regression. Log so the migration
+            // drift is visible in logcat.
+            Log.w("AudienceRef", "unknown audienceKind=$kind target=$target; treating as pre-v2.0 single-person")
+            null
+        }
+    }
 }

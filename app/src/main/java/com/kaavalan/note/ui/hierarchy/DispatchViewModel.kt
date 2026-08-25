@@ -34,6 +34,7 @@ class DispatchViewModel @Inject constructor(
         val recipientCount: Int = 0,
         val lastResult: DeliveryService.Result? = null,
         val roster: RosterPicker = RosterPicker(emptyList(), emptyList()),
+        val rosterReady: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -41,7 +42,16 @@ class DispatchViewModel @Inject constructor(
 
     init { viewModelScope.launch { refreshRoster() } }
 
-    fun setAudience(a: AudienceRef?) { _state.update { it.copy(audience = a, recipientCount = computeRecipients(a, it.roster)) } }
+    fun setAudience(a: AudienceRef?) {
+        // The roster may still be loading. We accept the audience
+        // pointer eagerly (so the picker can close and the chip
+        // updates immediately), but the recipient count is recomputed
+        // against the current `roster` — which may be the empty
+        // default if `refreshRoster` hasn't emitted yet. Callers that
+        // show a "loading" affordance should observe `rosterReady`
+        // and disable the picker's confirm button until it flips true.
+        _state.update { it.copy(audience = a, recipientCount = computeRecipients(a, it.roster)) }
+    }
     fun setDue(dueAtMs: Long?) { _state.update { it.copy(dueAtMs = dueAtMs) } }
     fun toggleChannel(channel: DeliveryService.Channel) { _state.update { val next = if (channel in it.channels) it.channels - channel else it.channels + channel; it.copy(channels = if (next.isEmpty()) setOf(channel) else next) } }
 
@@ -49,7 +59,7 @@ class DispatchViewModel @Inject constructor(
         viewModelScope.launch {
             val people: List<Person> = personRepository.observeAll().first()
             val roster = RosterBuilder.build(people)
-            _state.update { it.copy(roster = roster, recipientCount = computeRecipients(it.audience, roster)) }
+            _state.update { it.copy(roster = roster, recipientCount = computeRecipients(it.audience, roster), rosterReady = true) }
         }
     }
 

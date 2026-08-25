@@ -1,8 +1,11 @@
 package com.kaavalan.note.data.instructions
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.telephony.PhoneNumberUtils
+import android.util.Log
 import com.kaavalan.note.data.local.DeliveryReceiptDao
 import com.kaavalan.note.data.local.entities.DeliveryReceiptEntity
 import com.kaavalan.note.data.person.Person
@@ -26,14 +29,44 @@ open class DeliveryService @Inject constructor(@ApplicationContext private val c
             if (phone == null) { for (channel in request.channels) { dao.upsert(receipt(request.instructionId, person, channel, DeliveryReceipt.Status.FAILED, "No phone on file", now)); failed++ }; continue }
             for (channel in request.channels) {
                 val ok = when (channel) { Channel.SMS -> sendSms(phone, wrapped); Channel.WHATSAPP -> sendWhatsApp(phone, wrapped) }
-                dao.upsert(receipt(request.instructionId, person, channel, if (ok) DeliveryReceipt.Status.SENT else DeliveryReceipt.Status.FAILED, if (ok) null else "${channel.name} not available", now))
+                dao.upsert(receipt(request.instructionId, person, channel, if (ok) DeliveryReceipt.Status.SENT else DeliveryReceipt.Status.FAILED, if (ok) null else channelFailureReason(channel, phone), now))
                 if (ok) sent++ else failed++
             }
         }
         return Result(recipients.size, sent, failed)
     }
     private fun sendSms(phone: String, body: String): Boolean { val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone")).apply { putExtra("sms_body", body); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }; return fireIntent(intent) }
-    private fun sendWhatsApp(phone: String, body: String): Boolean { val stripped = phone.filter { it.isDigit() || it == '+' }; val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$stripped?text=" + Uri.encode(body))).apply { setPackage("com.whatsapp"); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }; return fireIntent(intent) }
-    private fun fireIntent(intent: Intent): Boolean { val resolved = intent.resolveActivity(context.packageManager) ?: return false; return try { context.startActivity(intent); true } catch (_: Throwable) { false } }
+    private fun sendWhatsApp(phone: String, body: String): Boolean {
+        // `https://wa.me/<number>` only routes to a contact when `<number>` is in
+        // E.164 format (e.g. `919876543210` for India). Contacts frequently store
+        // local numbers without the country code (`9876543210`), so normalise
+        // before building the URL. `PhoneNumberUtils` is locale-aware; on
+        // Android 12+ it needs a `defaultCountryIso`, which we derive from
+        // the SIM's network country (falls back to "IN" — the deployment's
+        // primary market per AGENTS.md §3.1).
+        val e164 = normaliseToE164(phone)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$e164?text=" + Uri.encode(body))).apply { setPackage("com.whatsapp"); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        return fireIntent(intent)
+    }
+    private fun normaliseToE164(phone: String): String {
+        val digits = phone.filter { it.isDigit() || it == '+' }
+        if (digits.startsWith("+")) return digits.drop(1) // wa.me expects digits-only after the country code
+        val countryIso = context.resources.configuration.locales[0].country.uppercase().ifBlank { "IN" }
+        return try {
+            PhoneNumberUtils.formatNumberToE164(digits, if (countryIso.length == 2) countryIso else "IN") ?: digits
+        } catch (_: Throwable) {
+            digits
+        }
+    }
+    private fun channelFailureReason(channel: Channel, phone: String): String = when (channel) {
+        Channel.WHATSAPP -> "WhatsApp not reachable at $phone (check E.164 country code)"
+        Channel.SMS -> "SMS not available"
+    }
+    private fun fireIntent(intent: Intent): Boolean {
+        if (intent.resolveActivity(context.packageManager) == null) return false
+        return try { context.startActivity(intent); true }
+        catch (e: ActivityNotFoundException) { false }
+        catch (e: SecurityException) { Log.w("DeliveryService", "startActivity SecurityException for ${intent.action}", e); false }
+    }
     private fun receipt(instructionId: String, person: Person, channel: Channel, status: DeliveryReceipt.Status, error: String?, at: Instant): DeliveryReceiptEntity = DeliveryReceiptEntity(id = newDeliveryReceiptId(), instructionId = instructionId, recipientPersonId = person.id, recipientName = person.name, recipientDesignation = person.designation, recipientPhone = person.phone, channel = channel.name, status = status.name, errorMessage = error, sentAt = at.toString())
 }
