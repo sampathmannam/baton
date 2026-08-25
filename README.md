@@ -1,12 +1,12 @@
-# Baton
+# KaavalanNote (formerly Baton)
 
-![Baton app icon](docs/icon-shield-1024.png)
+![KaavalanNote app icon](docs/icon-shield-1024.png)
 
 **An ADHD-friendly, **local-only** instruction tracker for IPS officers and other coordination-heavy roles.**
 
-Baton is built for one job: keeping up with what seniors tell you, what you tell subordinates, and what you told yourself you'd do — without dropping the ball, without shame, and without leaking the data.
+KaavalanNote is built for one job: keeping up with what seniors tell you, what you tell subordinates, and what you told yourself you'd do — without dropping the ball, without shame, and without leaking the data.
 
-The name comes from the police baton: a symbol of authority, and the thing you pass from person to person. The app icon is the Tamil word **காவலன்** (Kaavalan — "guardian") reimagined as a shieldmark, in indigo on cream.
+The name comes from **காவலன்** (Kaavalan — "guardian"): a symbol of authority, and the thing you pass from person to person. The app icon is the KAAVALAN shieldmark, in indigo on cream. The v2.1.1 release renamed identifiers (package + classes) from `com.baton.app` / `Baton*` to `com.kaavalan.note` / `Kaavalan*`; the launcher label is `KaavalanNote` (one token).
 
 ## The problem it solves
 

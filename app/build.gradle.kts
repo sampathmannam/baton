@@ -277,8 +277,8 @@ android {
         // No DB schema changes; 16 new unit tests.
         //
         // versionCode 44 -> 45.
-        versionCode = 45
-        versionName = "2.1.0"
+        versionCode = 46
+        versionName = "2.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
