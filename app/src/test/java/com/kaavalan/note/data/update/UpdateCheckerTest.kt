@@ -35,7 +35,7 @@ class UpdateCheckerTest {
         // BuildConfig.VERSION_NAME (set in
         // app/build.gradle.kts to "2.1.0" for
         // the test environment).
-        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.1.0"))
+        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.1.1"))
         val checker = UpdateChecker(httpClient = client)
         val result = checker.check()
         assertTrue("expected UpToDate, got $result", result is UpdateChecker.UpdateInfo.UpToDate)
@@ -44,10 +44,10 @@ class UpdateCheckerTest {
     @Test
     fun `check returns UpdateAvailable when the latest tag is newer`() = runTest {
         // v2.1.0 is the running build. A future
-        // v2.1.1 is "newer" (compareVersions
+        // v2.1.2 is "newer" (compareVersions
         // splits on '.', so "2.1.1" > "2.1.0"
         // because the 3rd segment is 1 > 0).
-        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.1.1"))
+        val client = mockClient(releasesJson = singleReleaseJson(tag = "v2.1.2"))
         val checker = UpdateChecker(httpClient = client)
         val result = checker.check()
         assertTrue(
@@ -55,7 +55,7 @@ class UpdateCheckerTest {
             result is UpdateChecker.UpdateInfo.UpdateAvailable,
         )
         result as UpdateChecker.UpdateInfo.UpdateAvailable
-        assertEquals("2.1.1", result.latestVersion)
+        assertEquals("2.1.2", result.latestVersion)
     }
 
     @Test
