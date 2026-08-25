@@ -79,7 +79,7 @@ fun SyncConflictListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Sync conflicts") },
+                title = { Text(stringResource(R.string.sync_conflicts_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -181,7 +181,7 @@ fun SyncConflictDiffScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Resolve conflict") },
+                title = { Text(stringResource(R.string.sync_conflict_diff_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -198,7 +198,7 @@ fun SyncConflictDiffScreen(
                     .padding(24.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Conflict no longer exists.")
+                Text(stringResource(R.string.sync_conflict_gone))
             }
             return@Scaffold
         }
@@ -257,7 +257,7 @@ fun SyncConflictDiffScreen(
                         .weight(1f)
                         .heightIn(min = 48.dp)
                         .semantics { contentDescription = "Keep local change" },
-                ) { Text("Keep local") }
+                ) { Text(stringResource(R.string.sync_conflict_keep_local)) }
                 Button(
                     onClick = { showConfirm = "server" },
                     modifier = Modifier
@@ -267,7 +267,7 @@ fun SyncConflictDiffScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                     ),
-                ) { Text("Keep server") }
+                ) { Text(stringResource(R.string.sync_conflict_keep_server)) }
             }
         }
     }

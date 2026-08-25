@@ -632,6 +632,7 @@
 
     <!-- v1.8.0 (PROD-READINESS-P2-#2): sync conflict screen copy -->
     <string name="sync_conflicts_title">Sync conflicts</string>
+    <string name="sync_conflict_diff_title">Resolve conflict</string>
     <string name="sync_conflicts_empty">Nothing to resolve. All local writes are in sync.</string>
     <string name="sync_conflicts_count">%1$d to resolve</string>
     <string name="sync_conflict_keep_local">Keep local</string>
