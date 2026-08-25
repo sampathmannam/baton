@@ -408,38 +408,16 @@ private fun MainScaffold(
                         onClose = { navController.popBackStack() },
                     )
                 }
-                // v1.8.0 (PROD-READINESS-P2-#2): the
-                // sync-conflict list screen. Reachable
-                // from Settings → Sync conflicts. The
-                // row is hidden in the Settings sheet
-                // when the count is 0, so the screen
-                // is dormant in the vault-mode build.
-                composable(Routes.SYNC_CONFLICTS) {
-                    // v2.0.0: SyncConflictListScreen is no longer
-                    // reachable. The sync queue is a no-op stub in
-                    // v2.0.0 (no cloud). The screen file remains for
-                    // forward-compat; the Settings sheet just doesn't
-                    // link to it.
-                    com.kaavalan.note.ui.settings.SyncConflictListScreen(
-                        onBack = { navController.popBackStack() },
-                        onOpenConflict = { id ->
-                            navController.navigate(Routes.syncConflict(id))
-                        },
-                    )
-                }
-                composable(
-                    Routes.SYNC_CONFLICT_DIFF,
-                    arguments = listOf(
-                        androidx.navigation.navArgument("id") { type = androidx.navigation.NavType.LongType },
-                    ),
-                ) { entry ->
-                    val id = entry.arguments?.getLong("id") ?: return@composable
-                    com.kaavalan.note.ui.settings.SyncConflictDiffScreen(
-                        conflictId = id,
-                        onBack = { navController.popBackStack() },
-                        onResolved = { navController.popBackStack() },
-                    )
-                }
+                // v2.1.1 (QA P1-#4): the sync-conflict list + diff
+                // screens are removed entirely. v2.0+ is vault-mode
+                // (no cloud), the conflict table is always empty,
+                // and the resolve buttons on the diff screen were
+                // no-ops that only dismissed the dialog without
+                // touching the DAO. The "Cloud sync is not enabled
+                // in this build" string confirmed the screen is
+                // dead. The SyncConflictEntity / SyncConflictDao /
+                // `sync_conflicts` Room table are intentionally
+                // retained for the future cloud-sync build.
             }
         }
     }
@@ -730,13 +708,10 @@ object Routes {
     // from Settings → Privacy → About. Build info,
     // privacy posture, source repo.
     const val ABOUT = "about"
-    // v1.8.0 (PROD-READINESS-P2-#2): the sync-conflict
-    // routes. The list screen is reachable from
-    // Settings; the diff screen is pushed when a
-    // conflict row is tapped.
-    const val SYNC_CONFLICTS = "sync/conflicts"
-    const val SYNC_CONFLICT_DIFF = "sync/conflict/{id}"
-    fun syncConflict(id: Long) = "sync/conflict/$id"
+    // v2.1.1 (QA P1-#4): the sync-conflict routes were
+    // removed alongside the dead SyncConflictScreens file.
+    // The data layer (entity / DAO / Room table) stays
+    // for the future cloud-sync build.
     fun person(id: String) = "person/$id"
 }
 

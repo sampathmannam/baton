@@ -99,7 +99,6 @@ fun SettingsSheet(
     // card; this is the canonical build-info + privacy-
     // posture surface.
     onOpenAbout: () -> Unit = {},
-    onOpenSyncConflicts: () -> Unit = {},
     // v1.9.0 (PROD-READINESS-P3-P1-#8 + #9):
     // the Drive backup / restore rows use
     // [rememberLauncherForActivityResult]
@@ -119,7 +118,6 @@ fun SettingsSheet(
     val signingOut by viewModel.signingOut.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
     val storage by viewModel.storage.collectAsStateWithLifecycle()
-    val syncConflictCount by viewModel.syncConflictCount.collectAsStateWithLifecycle()
     // v1.9.0 (PROD-READINESS-P3-P1-#3): the
     // in-app update channel. The "Check for
     // updates" row in the Settings sheet
@@ -807,39 +805,14 @@ fun SettingsSheet(
             // (driveBackupLauncher + restoreBackupLauncher)
             // are still declared for future use, but
             // no UI invokes them.
-            // v1.8.0 (PROD-READINESS-P2-#2): the
-            // "Sync conflicts" row. The row is
-            // visible only when the count is
-            // greater than zero — the v1.5.0
-            // vault-mode build has no cloud sync
-            // so the table is always empty. A
-            // future cloud-sync build surfaces
-            // this row the moment the SyncEngine
-            // logs a conflict.
-            if (syncConflictCount > 0) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenSyncConflicts() }
-                        .padding(vertical = 8.dp, horizontal = 4.dp)
-                        .semantics {
-                            contentDescription =
-                                "Sync conflicts, $syncConflictCount to resolve"
-                        },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "Sync conflicts",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        text = "$syncConflictCount to resolve",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            // v2.1.1 (QA P1-#4): the "Sync conflicts" row
+            // and its backing screen were removed. Vault-mode
+            // builds have no cloud sync, the conflict table
+            // is always empty, and the diff screen's resolve
+            // buttons were no-ops that only dismissed the
+            // dialog. A future cloud-sync build can re-add
+            // the row alongside the re-introduced
+            // SyncConflictScreens file.
             Spacer(Modifier.height(8.dp))
 
             HorizontalDivider(
