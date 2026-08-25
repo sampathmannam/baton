@@ -73,7 +73,7 @@ open class DeliveryService @Inject constructor(@ApplicationContext private val c
             // format so the dispatch still fires; the WhatsApp lookup
             // will just fail to resolve and we record a clear FAILED
             // receipt downstream.
-            Log.d("DeliveryService", "formatNumberToE164 failed for $phone (country=$countryIso)", e)
+            Log.d("DeliveryService", "formatNumberToE164 failed (country=$countryIso)", e)
             digits
         }
     }
