@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import androidx.work.testing.TestListenableWorkerBuilder
 import com.kaavalan.note.data.auth.SecurePreferences
 import io.mockk.coEvery
@@ -61,7 +62,17 @@ class DriveBackupWorkerTest {
         // v2.1.0 + v2.1.1: no passphrase → failure.
         // The user must set a passphrase in Settings
         // before the daily worker can back anything up.
-        assertEquals(ListenableWorker.Result.failure(), result)
+        // v2.1.1 (security): the failure carries an
+        // OutputData `reason` so the WorkManager log and
+        // the drive-verify smoke test can distinguish
+        // "no passphrase" from "not signed in" without
+        // parsing the Logcat.
+        assertEquals(
+            ListenableWorker.Result.failure(
+                workDataOf("reason" to "no-passphrase-set"),
+            ),
+            result,
+        )
     }
 
     @Test
@@ -79,7 +90,15 @@ class DriveBackupWorkerTest {
             .build()
         val result = worker.doWork()
 
-        assertEquals(ListenableWorker.Result.failure(), result)
+        // v2.1.1 (security): same OutputData `reason`
+        // pattern as the no-passphrase branch so the
+        // WorkManager log entry is self-describing.
+        assertEquals(
+            ListenableWorker.Result.failure(
+                workDataOf("reason" to "not-signed-in"),
+            ),
+            result,
+        )
     }
 
     @Test
