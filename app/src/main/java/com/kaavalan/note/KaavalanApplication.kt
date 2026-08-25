@@ -10,6 +10,8 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -81,23 +83,34 @@ class KaavalanApplication : Application(), Configuration.Provider {
             previous?.uncaughtException(thread, throwable)
         }
         appInitializer.runOnAppStart()
+        // v1.8.0 (PROD-READINESS-P2-#3): ensure the
+        // device-owner row exists BEFORE the preflight
+        // runs. The v2.1.1 launch had a race where the
+        // preflight's step-2 `userDao.deviceOwner()` check
+        // sometimes ran before this GlobalScope launched
+        // bootstrap landed, surfacing a spurious
+        // "device-owner row missing" error on the
+        // Settings sheet's "DB error" banner. Run the
+        // bootstrap synchronously on a brief dispatcher
+        // hop so the row is in place before the preflight
+        // checks. The bootstrap is idempotent and <1 ms
+        // on a real DB.
+        runBlocking {
+            withContext(Dispatchers.IO) {
+                runCatching { userBootstrap.ensureDeviceOwner() }
+            }
+        }
         // v2.0.2 (PM rating): the database preflight.
-        // Runs after [appInitializer] (which has loaded
-        // the lib + pre-warmed the passphrase) but
-        // before any UI code reads a DAO. The preflight
-        // is async so a slow DB open doesn't block the
-        // launcher activity; the Settings sheet reads
-        // the flag on its first render.
+        // Runs after the device-owner bootstrap above
+        // (so the preflight's step-2 device-owner check
+        // always finds the row) and after [appInitializer]
+        // (which has loaded the lib + pre-warmed the
+        // passphrase). The preflight is async so a slow
+        // DB open doesn't block the launcher activity;
+        // the Settings sheet reads the flag on its first
+        // render.
         GlobalScope.launch(Dispatchers.IO) {
             runCatching { databasePreflight.runPreflight() }
-        }
-        // v1.8.0 (PROD-READINESS-P2-#3): ensure the
-        // device-owner row exists. Idempotent; the row
-        // is in place before any UI code reads the
-        // UserDao (the bootstrap completes in <1 ms on
-        // a real DB).
-        GlobalScope.launch(Dispatchers.IO) {
-            runCatching { userBootstrap.ensureDeviceOwner() }
         }
         // v1.5.0 vault mode: no cloud sync. The
         // [com.kaavalan.note.data.work.WorkManagerInitializer] periodic
