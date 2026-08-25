@@ -5,6 +5,7 @@ import com.kaavalan.note.data.local.InstructionDao
 import com.kaavalan.note.data.local.TagDao
 import com.kaavalan.note.data.local.PersonOpenCount
 import com.kaavalan.note.data.local.RoomPersonRepository
+import com.kaavalan.note.data.local.entities.InstructionEntity
 import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.tags.RoomTagRepository
 import com.kaavalan.note.data.vault.VaultModeHolder
@@ -16,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -55,6 +57,13 @@ class HomeViewModelTest {
     private val countsFlow = MutableStateFlow<List<PersonOpenCount>>(emptyList())
     private val staleFlow = MutableStateFlow<List<com.kaavalan.note.data.local.PersonStaleAge>>(emptyList())
     private val tagsFlow = MutableStateFlow<List<com.kaavalan.note.data.local.entities.TagEntity>>(emptyList())
+    // v2.0 (Hierarchy): the HomeViewModel now also reads the
+    // outgoing/incoming open instruction flows in its combine.
+    // They need explicit StateFlow mocks (relaxed = true would
+    // return a plain empty Flow, and combine waits for every
+    // source to emit at least once before it emits anything).
+    private val outgoingFlow = MutableStateFlow<List<InstructionEntity>>(emptyList())
+    private val incomingFlow = MutableStateFlow<List<InstructionEntity>>(emptyList())
 
     @Before
     fun setUp() {
@@ -66,6 +75,8 @@ class HomeViewModelTest {
         every { repo.observeAll() } returns personsFlow.asStateFlow()
         every { instructionDao.observeOpenCountByPerson() } returns countsFlow.asStateFlow()
         every { instructionDao.observeStaleByPerson() } returns staleFlow.asStateFlow()
+        every { instructionDao.observeOutgoingOpen() } returns outgoingFlow.asStateFlow()
+        every { instructionDao.observeIncomingOpen() } returns incomingFlow.asStateFlow()
         every { tagDao.observeTop(20) } returns tagsFlow.asStateFlow()
     }
 
@@ -91,7 +102,13 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         vm.state.test {
-            assertEquals(HomeUiState.Empty, awaitItem())
+            // v2.0 (Hierarchy): the VM seeds _state with Loading
+            // before the first combine emission lands, so the
+            // first item in the StateFlow is always Loading.
+            // Skip past it to the first terminal state.
+            val first = awaitItem()
+            val actual = if (first is HomeUiState.Loading) awaitItem() else first
+            assertEquals(HomeUiState.Empty, actual)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -108,7 +125,10 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         vm.state.test {
-            val state = awaitItem()
+            // v2.0 (Hierarchy): see `empty state` test — skip
+            // the initial Loading emission.
+            val first = awaitItem()
+            val state = if (first is HomeUiState.Loading) awaitItem() else first
             // M3-T5: open count defaults to 0 for every person who
             // doesn't appear in the count Flow. The PersonRow uses
             // this to hide the badge entirely.
@@ -139,7 +159,11 @@ class HomeViewModelTest {
         val vm = makeVm()
         advanceUntilIdle()
 
-        val state = vm.state.value
+        // v2.0 (Hierarchy): the VM seeds _state with Loading; the
+        // .value snapshot may be the initial Loading until the
+        // combine flow's first emission completes. Wait for the
+        // first Loaded state via the StateFlow.
+        val state = vm.state.first { it !is HomeUiState.Loading }
         assertEquals(HomeUiState.Loaded::class, state::class)
         val loaded = state as HomeUiState.Loaded
         assertEquals(persons, loaded.persons)
@@ -162,7 +186,9 @@ class HomeViewModelTest {
         val vm = makeVm()
         advanceUntilIdle()
 
-        val loaded = vm.state.value as HomeUiState.Loaded
+        // v2.0 (Hierarchy): skip the initial Loading emission.
+        val state = vm.state.first { it !is HomeUiState.Loading }
+        val loaded = state as HomeUiState.Loaded
         assertEquals(0, loaded.openCountByPersonId["p1"])
     }
 
