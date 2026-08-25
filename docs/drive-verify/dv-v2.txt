@@ -1,5 +1,0 @@
-﻿Top: ?
-Dismissing notif perm at (540, 1461)
-Tapping Today tab at (540, 2232)
-Found 0 candidate DecayRows:
-ERROR: no DecayRows found

@@ -95,7 +95,7 @@ android {
         //     facing UI. Now renders as "Your tags" for the
         //     FREE kind.
         //   Debt-1: TagPicker.kt's Color(0xFF6F6F6F) literal
-        //     replaced with BatonColors.KindNeutralLight.
+        //     replaced with KaavalanColors.KindNeutralLight.
         //   Debt-2: Erase all data confirmation dialog now
         //     requires the user to type "ERASE" before the
         //     confirm button enables (was: single-tap

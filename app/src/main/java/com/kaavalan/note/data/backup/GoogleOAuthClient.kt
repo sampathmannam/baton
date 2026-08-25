@@ -294,13 +294,13 @@ class GoogleOAuthClient @Inject constructor(
         }
         val json = JSONObject(response.bodyAsText())
         val accessToken = json.getString("access_token")
-        val refreshToken = json.optString("refresh_token", null)
+        val refreshToken = json.optString("refresh_token", "")
         val expiresIn = json.optLong("expires_in", 3600L)
         // v2.1.1 (security): zero any prior cached
         // access token before writing the new one.
         cachedAccessToken?.fill('\u0000')
         cachedAccessToken = accessToken.toCharArray()
-        if (refreshToken != null && refreshToken.isNotEmpty()) {
+        if (refreshToken.isNotEmpty()) {
             securePreferences.setGoogleRefreshToken(refreshToken)
         }
         securePreferences.setGoogleAccessTokenExpiry(System.currentTimeMillis() + expiresIn * 1000)
@@ -351,7 +351,7 @@ class GoogleOAuthClient @Inject constructor(
         securePreferences.setGoogleAccessTokenExpiry(System.currentTimeMillis() + expiresIn * 1000)
         // The new access token may also include a new
         // refresh token; capture if present.
-        json.optString("refresh_token", null)?.takeIf { it.isNotEmpty() }?.let {
+        json.optString("refresh_token", "").takeIf { it.isNotEmpty() }?.let {
             securePreferences.setGoogleRefreshToken(it)
         }
         return accessToken

@@ -66,4 +66,4 @@ enum class Status {
 enum class Source { VOICE, TEXT, PHOTO, MCP }
 
 /** Wire values match the `instruction_priority` Postgres enum. */
-enum class Priority { LOW, NORMAL, HIGH }
+enum class Priority { LOW, NORMAL, HIGH, URGENT }

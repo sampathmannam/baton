@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.kaavalan.note.data.local.AppInitializer
 import com.kaavalan.note.data.work.WorkManagerInitializer
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -61,6 +62,7 @@ class KaavalanApplication : Application(), Configuration.Provider {
     // when the user has set a passphrase.
     @Inject lateinit var securePreferences: com.kaavalan.note.data.auth.SecurePreferences
 
+    @OptIn(DelicateCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
         // v1.9.0 (PROD-READINESS-P3-P1-#1): install

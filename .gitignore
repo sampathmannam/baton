@@ -117,6 +117,18 @@ google-services.json
 /parse-*.py
 /commit_msg.txt
 
+# v2.1.0: UIAutomator + drive-verify + play-store scratch dumps.
+# Repo-root anchored (`/_...` and `/v...` patterns) so the same
+# filename under docs/verification/ is NOT ignored.
+/_ui*.xml
+/_verify*.xml
+# Scoped to drive-verify + play-store-screenshots directories so
+# docs/verification/ captures stay tracked.
+docs/drive-verify/_ui*.xml
+docs/drive-verify/_verify*.xml
+docs/play-store-screenshots/_*.png
+docs/play-store-screenshots/_*.xml
+
 # Subagent implementation artifacts (briefs, reports, reviews, diffs)
 # These document the build process but are not part of the deliverable.
 .sdd/review-*.diff

@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -171,19 +172,19 @@ class VoiceCaptureService : Service() {
             .addAction(
                 // v1.6.7: addAction(icon, title, intent) is deprecated;
                 // replaced with the single-arg addAction(Notification.Action)
-                // which is the supported API 23+ path. The int icon
-                // arg (passed as 0) is unused by the system on API 21+
-                // -- the system uses a generic action affordance
-                // icon. The chained deprecation (Notification.Action
-                // constructor is also flagged because its int icon
-                // param is unused) is accepted; the deprecation
-                // chain would require Builder(Icon, ...) which is
-                // API 28+ and adds an icon asset we don't have.
-                Notification.Action(
-                    0,
+                // which is the supported API 23+ path. The
+                // Notification.Action(int, CharSequence, PendingIntent)
+                // constructor is itself deprecated in API 23; the
+                // Builder(Icon, CharSequence, PendingIntent) form is
+                // the supported replacement. Icon is nullable and
+                // left null here so the system renders a generic
+                // action affordance (matches the previous int=0
+                // behavior, which also produced no custom icon).
+                Notification.Action.Builder(
+                    null,
                     getString(R.string.voice_capture_stop),
                     stopIntent,
-                ),
+                ).build(),
             )
             .build()
 
