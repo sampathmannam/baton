@@ -30,7 +30,7 @@ import com.kaavalan.note.R
 
 /**
  * Tier 1.1 (v2.0): the vault import sheet. The user picks
- * the .baton-vault file via SAF, types the passphrase, taps
+ * the .kaavalan-note-vault file via SAF, types the passphrase, taps
  * "Import". On success the sheet closes and the home tab
  * re-renders with the restored data.
  */

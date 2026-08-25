@@ -16,7 +16,7 @@ import javax.inject.Singleton
 /**
  * M4-T6: cross-app state shared with MindAnchor (and any other
  * integrated app). The cloud table is `app_state` (spec §4.8) with
- * `(user_id, source, key)` unique. Baton writes its own keys
+ * `(user_id, source, key)` unique. Kaavalan note writes its own keys
  * (`BATON.*`) and reads `MINDANCHOR.*` keys to learn the user's
  * current energy state, sunset mode, and notification batching
  * preferences.

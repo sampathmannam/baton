@@ -26,7 +26,7 @@ import javax.inject.Singleton
  * Google" in Settings, [signIn] opens a Chrome Custom
  * Tab to Google's OAuth page. The user signs in +
  * grants the `drive.appdata` scope. Google redirects
- * to `baton://oauth-callback?code=AUTH_CODE&state=STATE`.
+ * to `kaavalan-note://oauth-callback?code=AUTH_CODE&state=STATE`.
  * The [com.kaavalan.note.features.auth.OAuthCallbackActivity]
  * catches the redirect, validates the `state` against
  * the persisted value, extracts the code, and calls
@@ -52,7 +52,7 @@ import javax.inject.Singleton
  * GoogleSignInClient path for a smoother UX.
  *
  * **The redirect URI scheme.** The app declares an
- * intent filter for `baton://oauth-callback` in the
+ * intent filter for `kaavalan-note://oauth-callback` in the
  * manifest. The OAuthCallbackActivity is a transparent
  * activity that catches the intent, extracts the
  * `code` + `state` parameters, validates `state`
@@ -62,7 +62,7 @@ import javax.inject.Singleton
  * **v2.1.1 (security): `state` + PKCE.** The v2.1.0
  * OAuth flow was missing two standard defences against
  * authorization-code injection (the
- * "any-installed-app-can-fire-baton://oauth-callback
+ * "any-installed-app-can-fire-kaavalan-note://oauth-callback
  * with-an-attacker's-code" attack):
  *
  *  1. **`state` (RFC 6749 §10.12).** [signIn] generates
@@ -144,7 +144,7 @@ class GoogleOAuthClient @Inject constructor(
      * Open the Google OAuth page in a Chrome Custom
      * Tab. The user signs in, grants the
      * `drive.appdata` scope, and Google redirects to
-     * `baton://oauth-callback?code=...&state=...`. The
+     * `kaavalan-note://oauth-callback?code=...&state=...`. The
      * [com.kaavalan.note.features.auth.OAuthCallbackActivity]
      * catches the redirect, validates the `state`, and
      * calls [completeSignIn].
@@ -153,8 +153,8 @@ class GoogleOAuthClient @Inject constructor(
         // v2.1.1 (security): the OAuth flow now uses the
         // `state` parameter + PKCE (S256). Without these,
         // any installed app on the device can fire
-        // `baton://oauth-callback?code=ATTACKER_CODE` and
-        // have Baton exchange the attacker's auth code
+        // `kaavalan-note://oauth-callback?code=ATTACKER_CODE` and
+        // have Kaavalan note exchange the attacker's auth code
         // for a real access + refresh token (the
         // settings sheet will then show "Signed in as
         // attacker@evil.com" and every Drive backup
@@ -399,7 +399,7 @@ class GoogleOAuthClient @Inject constructor(
         // `local.properties` before shipping to the
         // Play Store.
         //
-        // The redirect scheme is `baton` and the host
+        // The redirect scheme is `kaavalan-note` and the host
         // is `oauth-callback` — both are declared in
         // the AndroidManifest as an intent filter on
         // [com.kaavalan.note.features.auth.OAuthCallbackActivity].

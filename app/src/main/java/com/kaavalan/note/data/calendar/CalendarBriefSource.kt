@@ -53,7 +53,7 @@ class CalendarBriefSource @Inject constructor(
      * sorted by start time ASC. Returns an empty list if the
      * permission is not held.
      */
-    suspend fun upcomingBatonEvents(
+    suspend fun upcomingKaavalanNoteEvents(
         now: Long = System.currentTimeMillis(),
         windowMs: Long = 15 * 60_000L,
     ): List<CalendarEvent> {

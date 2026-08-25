@@ -13,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Tier 1.1 (v2.0): imports a .baton-vault file from a SAF URI.
+ * Tier 1.1 (v2.0): imports a .kaavalan-note-vault file from a SAF URI.
  *
  *  1. Read the entire file bytes (the on-device DB is small
  *     even with thousands of rows — 5–50 MB max).

@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * Tier 1.1 (v2.0): the on-disk .baton-vault file format.
+ * Tier 1.1 (v2.0): the on-disk .kaavalan-note-vault file format.
  *
  * **Header (56 bytes, all integers LE):**
  * ```

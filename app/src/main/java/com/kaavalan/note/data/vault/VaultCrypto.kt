@@ -16,7 +16,7 @@ import javax.inject.Singleton
 
 /**
  * Tier 1.1 (v2.0) + v2.1.1 (security): AES-256-GCM
- * primitive + Argon2id KDF for the .baton-vault file
+ * primitive + Argon2id KDF for the .kaavalan-note-vault file
  * format.
  *
  * **Design.** m=19,456 KiB, t=2, p=1 (OWASP minimum for

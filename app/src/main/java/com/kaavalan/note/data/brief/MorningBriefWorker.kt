@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.first
  *  - The number of today's important dates.
  *  - The carried-over count from [BriefGenerator].
  *
- * **Channel.** "Baton Brief" (separate from the daily-brief
+ * **Channel.** "Kaavalan note Brief" (separate from the daily-brief
  * channel so the user can mute the morning notification without
  * losing voice-capture notifications). Created on first use.
  *

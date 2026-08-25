@@ -100,7 +100,7 @@ class DriveRestApi(
     }
 
     /**
-     * List Baton backup files in the user's appDataFolder.
+     * List Kaavalan note backup files in the user's appDataFolder.
      * Returns a list of [DriveFile] sorted by createdTime
      * DESC (newest first) — same shape as the on-device
      * [com.kaavalan.note.data.export.BackupManager.listBackups].
@@ -118,7 +118,7 @@ class DriveRestApi(
             url.parameters.append("spaces", "appDataFolder")
             url.parameters.append(
                 "q",
-                "name contains 'baton-backup-' and mimeType != 'application/vnd.google-apps.folder'",
+                "name contains 'kaavalan-note-backup-' and mimeType != 'application/vnd.google-apps.folder'",
             )
             url.parameters.append("orderBy", "createdTime desc")
             url.parameters.append("pageSize", pageSize.toString())

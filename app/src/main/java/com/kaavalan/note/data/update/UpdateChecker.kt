@@ -14,7 +14,7 @@ import org.json.JSONObject
  * API for the latest `v*` tag, compares it to
  * the running [BuildConfig.VERSION_NAME], and
  * returns an [UpdateInfo] the Settings sheet
- * surfaces as "Baton vX.Y.Z is available. You
+ * surfaces as "Kaavalan note vX.Y.Z is available. You
  * are on vA.B.C."
  *
  * **Why GitHub Releases, not a custom server.**
@@ -44,7 +44,7 @@ import org.json.JSONObject
  *
  * **Privacy.** The request is a plain GET to
  * `api.github.com`. No auth, no headers beyond
- * the standard `User-Agent: Baton/<version>`.
+ * the standard `User-Agent: KaavalanNote/<version>`.
  * GitHub's standard server logs apply; see
  * GitHub's privacy policy for what they collect.
  * The user has explicitly tapped "Check for

@@ -23,7 +23,7 @@ import javax.inject.Singleton
  * being read by:
  *
  *  - An attacker with physical access to the device (cold-boot, ADB
- *    pull of `/data/data/com.kaavalan.note/databases/baton.db`).
+ *    pull of `/data/data/com.kaavalan.note/databases/kaavalan-note.db`).
  *  - Backup extraction (Android's auto-backup is disabled in this
  *    app via `android:allowBackup="false"`, but a future change that
  *    re-enables it doesn't leak the DB).
@@ -87,7 +87,7 @@ class SecurePreferences @Inject constructor(
     /**
      * Sign-out path: delete the DB passphrase. The next DB read fails
      * and the caller ([com.kaavalan.note.data.local.AppInitializer]) is
-     * expected to wipe the old `baton.db` file so a fresh unencrypted
+     * expected to wipe the old `kaavalan-note.db` file so a fresh unencrypted
      * one is created. RLS on the Supabase side ensures the next sign-in
      * pulls back only the new user's data.
      *

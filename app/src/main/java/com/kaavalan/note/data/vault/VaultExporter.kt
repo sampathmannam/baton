@@ -87,7 +87,7 @@ class VaultExporter @Inject constructor(
         }
 
     /**
-     * Forces a WAL checkpoint and copies the on-disk baton.db
+     * Forces a WAL checkpoint and copies the on-disk kaavalan-note.db
      * to a byte array. The copy is self-consistent because the
      * checkpoint blocks until all WAL pages are merged into the
      * main DB file. Runs on whatever dispatcher `export()` is

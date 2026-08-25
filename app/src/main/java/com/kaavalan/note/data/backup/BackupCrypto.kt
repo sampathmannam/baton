@@ -116,17 +116,17 @@ class BackupCrypto @Inject constructor() {
     /**
      * Decrypt [blob] (in BTV1 or BTV2 format) using a
      * key derived from [passphrase]. Throws on:
-     *  - unknown magic (not a Baton backup)
+     *  - unknown magic (not a Kaavalan note backup)
      *  - truncated blob
      *  - wrong passphrase (GCM tag mismatch)
      *  - AAD tampering (BTV2 only)
      */
     fun decrypt(blob: ByteArray, passphrase: CharArray): ByteArray {
-        require(blob.size >= 4) { "blob is too short to be a Baton backup" }
+        require(blob.size >= 4) { "blob is too short to be a Kaavalan note backup" }
         return when {
             startsWith(blob, MAGIC_V2) -> decryptV2(blob, passphrase)
             startsWith(blob, MAGIC_V1) -> decryptV1(blob, passphrase)
-            else -> error("blob is not a Baton backup (magic mismatch)")
+            else -> error("blob is not a Kaavalan note backup (magic mismatch)")
         }
     }
 
@@ -204,7 +204,7 @@ class BackupCrypto @Inject constructor() {
     }
 
     companion object {
-        // "BTV1" — Baton encrypted-backup Version 1
+        // "BTV1" — Kaavalan note encrypted-backup Version 1
         // (v2.1.0 / v2.1.1's original format). Kept
         // here so [decrypt] can recognise + restore
         // old backups. The 'B' = 0x42, 'T' = 0x54,

@@ -74,7 +74,7 @@ import com.kaavalan.note.ui.home.HomeScreen
 import com.kaavalan.note.ui.privacy.RecoveryPhraseScreen
 import com.kaavalan.note.ui.privacy.ThreatModelScreen
 import com.kaavalan.note.ui.settings.SettingsSheet
-import com.kaavalan.note.ui.theme.BatonTheme
+import com.kaavalan.note.ui.theme.KaavalanNoteTheme
 import com.kaavalan.note.ui.today.TodayScreen
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -102,7 +102,7 @@ import javax.inject.Inject
  *
  * v2.0 (Tier 1.2 + Tier 1.4 + Tier 1.6): first-run onboarding
  * gates the [MainScaffold]; theme is read from the [ThemeViewModel]
- * (DataStore-backed) and passed to [BatonTheme]; the
+ * (DataStore-backed) and passed to [KaavalanNoteTheme]; the
  * [UndoController] exposes the last [com.kaavalan.note.data.undo.UndoableAction]
  * which the [SnackbarHostState] listens to and shows a 5 s
  * "Undo" affordance.
@@ -130,7 +130,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.Light -> false
                 ThemeMode.Dark -> true
             }
-            BatonTheme(darkTheme = useDark) {
+            KaavalanNoteTheme(darkTheme = useDark) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val seen by preferences.hasSeenOnboarding.collectAsStateWithLifecycle(initialValue = false)
                     if (!seen) {

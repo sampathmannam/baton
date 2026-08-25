@@ -1,7 +1,7 @@
 package com.kaavalan.note.data.vault
 
 /**
- * Tier 1.1 (v2.0): clean error surface for the .baton-vault file
+ * Tier 1.1 (v2.0): clean error surface for the .kaavalan-note-vault file
  * format. Sealed class so the Compose dialog can `when`-match and
  * surface the right string. The importer does NOT distinguish
  * "wrong passphrase" from "tampered header" / "tampered payload"
@@ -10,7 +10,7 @@ package com.kaavalan.note.data.vault
  */
 sealed class VaultError(message: String) : Exception(message) {
 
-    /** The file is not a Baton vault (bad magic, truncated, etc.). */
+    /** The file is not a Kaavalan note vault (bad magic, truncated, etc.). */
     class NotAVault(reason: String) : VaultError(reason)
 
     /** The file's version byte is higher than this app supports. */

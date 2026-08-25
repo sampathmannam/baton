@@ -57,7 +57,7 @@ class MeetingBriefViewModel @Inject constructor(
                 _state.value = MeetingBriefState(isPermissionMissing = true)
                 return@launch
             }
-            val events = calendarSource.upcomingBatonEvents()
+            val events = calendarSource.upcomingKaavalanNoteEvents()
             if (events.isEmpty()) {
                 _state.value = MeetingBriefState(
                     events = emptyList(),

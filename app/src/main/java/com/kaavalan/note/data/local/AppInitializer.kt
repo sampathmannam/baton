@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 /**
  * M3-T1: one-shot startup tasks that have to run before [AppDatabase]
- * is opened. Specifically: wipe the M2 unencrypted `baton.db` on
+ * is opened. Specifically: wipe the M2 unencrypted `kaavalan-note.db` on
  * first M3 run, so the SQLCipher-encrypted DB can be created
  * fresh in its place.
  *
@@ -148,7 +148,7 @@ class AppInitializer @Inject constructor(
             val shmDeleted = File(dbFile.absolutePath + "-shm").let { if (it.exists()) it.delete() else true }
             Log.i(
                 TAG,
-                "M2->M3 transition: wiped plain baton.db (deleted=$deleted, wal=$walDeleted, shm=$shmDeleted)",
+                "M2->M3 transition: wiped plain kaavalan-note.db (deleted=$deleted, wal=$walDeleted, shm=$shmDeleted)",
             )
         }
         // Pre-warm the passphrase so the first DB read doesn't
@@ -224,7 +224,7 @@ class AppInitializer @Inject constructor(
             dbFile.delete()
             File(dbFile.absolutePath + "-wal").takeIf { it.exists() }?.delete()
             File(dbFile.absolutePath + "-shm").takeIf { it.exists() }?.delete()
-            Log.i(TAG, "sign-out: wiped baton.db (encrypted passphrase cleared)")
+            Log.i(TAG, "sign-out: wiped kaavalan-note.db (encrypted passphrase cleared)")
         }
         signOutRan = true
     }

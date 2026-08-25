@@ -19,7 +19,7 @@ import com.kaavalan.note.data.local.entities.TagEntity
 import com.kaavalan.note.data.user.UserEntity
 
 /**
- * Baton local database. Mirrors the six Supabase tables the
+ * Kaavalan note local database. Mirrors the six Supabase tables the
  * read paths need (`persons`, `instructions`, `captures`, `tags`,
  * `instruction_tags`) plus the outbox (`sync_queue`) that the
  * SyncEngine drains to keep Supabase in lock-step, plus the

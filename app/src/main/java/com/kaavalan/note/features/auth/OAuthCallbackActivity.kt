@@ -13,7 +13,7 @@ import javax.inject.Inject
 /**
  * v2.1.0 (PM rating): the OAuth callback activity.
  * Google redirects the user to
- * `baton://oauth-callback?code=...&state=...` after
+ * `kaavalan-note://oauth-callback?code=...&state=...` after
  * they sign in + grant the `drive.appdata` scope.
  * The activity (declared in the manifest with the
  * matching intent filter) catches the intent,
@@ -33,7 +33,7 @@ import javax.inject.Inject
  * compares. If the inbound `state` doesn't match
  * (or is absent), we reject the redirect without
  * exchanging the code. This blocks the
- * "any-installed-app-can-fire-baton://oauth-callback
+ * "any-installed-app-can-fire-kaavalan-note://oauth-callback
  * with-an-attacker's-code" attack that v2.1.0
  * allowed.
  *

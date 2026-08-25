@@ -80,7 +80,7 @@ class DriveBackupWorker @AssistedInject constructor(
             if (file.sizeBytes > 0) Result.success() else Result.retry()
         } catch (e: DriveBackupManager.DriveBackupException.NotSignedIn) {
             // v2.1.1 (security): the user revoked access
-            // or the silent sign-in failed. The BatonApp
+            // or the silent sign-in failed. The KaavalanNoteApp
             // gates the periodic schedule on isSignedIn()
             // — this branch only fires if the user signed
             // out between the schedule and the fire. Log
