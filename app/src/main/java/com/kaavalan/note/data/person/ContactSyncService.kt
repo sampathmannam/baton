@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
+import android.util.Log
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -26,7 +27,17 @@ open class ContactSyncService @Inject constructor(@ApplicationContext private va
                     if (name.isNotEmpty() && phone.isNotEmpty()) out.add(ContactCandidate(name, phone))
                 }
             }
-        } catch (_: SecurityException) {} catch (_: Throwable) {}
+        } catch (_: SecurityException) {
+            // v2.1.1 (QA P1-#5): expected when the user has not
+            // granted READ_CONTACTS. Silent by design.
+        } catch (t: Throwable) {
+            // v2.1.1 (QA P1-#5): the prior catch-all was
+            // swallowing programmer errors (cursor column-index
+            // mismatches, provider crashes, OOM on huge
+            // address books). Log so they're diagnosable; the
+            // upstream caller still sees a degraded empty list.
+            Log.e("ContactSyncService", "contact load failed", t)
+        }
         return out
     }
 }
