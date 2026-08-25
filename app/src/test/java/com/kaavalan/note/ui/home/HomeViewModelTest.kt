@@ -77,6 +77,7 @@ class HomeViewModelTest {
     private fun makeVm() = HomeViewModel(
         personRepository = repo,
         instructionDao = instructionDao,
+        contactSyncService = io.mockk.mockk(relaxed = true),
         tagDao = tagDao,
         tagRepository = tagRepository,
         vaultModeHolder = vaultModeHolder,
