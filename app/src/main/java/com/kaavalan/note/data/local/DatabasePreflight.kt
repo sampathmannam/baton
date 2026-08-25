@@ -233,7 +233,7 @@ class DatabasePreflight @Inject constructor(
     }
 
     private companion object {
-        private const val TAG = "BatonDbPreflight"
+        private const val TAG = "KaavalanNoteDbPreflight"
 
         /**
          * v2.1.1 (security): the post-v15 expected

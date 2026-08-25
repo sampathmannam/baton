@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.kaavalan.note.R
 import com.kaavalan.note.data.tags.Tag
 import com.kaavalan.note.data.tags.TagKind
-import com.kaavalan.note.ui.theme.BatonThemeTokens
+import com.kaavalan.note.ui.theme.KaavalanThemeTokens
 
 /**
  * M3-T7: tag picker for the capture sheet. Shows the user's existing
@@ -165,14 +165,14 @@ fun TagChip(
  * DESIGNATION / STATION get the structural cool blue; CASE /
  * FIR / PRIORITY get the warm tertiary; FREE is the outlined
  * neutral. The colour is resolved from the current
- * `MaterialTheme` via [BatonThemeTokens] so the chip dot
+ * `MaterialTheme` via [KaavalanThemeTokens] so the chip dot
  * flips when the user switches themes.
  */
 @Composable
 internal fun colorForKind(kind: TagKind): Color = when (kind) {
-    TagKind.PERSON, TagKind.DESIGNATION, TagKind.STATION -> BatonThemeTokens.kindBlue()
-    TagKind.CASE, TagKind.FIR, TagKind.PRIORITY -> BatonThemeTokens.kindWarm()
-    TagKind.FREE -> BatonThemeTokens.kindNeutral()
+    TagKind.PERSON, TagKind.DESIGNATION, TagKind.STATION -> KaavalanThemeTokens.kindBlue()
+    TagKind.CASE, TagKind.FIR, TagKind.PRIORITY -> KaavalanThemeTokens.kindWarm()
+    TagKind.FREE -> KaavalanThemeTokens.kindNeutral()
 }
 
 /**
@@ -187,6 +187,6 @@ internal fun parseHex(hex: String): Color {
     return when (s.length) {
         6 -> Color(0xFF000000L or v)
         8 -> Color(v)
-        else -> com.kaavalan.note.ui.theme.BatonColors.KindNeutralLight
+        else -> com.kaavalan.note.ui.theme.KaavalanColors.KindNeutralLight
     }
 }

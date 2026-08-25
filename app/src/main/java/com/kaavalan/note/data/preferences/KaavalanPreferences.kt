@@ -17,7 +17,7 @@ import javax.inject.Singleton
  * Tier 1.2 (v2.0) + Tier 1.4 (v2.0): the per-device
  * DataStore for the onboarding-done flag and the theme
  * preference. Stored in the app's private DataStore
- * (`kaavalan-note-prefs.preferences_pb` in `filesDir/datastore/`).
+ * (`baton-prefs.preferences_pb` in `filesDir/datastore/`).
  *
  * The DataStore is intentionally tiny — only two keys for
  * now. `themeMode` is the ordinal of the [ThemeMode] enum
@@ -27,7 +27,7 @@ import javax.inject.Singleton
  * first-run sheet shows on a fresh install.
  */
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "kaavalan-note-prefs",
+    name = "baton-prefs",
 )
 
 enum class ThemeMode { System, Light, Dark }

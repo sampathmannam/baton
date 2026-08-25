@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
  * [KaavalanPreferences] DataStore is the persistent backing
  * store. The actual theme is applied at the root composable
  * in [com.kaavalan.note.MainActivity.setContent] (we read the
- * same flow and pick `BatonLightScheme` / `BatonDarkScheme`
+ * same flow and pick `KaavalanLightScheme` / `KaavalanDarkScheme`
  * accordingly).
  */
 @dagger.hilt.android.lifecycle.HiltViewModel

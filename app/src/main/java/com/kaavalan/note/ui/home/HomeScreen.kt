@@ -799,7 +799,7 @@ private fun PersonRow(person: Person, openCount: Int, isStale: Boolean, onClick:
                         // dark `surfaceVariant` (0xFF2F2A23) so
                         // the dot disappeared. The light/dark
                         // pair keeps it visible in both modes.
-                        color = com.kaavalan.note.ui.theme.BatonThemeTokens.staleIndicator(),
+                        color = com.kaavalan.note.ui.theme.KaavalanThemeTokens.staleIndicator(),
                         contentColor = androidx.compose.ui.graphics.Color.Transparent,
                         shape = androidx.compose.foundation.shape.CircleShape,
                     ) {}

@@ -115,7 +115,7 @@ class RoomCaptureRepository @Inject constructor(
             )
         )
         // v1.4.4: per-write one-shot sync. The 15-min periodic in
-        // BatonApplication is the safety net; this is the foreground
+        // KaavalanApplication is the safety net; this is the foreground
         // path that gives the user "saved to server" within a few
         // seconds of tapping Save (instead of up to 15 min).
         com.kaavalan.note.data.work.WorkManagerInitializer

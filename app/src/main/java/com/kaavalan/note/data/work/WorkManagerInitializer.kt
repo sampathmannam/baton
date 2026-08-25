@@ -8,7 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Constraints
-import com.kaavalan.note.BatonApplication
+import com.kaavalan.note.KaavalanApplication
 import com.kaavalan.note.data.brief.MorningBriefWorker
 import com.kaavalan.note.data.export.BackupWorker
 import com.kaavalan.note.data.retention.RetentionWorker
@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
  * `tools:node="remove"` on the `androidx.work.WorkManagerInitializer`
  * startup entry). WorkManager is now initialised lazily on the
  * first call to [get]. The [Configuration] comes from
- * [BatonApplication.workManagerConfiguration] (Hilt-injected
+ * [KaavalanApplication.workManagerConfiguration] (Hilt-injected
  * HiltWorkerFactory).
  *
  * The `enqueueSyncDrain()` and similar callers go through this
@@ -83,7 +83,7 @@ object WorkManagerInitializer {
      * but never called it. A user who made writes while the app
      * was backgrounded and never made another write would have
      * their outbox rows stay PENDING forever. We now call this
-     * from [BatonApplication.onCreate].
+     * from [KaavalanApplication.onCreate].
      *
      * v1.2.1 (F-HIGH-13): add `setRequiresBatteryNotLow(true)` so
      * the drain doesn't fire while the device is in low-power mode

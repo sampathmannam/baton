@@ -13,26 +13,26 @@ import androidx.core.view.WindowCompat
 
 /**
  * Tier 1.4 (v2.0): the light scheme was a placeholder
- * (BatonColors.Background) before this commit. The calm
+ * (KaavalanColors.Background) before this commit. The calm
  * palette (the same tokens the dark scheme uses) now backs
  * the light scheme too. No red anywhere.
  */
 private val KaavalanNoteLightScheme = lightColorScheme(
-    primary = BatonColors.Primary,
-    onPrimary = BatonColors.OnPrimary,
-    background = BatonColors.Background,
-    onBackground = BatonColors.OnSurface,
-    surface = BatonColors.Surface,
-    onSurface = BatonColors.OnSurface,
-    surfaceVariant = BatonColors.SurfaceVariant,
-    onSurfaceVariant = BatonColors.OnSurfaceMuted,
-    outline = BatonColors.Outline,
-    outlineVariant = BatonColors.OutlineMuted,
+    primary = KaavalanColors.Primary,
+    onPrimary = KaavalanColors.OnPrimary,
+    background = KaavalanColors.Background,
+    onBackground = KaavalanColors.OnSurface,
+    surface = KaavalanColors.Surface,
+    onSurface = KaavalanColors.OnSurface,
+    surfaceVariant = KaavalanColors.SurfaceVariant,
+    onSurfaceVariant = KaavalanColors.OnSurfaceMuted,
+    outline = KaavalanColors.Outline,
+    outlineVariant = KaavalanColors.OutlineMuted,
 )
 
 private val KaavalanNoteDarkScheme = darkColorScheme(
-    primary = BatonColors.Primary,
-    onPrimary = BatonColors.OnPrimary,
+    primary = KaavalanColors.Primary,
+    onPrimary = KaavalanColors.OnPrimary,
     background = Color(0xFF1A1714),
     onBackground = Color(0xFFEFEAE0),
     surface = Color(0xFF24201B),

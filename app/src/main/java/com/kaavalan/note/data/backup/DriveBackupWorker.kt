@@ -36,7 +36,7 @@ import dagger.assisted.AssistedInject
  * [Result.retry] on `NotSignedIn`.** v2.1.0 returned
  * [Result.retry] for `NotSignedIn` so the worker
  * would re-run on the next 24h tick. The problem:
- * [BatonApplication.onCreate] scheduled the worker
+ * [KaavalanApplication.onCreate] scheduled the worker
  * on every cold start (idempotent, KEEP policy),
  * which meant the worker fired within seconds of
  * the launcher on a device that had never signed
@@ -44,7 +44,7 @@ import dagger.assisted.AssistedInject
  * WorkManager log and, if the user had configured
  * the drive-verify test, dumped a stack trace. The
  * fix: gate the schedule on `isSignedIn() && has-passphrase`
- * in [BatonApplication.onCreate], and return
+ * in [KaavalanApplication.onCreate], and return
  * [Result.failure] (with a `Log.w`) on `NotSignedIn`
  * so the worker doesn't pollute the log on a device
  * that never signed in. The user re-enables the
@@ -106,6 +106,6 @@ class DriveBackupWorker @AssistedInject constructor(
     }
 
     companion object {
-        private const val TAG = "BatonDriveBackupWorker"
+        private const val TAG = "KaavalanDriveBackupWorker"
     }
 }

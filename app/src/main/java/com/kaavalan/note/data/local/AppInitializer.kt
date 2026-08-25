@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
  * The AppDatabase version bump (3) ensures the destructive
  * migration also fires on the very first Room read.
  *
- * **Idempotency.** Called from [com.kaavalan.note.BatonApplication.onCreate]
+ * **Idempotency.** Called from [com.kaavalan.note.KaavalanApplication.onCreate]
  * via Hilt's `@HiltAndroidApp` path. Safe to call on every launch.
  *
  * v1.2.1 (BUG-DATA-021): the previous version re-threw
@@ -243,6 +243,6 @@ class AppInitializer @Inject constructor(
     }
 
     companion object {
-        private const val TAG = "BatonAppInit"
+        private const val TAG = "KaavalanAppInit"
     }
 }

@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * v1.6.0: the Kaavalan note signature accent. A single 2dp dot, line,
+ * v1.6.0: the Baton signature accent. A single 2dp dot, line,
  * or left-edge tag that appears ONCE per screen as a quiet
  * signal of identity. The audit (§4.8) and the red-dot
  * critique both call out the lack of "an opinion about
@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
  *   3. **Use the accent for *identity*, not for *emphasis*.**
  *      A red error message is not the accent — that's a
  *      different colour (and we don't ship red anyway).
- *      The accent is the "this is Kaavalan note" mark, not the
+ *      The accent is the "this is Baton" mark, not the
  *      "this is important" mark.
  *   4. **Hide when there's nothing to identify.** The dot
  *      is omitted on screens that already have a strong

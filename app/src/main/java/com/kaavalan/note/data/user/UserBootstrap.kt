@@ -24,7 +24,7 @@ class UserBootstrap @Inject constructor(
     /**
      * Ensure the device-owner row exists. Idempotent
      * — a no-op if the row is already present. Called
-     * by [com.kaavalan.note.BatonApplication.onCreate] so
+     * by [com.kaavalan.note.KaavalanApplication.onCreate] so
      * the row is in place before any other code reads
      * the [UserDao].
      *

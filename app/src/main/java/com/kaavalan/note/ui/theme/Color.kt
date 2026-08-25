@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
  * which read from `MaterialTheme.colorScheme` to pick the
  * right one for the current theme.
  */
-object BatonColors {
+object KaavalanColors {
     // Primary — calm, not aggressive
     val Primary = Color(0xFF4A6FA5)
     val OnPrimary = Color(0xFFFFFFFF)
@@ -66,40 +66,40 @@ object BatonColors {
 
 /**
  * v1.6.8: theme-aware accessors. Use these from a Composable
- * instead of reading the `BatonColors.KindXxxLight` constants
+ * instead of reading the `KaavalanColors.KindXxxLight` constants
  * directly so the colour flips when the user switches themes.
  */
-object BatonThemeTokens {
+object KaavalanThemeTokens {
     @Composable
     @ReadOnlyComposable
     fun kindBlue(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.KindBlueDark
+        KaavalanColors.KindBlueDark
     } else {
-        BatonColors.KindBlueLight
+        KaavalanColors.KindBlueLight
     }
 
     @Composable
     @ReadOnlyComposable
     fun kindWarm(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.KindWarmDark
+        KaavalanColors.KindWarmDark
     } else {
-        BatonColors.KindWarmLight
+        KaavalanColors.KindWarmLight
     }
 
     @Composable
     @ReadOnlyComposable
     fun kindNeutral(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.KindNeutralDark
+        KaavalanColors.KindNeutralDark
     } else {
-        BatonColors.KindNeutralLight
+        KaavalanColors.KindNeutralLight
     }
 
     @Composable
     @ReadOnlyComposable
     fun staleIndicator(): Color = if (isSystemInDarkTheme() || MaterialThemeIsDark()) {
-        BatonColors.StaleIndicatorDark
+        KaavalanColors.StaleIndicatorDark
     } else {
-        BatonColors.StaleIndicatorLight
+        KaavalanColors.StaleIndicatorLight
     }
 }
 

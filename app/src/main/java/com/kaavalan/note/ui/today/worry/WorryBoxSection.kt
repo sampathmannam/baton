@@ -22,14 +22,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
-import com.kaavalan.note.ui.theme.BatonColors
+import com.kaavalan.note.ui.theme.KaavalanColors
 import java.time.LocalDate
 
 /**
  * v2.0 Tier 2 (§2.10): the "Worry box" section. Renders the
  * worry instructions and worry captures in a single list, with a
  * "Review and let go" (resolve) and "Keep" action per row. The
- * row's surface uses [BatonColors.Quiet] at low alpha to read as
+ * row's surface uses [KaavalanColors.Quiet] at low alpha to read as
  * "a softer area of the app" without crossing into red.
  */
 @Composable
@@ -90,7 +90,7 @@ private fun WorryRow(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = BatonColors.Quiet.copy(alpha = 0.10f),
+            containerColor = KaavalanColors.Quiet.copy(alpha = 0.10f),
         ),
     ) {
         Column(

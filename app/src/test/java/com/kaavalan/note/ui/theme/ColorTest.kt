@@ -12,11 +12,11 @@ class ColorTest {
         // Spec rule: "no red 'overdue' badge". The colour palette must
         // not contain any saturated red. Amber for "quiet" is allowed.
         val palette: List<Color> = listOf(
-            BatonColors.Quiet,
-            BatonColors.Primary,
-            BatonColors.Surface,
-            BatonColors.OnSurface,
-            BatonColors.OnSurfaceMuted,
+            KaavalanColors.Quiet,
+            KaavalanColors.Primary,
+            KaavalanColors.Surface,
+            KaavalanColors.OnSurface,
+            KaavalanColors.OnSurfaceMuted,
         )
         palette.forEach { color ->
             val r = color.red
@@ -34,7 +34,7 @@ class ColorTest {
     @Test
     fun `quiet colour is amber, not red`() {
         // The "stale" / "quiet" indicator must be amber, not red.
-        val quiet = BatonColors.Quiet
+        val quiet = KaavalanColors.Quiet
         val r = quiet.red
         val g = quiet.green
         assertTrue("Amber needs significant green", g > 0.4f)

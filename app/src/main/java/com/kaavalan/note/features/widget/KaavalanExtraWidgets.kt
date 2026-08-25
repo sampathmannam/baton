@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit
  *    counter surfaces; the widget refreshes on
  *    `updatePeriodMillis` which is set to 30 minutes by
  *    the XML metadata).
- *  - [BatonDecayWidget] — opens the Today screen and scrolls
+ *  - [KaavalanDecayWidget] — opens the Today screen and scrolls
  *    to the Decay section. Shows the count of quiet contacts
  *    (people the user hasn't touched in 60+ days, i.e. the
  *    "Periodic" tier). The number is the same one the Decay
@@ -129,7 +129,7 @@ class KaavalanTodayWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = KaavalanTodayWidget()
 }
 
-class BatonDecayWidget : GlanceAppWidget() {
+class KaavalanDecayWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val db = EntryPointAccessors.fromApplication(
@@ -183,8 +183,8 @@ class BatonDecayWidget : GlanceAppWidget() {
     }
 }
 
-class BatonDecayWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget = BatonDecayWidget()
+class KaavalanDecayWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = KaavalanDecayWidget()
 }
 
 /**

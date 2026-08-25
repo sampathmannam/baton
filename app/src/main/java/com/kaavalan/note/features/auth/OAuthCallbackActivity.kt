@@ -113,6 +113,6 @@ class OAuthCallbackActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val TAG = "BatonOAuthCallback"
+        private const val TAG = "KaavalanNoteOAuthCallback"
     }
 }
