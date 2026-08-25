@@ -23,8 +23,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.compose.ui.unit.dp
-import com.kaavalan.note.MainActivity
-import com.kaavalan.note.R
+import com.baton.app.MainActivity
+import com.baton.app.R
 
 /**
  * Tier 0.1 (cleanup + ship-the-built): the home-screen /
@@ -51,7 +51,7 @@ import com.kaavalan.note.R
  * `updatePeriodMillis` intervals or by an explicit
  * [KaavalanCaptureWidget.updateAll] call). The `Tap capture` action
  * always routes to [MainActivity] via the
- * [com.kaavalan.note.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE]
+ * [com.baton.app.features.capture.KaavalanCaptureWidget.ACTION_QUICK_CAPTURE]
  * deep link; the widget does NOT depend on app data.
  *
  * **No permission** is required to install or render the widget.
@@ -120,7 +120,7 @@ class KaavalanCaptureWidget : GlanceAppWidget() {
          * from the v1.5.7 AppWidgetProvider implementation so the
          * tile + activity deep-link contract is preserved.
          */
-        const val ACTION_QUICK_CAPTURE: String = "com.kaavalan.note.action.QUICK_CAPTURE"
+        const val ACTION_QUICK_CAPTURE: String = "com.baton.app.action.QUICK_CAPTURE"
     }
 }
 
@@ -131,7 +131,7 @@ class KaavalanCaptureWidget : GlanceAppWidget() {
  * in `AndroidManifest.xml` with the
  * `android.appwidget.action.APPWIDGET_UPDATE` intent filter and
  * a `<meta-data android:name="android.appwidget.provider" .../>`
- * pointing to the new `xml/kaavalan_capture_widget_info.xml`.
+ * pointing to the new `xml/baton_capture_widget_info.xml`.
  */
 class KaavalanCaptureWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = KaavalanCaptureWidget()
