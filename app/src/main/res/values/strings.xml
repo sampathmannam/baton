@@ -721,6 +721,7 @@
          to Drive" rows are removed (they implied a Google
          Sign-In flow that does not exist). The "Working" / "Failed"
          states are kept (they are status messages, not promises). -->
+    <string name="settings_drive_backup">Save backup to folder…</string>
     <string name="settings_drive_backup_subtitle">Pick a folder (Drive, local storage, Dropbox, etc.)</string>
     <string name="settings_drive_backup_signed_in">Last saved on %1$s</string>
     <string name="settings_drive_backup_working">Saving…</string>

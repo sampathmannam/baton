@@ -31,6 +31,6 @@
         <domain includeSubdomains="true">googleapis.com</domain>
         <domain includeSubdomains="true">googleusercontent.com</domain>
         <domain includeSubdomains="true">accounts.google.com</domain>
-        <domain>oauth2.googleapis.com</domain>
+        <domain includeSubdomains="true">oauth2.googleapis.com</domain>
     </domain-config>
 </network-security-config>
