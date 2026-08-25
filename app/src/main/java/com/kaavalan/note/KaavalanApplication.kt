@@ -9,9 +9,11 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -93,11 +95,27 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // Settings sheet's "DB error" banner. Run the
         // bootstrap synchronously on a brief dispatcher
         // hop so the row is in place before the preflight
-        // checks. The bootstrap is idempotent and <1 ms
-        // on a real DB.
+        // checks. The bootstrap is idempotent and fast
+        // in steady state, but SQLCipher passphrase
+        // generation on first launch can take noticeably
+        // longer (Argon2id + AES key derivation), so a
+        // 2 s ceiling caps the worst-case block. If the
+        // bootstrap times out, log a warning and let the
+        // preflight retry it via the normal async path —
+        // the preflight's step-2 device-owner check is
+        // the real safety net, not this synchronous hop.
         runBlocking {
-            withContext(Dispatchers.IO) {
-                runCatching { userBootstrap.ensureDeviceOwner() }
+            try {
+                withTimeout(2_000) {
+                    withContext(Dispatchers.IO) {
+                        runCatching { userBootstrap.ensureDeviceOwner() }
+                            .onFailure {
+                                android.util.Log.w("KaavalanApplication", "ensureDeviceOwner bootstrap failed", it)
+                            }
+                    }
+                }
+            } catch (_: TimeoutCancellationException) {
+                android.util.Log.w("KaavalanApplication", "ensureDeviceOwner bootstrap exceeded 2s; continuing")
             }
         }
         // v2.0.2 (PM rating): the database preflight.
@@ -108,9 +126,14 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // passphrase). The preflight is async so a slow
         // DB open doesn't block the launcher activity;
         // the Settings sheet reads the flag on its first
-        // render.
+        // render. Failures are logged (not swallowed) so
+        // a real DB error surfaces in logcat instead of
+        // silently flipping the corrupt flag to false.
         GlobalScope.launch(Dispatchers.IO) {
             runCatching { databasePreflight.runPreflight() }
+                .onFailure {
+                    android.util.Log.e("KaavalanApplication", "database preflight failed", it)
+                }
         }
         // v1.5.0 vault mode: no cloud sync. The
         // [com.kaavalan.note.data.work.WorkManagerInitializer] periodic
