@@ -1,0 +1,83 @@
+# CodeRabbit AI configuration
+# Docs: https://docs.coderabbit.ai/getting-started/configure-coderabbit
+
+# Enable reviews. The default behaviour is to skip automatic reviews
+# on repos with fewer than 10 stars (the "Free" plan gate). Override
+# the gate so CodeRabbit does a real review on every PR.
+reviews:
+  # Always show a status comment, even on base branches (e.g. main
+  # when the PR is targeting main). The free plan defaults to "skip
+  # if PR is not from a feature branch"; the override is `false`.
+  review_status: true
+
+  # Don't auto-approve; we want a real review, not a rubber stamp.
+  auto_approve:
+    enabled: false
+
+  # Don't auto-request changes either; we want suggestions, not
+  # workflow blockers.
+  request_changes_workflow: false
+
+  # Allow CodeRabbit to review PRs that target the stacked v2.1.x
+  # release branches, not just `main`. The v2.1.0 → v2.1.1.3 stack
+  # (Drive backup + security hardening) is stacked through these
+  # release bases; without this list CodeRabbit auto-skips the
+  # review with "reviews are disabled for this base branch".
+  base_branches:
+    - main
+    - release/v2.0.0-supabase-drop
+    - release/v2.0.0-supabase-drop-only
+    - release/v2.0.1-cleanup
+    - release/v2.0.2-cleanup2
+    - release/v2.1.0-drive-backup
+
+  # Path-level filters — match the existing GitHub workflow
+  # `.gitignore` + the docs/asset folders so we don't review the
+  # generated fixture data, the 5-MB banner PNG, or the test
+  # screenshots.
+  path_filters:
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.webp"
+    - "!**/*.mp4"
+    - "!**/*.zip"
+    - "!**/*.aab"
+    - "!**/*.apk"
+    - "!**/.sdd/**"
+    - "!**/build/**"
+    - "!**/.gradle/**"
+    - "!**/app/src/main/assets/synthetic-data.json"
+
+  # PR review profile. CHILL = fewer false positives, slower.
+  # The default "ASSERTIVE" is too noisy on a small solo project.
+  profile: "chill"
+
+  # Tooling. Let CodeRabbit run the unit tests + lint in addition
+  # to the static analysis.
+  tools:
+    enabled:
+      - ast-grep
+      - shellcheck
+      - github-checks
+      - languagetool
+      - biome
+      - hadolint
+      - gitleaks
+    disabled:
+      - "github-actions" # GH Actions are already validated by the
+                          # self-hosted CI (PR runs `testDebugUnitTest`
+                          # + `lintDebug` + `assembleDebug`); no need
+                          # for CodeRabbit to re-run them.
+
+# Tone. Solo dev on a private-but-now-public R&D project. Keep the
+# bot's voice friendly, not preachy. Note: max 250 chars.
+tone_instructions: "Solo Android dev, Kotlin+Compose+Room+SQLCipher.
+  Cite file:line. Be terse, friendly, concrete. No ktlint lectures.
+  552 unit tests already run; don't re-suggest tests unless new
+  code lacks coverage. Focus: correctness, security, a11y, public
+  API."
+
+# Early-access features. Don't opt in until CodeRabbit ships them
+# as default-on; turning on early-access flags can introduce
+# regressions in the review pipeline.
+early_access: false
