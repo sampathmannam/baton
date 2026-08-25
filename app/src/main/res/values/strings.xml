@@ -811,6 +811,8 @@
     <string name="hierarchy_contact_sync_picker_title">Pick from contacts</string>
     <string name="hierarchy_contact_sync_permission_rationale">Read your contacts so you can quickly add a person + phone to the roster.</string>
     <string name="hierarchy_contact_sync_no_results">No matching contacts on this device.</string>
+    <string name="hierarchy_contact_sync_grant">Grant access</string>
+    <string name="hierarchy_contact_sync_open_picker">Import from contacts</string>
     <string name="hierarchy_section_outbox">Outbox</string>
     <string name="hierarchy_section_inbox">Inbox</string>
     <string name="hierarchy_section_tags">#tags</string>

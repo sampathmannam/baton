@@ -18,8 +18,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -93,6 +95,11 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
+    // v2.0 (Hierarchy): contact-import sheet. The IconButton next
+    // to the FAB opens the contact picker. The picker handles the
+    // `READ_CONTACTS` permission itself and on success calls
+    // `homeViewModel.importContact(name, phone)` for each pick.
+    var showContactPicker by remember { mutableStateOf(false) }
     // v2.0 (Hierarchy): the #tag chip tap has no dedicated screen
     // yet. Surface a Snackbar so the tap is observable (rather than
     // a silent no-op) and the user knows the system heard them.
@@ -272,6 +279,7 @@ fun HomeScreen(
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.home_add_person))
             }
         },
+        floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
             val searchViewModel: SearchViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val query by searchViewModel.query.collectAsStateWithLifecycle()
@@ -312,6 +320,7 @@ fun HomeScreen(
                     HomeUiState.Empty -> EmptyState(
                         padding = padding,
                         onAddPersonClick = { showAddPerson = true },
+                        onImportFromContacts = { showContactPicker = true },
                     )
                     HomeUiState.Loading -> LoadingSkeleton(padding)
                     is HomeUiState.Loaded -> com.kaavalan.note.ui.hierarchy.HomeHierarchyAwarePersonList(
@@ -340,6 +349,14 @@ fun HomeScreen(
                 showAddPerson = false
             },
             onDismiss = { showAddPerson = false },
+        )
+    }
+
+    if (showContactPicker) {
+        com.kaavalan.note.ui.hierarchy.ContactPickerSheet(
+            contactSyncService = viewModel.contactSyncService(),
+            onPicked = { name, phone -> viewModel.importContact(name, phone); showContactPicker = false },
+            onDismiss = { showContactPicker = false },
         )
     }
 
@@ -394,6 +411,7 @@ fun HomeScreen(
 private fun EmptyState(
     padding: PaddingValues,
     onAddPersonClick: () -> Unit,
+    onImportFromContacts: () -> Unit,
 ) {
     val addPersonDesc = stringResource(R.string.home_add_person)
     Box(
@@ -450,6 +468,17 @@ private fun EmptyState(
                     text = stringResource(R.string.home_add_person),
                     style = MaterialTheme.typography.titleMedium,
                 )
+            }
+            Spacer(Modifier.height(12.dp))
+            // v2.0 (Hierarchy): alternate entry — import from the
+            // device's contact list. Shown in the empty state
+            // (where first-impression matters most) but not on the
+            // main FAB so the keyboard-first path stays the default.
+            OutlinedButton(
+                onClick = onImportFromContacts,
+                modifier = Modifier.semantics { contentDescription = "Import from contacts" },
+            ) {
+                Text(stringResource(R.string.hierarchy_contact_sync_open_picker))
             }
             Spacer(Modifier.height(80.dp))
         }

@@ -29,6 +29,7 @@ class HomeViewModel @Inject constructor(
     private val tagDao: TagDao,
     private val tagRepository: RoomTagRepository,
     private val vaultModeHolder: VaultModeHolder,
+    private val contactSyncService: com.kaavalan.note.data.person.ContactSyncService,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -75,6 +76,31 @@ class HomeViewModel @Inject constructor(
                 .onFailure { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not create person.")) }
         }
     }
+
+    /**
+     * v2.0 (Hierarchy): the ContactPickerSheet calls this on every
+     * picked candidate. The user's `READ_CONTACTS` permission is
+     * already granted at this point (the sheet asks for it before
+     * showing the list). We create the person with the contact's
+     * `displayName` as the name, no designation, and no station.
+     * Phone is stored but the `Person` domain model doesn't carry
+     * it; that's a v2.x follow-up.
+     */
+    fun importContact(displayName: String, phone: String) {
+        viewModelScope.launch {
+            runCatching { personRepository.create(displayName, designation = null, station = null) }
+                .onFailure { e -> _state.value = HomeUiState.Error(SafeError.forUser(e, "Could not import contact.")) }
+        }
+    }
+
+    /**
+     * v2.0 (Hierarchy): expose the [ContactSyncService] to the
+     * `ContactPickerSheet`. We use this from the screen (not the
+     * sheet) so the sheet doesn't need to be `@HiltViewModel`. The
+     * service is a Hilt singleton, lifetime-scoped to the
+     * ApplicationContext, so this is safe.
+     */
+    fun contactSyncService(): com.kaavalan.note.data.person.ContactSyncService = contactSyncService
 
     private fun refreshTagsFromNetwork() {
         viewModelScope.launch {
