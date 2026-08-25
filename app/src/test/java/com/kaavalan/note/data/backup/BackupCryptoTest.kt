@@ -117,7 +117,15 @@ class BackupCryptoTest {
         // valid byte, but not 'B').
         val bad = good.copyOf()
         bad[0] = 0xFF.toByte()
-        val ex = assertThrows(IllegalArgumentException::class.java) {
+        // v2.1.1 (security): the wrong-magic branch now goes
+        // through Kotlin's `error(...)` helper, which throws
+        // IllegalStateException (was IllegalArgumentException
+        // in v2.1.0). The error() form was chosen so the
+        // message is a constant string rather than the
+        // require(...) lazy-message variant — the message
+        // is part of the threat-model response and must be
+        // stable across builds.
+        val ex = assertThrows(IllegalStateException::class.java) {
             crypto.decrypt(bad, "pass".toCharArray())
         }
         assertTrue(
