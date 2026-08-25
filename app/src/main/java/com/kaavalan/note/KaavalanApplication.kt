@@ -3,8 +3,8 @@ package com.kaavalan.note
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
-import com.baton.app.data.local.AppInitializer
-import com.baton.app.data.work.WorkManagerInitializer
+import com.kaavalan.note.data.local.AppInitializer
+import com.kaavalan.note.data.work.WorkManagerInitializer
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -19,8 +19,8 @@ class KaavalanApplication : Application(), Configuration.Provider {
     /**
      * M3-T1: one-shot startup tasks. Injected by Hilt's `@HiltAndroidApp`
      * path. Runs in [onCreate] before any other Hilt-injected component
-     * is touched, so by the time [com.baton.app.di.DatabaseModule] is
-     * asked for the [com.baton.app.data.local.AppDatabase] the
+     * is touched, so by the time [com.kaavalan.note.di.DatabaseModule] is
+     * asked for the [com.kaavalan.note.data.local.AppDatabase] the
      * M2 plain DB is already wiped and the SQLCipher passphrase is
      * generated.
      */
@@ -31,7 +31,7 @@ class KaavalanApplication : Application(), Configuration.Provider {
      * Injected by Hilt so the device-owner row is in
      * place before any UI code reads the [UserDao].
      */
-    @Inject lateinit var userBootstrap: com.baton.app.data.user.UserBootstrap
+    @Inject lateinit var userBootstrap: com.kaavalan.note.data.user.UserBootstrap
 
     // v2.0.2 (PM rating): the DB preflight. Runs a
     // `SELECT 1` on first launch and sets the
@@ -41,7 +41,7 @@ class KaavalanApplication : Application(), Configuration.Provider {
     // to erase and start fresh" banner. The preflight
     // is async so a slow DB open doesn't block the
     // launcher activity.
-    @Inject lateinit var databasePreflight: com.baton.app.data.local.DatabasePreflight
+    @Inject lateinit var databasePreflight: com.kaavalan.note.data.local.DatabasePreflight
 
     // v2.1.1 (security): the Google OAuth client.
     // Injected so the cold-start path can check
@@ -52,14 +52,14 @@ class KaavalanApplication : Application(), Configuration.Provider {
     // fired on every cold start of a device that
     // had never signed in and dumped a failure
     // result to the WorkManager log.
-    @Inject lateinit var googleOAuthClient: com.baton.app.data.backup.GoogleOAuthClient
+    @Inject lateinit var googleOAuthClient: com.kaavalan.note.data.backup.GoogleOAuthClient
 
     // v2.1.1 (security): the encrypted-preferences
     // store. The cold-start path reads
     // [SecurePreferences.getBackupEncryptionKeyHash]
     // so the daily Drive backup is only scheduled
     // when the user has set a passphrase.
-    @Inject lateinit var securePreferences: com.baton.app.data.auth.SecurePreferences
+    @Inject lateinit var securePreferences: com.kaavalan.note.data.auth.SecurePreferences
 
     override fun onCreate() {
         super.onCreate()
@@ -75,7 +75,7 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // "App has stopped" dialog).
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            com.baton.app.ui.util.CrashLog.write(this, throwable)
+            com.kaavalan.note.ui.util.CrashLog.write(this, throwable)
             previous?.uncaughtException(thread, throwable)
         }
         appInitializer.runOnAppStart()
@@ -98,10 +98,10 @@ class KaavalanApplication : Application(), Configuration.Provider {
             runCatching { userBootstrap.ensureDeviceOwner() }
         }
         // v1.5.0 vault mode: no cloud sync. The
-        // [com.baton.app.data.work.WorkManagerInitializer] periodic
+        // [com.kaavalan.note.data.work.WorkManagerInitializer] periodic
         // drain + capture-sync schedules are intentionally NOT
         // called. The per-write `enqueueCaptureSync` in
-        // [com.baton.app.data.captures.RoomCaptureRepository] still
+        // [com.kaavalan.note.data.captures.RoomCaptureRepository] still
         // fires one-shot workers (a no-op without Supabase creds);
         // the periodic schedule was the one that mattered for the
         // "I was offline and now I'm not" self-heal, and v1.5.0
@@ -116,11 +116,11 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // WorkManagerInitializer.scheduleBackup is idempotent
         // (KEEP policy) so calling it on every cold start is
         // a no-op after the first.
-        com.baton.app.data.work.WorkManagerInitializer.scheduleBackup(this)
+        com.kaavalan.note.data.work.WorkManagerInitializer.scheduleBackup(this)
         // v1.8.0 (PROD-READINESS-P2-#5): the daily
         // retention sweep is also scheduled. Same
         // KEEP-on-re-enqueue idempotency as the backup.
-        com.baton.app.data.work.WorkManagerInitializer.scheduleRetention(this)
+        com.kaavalan.note.data.work.WorkManagerInitializer.scheduleRetention(this)
         // v2.1.1 (security): only schedule the daily
         // Google Drive backup when the user has both
         // (a) signed in to Google and (b) set a backup
@@ -132,7 +132,7 @@ class KaavalanApplication : Application(), Configuration.Provider {
         // schedule the next time they sign in.
         if (googleOAuthClient.isSignedIn() &&
             securePreferences.getBackupEncryptionKeyHash() != null) {
-            com.baton.app.data.work.WorkManagerInitializer.scheduleDriveBackup(this)
+            com.kaavalan.note.data.work.WorkManagerInitializer.scheduleDriveBackup(this)
         }
     }
 

@@ -23,8 +23,8 @@ import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.compose.ui.unit.dp
-import com.baton.app.MainActivity
-import com.baton.app.R
+import com.kaavalan.note.MainActivity
+import com.kaavalan.note.R
 
 /**
  * Tier 0.1 (cleanup + ship-the-built): the home-screen /
