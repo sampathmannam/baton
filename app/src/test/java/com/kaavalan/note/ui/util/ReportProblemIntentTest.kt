@@ -55,7 +55,7 @@ class ReportProblemIntentTest {
     // Mirrors the production string templates. The exact
     // text doesn't matter for these tests; we only assert
     // on the placeholders the helper fills in.
-    private val subjectTemplate = "Kaavalan %1\$s problem report"
+    private val subjectTemplate = "Kaavalan note %1${'$'}s problem report"
     private val bodyTemplateNoCrash =
         "What happened? (steps to reproduce)\n\n" +
             "App version: %1\$s (build %2\$d)\n" +
@@ -144,7 +144,7 @@ class ReportProblemIntentTest {
         // [CrashLog].
         val crashDir = File(context.cacheDir, "crashes").apply { mkdirs() }
         val logContent = """
-            # Kaavalan crash log
+            # Kaavalan note crash log
             timestamp=2026-08-24T01:23:45+05:30
             app_version=1.9.9
             app_build=39

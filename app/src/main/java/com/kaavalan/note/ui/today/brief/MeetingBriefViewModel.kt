@@ -19,7 +19,7 @@ import javax.inject.Inject
 /**
  * v2.0 Tier 2 (§2.7): the "Brief me before a meeting" card.
  * Combines the next 15 minutes of calendar events filtered to
- * events that mention a Kaavalan note's person with that person's last
+ * events that mention a app's person with that person's last
  * 3 instructions, last 3 photos, and last 3 notes (a "note" is
  * a TEXT-mode capture).
  *
@@ -57,7 +57,7 @@ class MeetingBriefViewModel @Inject constructor(
                 _state.value = MeetingBriefState(isPermissionMissing = true)
                 return@launch
             }
-            val events = calendarSource.upcomingKaavalanEvents()
+            val events = calendarSource.upcomingKaavalanNoteEvents()
             if (events.isEmpty()) {
                 _state.value = MeetingBriefState(
                     events = emptyList(),
@@ -67,7 +67,7 @@ class MeetingBriefViewModel @Inject constructor(
             }
             val enriched = events.map { ev ->
                 val person = personDao.snapshot().firstOrNull {
-                    it.name.equals(ev.matchedPersonLower, ignoreCase = true)
+                    it.name.equals(ev.personName, ignoreCase = true)
                 }
                 val personId = person?.id
                 val instructions = if (personId != null) {
@@ -92,7 +92,7 @@ class MeetingBriefViewModel @Inject constructor(
                     event = ev,
                     personId = personId,
                     personName = person?.name
-                        ?: ev.matchedPersonLower.replaceFirstChar { it.titlecase() },
+                        ?: ev.personName.replaceFirstChar { it.titlecase() },
                     recentInstructions = instructions,
                     recentPhotos = photos,
                     recentNotes = notes,

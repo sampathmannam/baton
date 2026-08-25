@@ -189,7 +189,7 @@
     <string name="vault_import_body">Pick a .kaavalan-note-vault file and type the passphrase. Your current data will be replaced.</string>
     <string name="vault_import_button">Pick vault file</string>
     <string name="vault_import_incorrect">Incorrect passphrase</string>
-    <string name="vault_import_not_vault">This doesn\'t look like a Kaavalan vault</string>
+    <string name="vault_import_not_vault">This doesn\'t look like a Kaavalan note vault</string>
     <string name="vault_import_unsupported">This vault was made with a newer version. Update the app and try again.</string>
     <string name="vault_import_disk_full">Not enough space to save the vault</string>
     <string name="vault_import_io">Couldn\'t read the file. Try again.</string>
@@ -201,7 +201,7 @@
     <string name="settings_plain_export">Export as CSV or JSON</string>
 
     <!-- Tier 1.2 (v2.0): First-run onboarding. -->
-    <string name="onboarding_welcome_title">Welcome to Kaavalan</string>
+    <string name="onboarding_welcome_title">Welcome to Kaavalan note</string>
     <string name="onboarding_welcome_body">Track every instruction that flows in from your SP and out to your SHOs.</string>
     <string name="onboarding_privacy_title">Your data lives only here</string>
     <string name="onboarding_privacy_body">No cloud. No login. No analytics. Everything is stored on this phone, encrypted at rest.</string>
@@ -258,7 +258,7 @@
          idempotent (upsert by id). -->
     <string name="plain_import_title">Import from</string>
     <string name="plain_import_button">Import a saved file</string>
-    <string name="plain_import_failed">Couldn\'t read the file. Is it a Kaavalan export (CSV/JSON)?</string>
+    <string name="plain_import_failed">Couldn\'t read the file. Is it a Kaavalan note export (CSV/JSON)?</string>
 
     <!-- v2.0 Tier 2 features. -->
     <string name="decay_section_title">Quiet a while</string>
@@ -315,7 +315,7 @@
     <string name="important_date_custom_label_hint">Label (e.g. Birthday, Anniversary)</string>
     <string name="important_date_empty">No dates yet.</string>
     <string name="important_date_a11y_open">Open date</string>
-    <string name="morning_brief_channel_name">Kaavalan Brief</string>
+    <string name="morning_brief_channel_name">Kaavalan note Brief</string>
     <string name="morning_brief_channel_description">Daily morning summary from Kaavalan note.</string>
     <string name="morning_brief_title">Kaavalan brief</string>
     <string name="morning_brief_nothing">Nothing on your plate.</string>
@@ -439,13 +439,13 @@
          any time. The v1.6.0 design rule forbids auto-showing
          it at first launch as a modal. -->
     <string name="settings_changelog">What\'s new</string>
-    <string name="settings_changelog_explainer">Release notes for every Kaavalan version. Tap to see what changed.</string>
+    <string name="settings_changelog_explainer">Release notes for every Kaavalan note version. Tap to see what changed.</string>
     <!-- v2.0 (PM rating): the in-app audit-log viewer is
          reachable from Settings. The chain has been writing
          rows since v1.8.0; v2.0 surfaces them. -->
     <string name="settings_audit_log">Audit log</string>
     <string name="settings_audit_log_value">View the audit chain</string>
-    <string name="settings_audit_log_explainer">Every state change in Kaavalan is appended to a SHA-256 hash chain. Tap to see the entries and verify the chain.</string>
+    <string name="settings_audit_log_explainer">Every state change in Kaavalan note is appended to a SHA-256 hash chain. Tap to see the entries and verify the chain.</string>
     <!-- v2.0.2 (PM rating): the About screen. The version
          is already in the storage card; this is the
          canonical build-info + privacy-posture surface. -->
@@ -457,7 +457,7 @@
          The only safe recovery is "Erase all data" +
          restore from backup. -->
     <string name="settings_db_error_title">Database error</string>
-    <string name="settings_db_error_body">Kaavalan could not open the local database. The most likely cause is a corrupt file after a force-stop. Tap "Erase and restart" to wipe the local data; you can then restore from a backup.</string>
+    <string name="settings_db_error_body">Kaavalan note could not open the local database. The most likely cause is a corrupt file after a force-stop. Tap "Erase and restart" to wipe the local data; you can then restore from a backup.</string>
     <string name="settings_db_error_action">Erase and restart</string>
     <!-- v2.1.0 (PM rating): the Google Drive backup
          surface. "like WhatsApp" — the local DB stays
@@ -578,9 +578,9 @@
     <string name="person_drop_title">Drop instruction</string>
     <string name="person_drop_reason_label">Reason (optional)</string>
     <!-- Nudge sheet -->
-    <string name="nudge_edit_before_sending">Edit before sending. The draft is local; the message itself goes through WhatsApp or SMS, not Kaavalan.</string>
+    <string name="nudge_edit_before_sending">Edit before sending. The draft is local; the message itself goes through WhatsApp or SMS, not Kaavalan note.</string>
     <string name="nudge_message_label">Message</string>
-    <string name="nudge_clipboard_label">Kaavalan nudge</string>
+    <string name="nudge_clipboard_label">Kaavalan note nudge</string>
     <string name="nudge_tone_polite">Polite</string>
     <string name="nudge_tone_urgent">Urgent</string>
     <string name="nudge_tone_casual">Casual</string>
@@ -660,7 +660,7 @@
     <!-- v1.9.0 (PROD-READINESS-P3-P1-#4): support -->
     <string name="settings_support">Support</string>
     <string name="settings_support_email">kaavalan-note@protonmail.com</string>
-    <string name="settings_support_email_subject">Kaavalan %1$s support</string>
+    <string name="settings_support_email_subject">Kaavalan note %1$s support</string>
     <string name="settings_support_email_body">Describe the issue. Attach a screenshot if you can.\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s</string>
     <string name="settings_support_email_cd">Email support</string>
     <!-- v1.9.9 (A10 audit fix): one-tap problem report. Distinct
@@ -671,19 +671,19 @@
          body so the support reply has the stack trace inline. -->
     <string name="settings_report_problem">Report a problem</string>
     <string name="settings_report_problem_subtitle">Send a bug report with crash log</string>
-    <string name="settings_report_problem_subject">Kaavalan %1$s problem report</string>
+    <string name="settings_report_problem_subject">Kaavalan note %1$s problem report</string>
     <string name="settings_report_problem_body_no_crash">What happened? (steps to reproduce)\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s</string>
     <string name="settings_report_problem_body_with_crash">What happened? (steps to reproduce)\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s\n\n--- Crash log (most recent) ---\n%5$s</string>
     <string name="settings_report_problem_cd">Email a bug report</string>
-    <string name="settings_rate">Rate Kaavalan</string>
-    <string name="settings_rate_cd">Open the Play Store listing for Kaavalan</string>
-    <string name="settings_share_app">Share Kaavalan</string>
+    <string name="settings_rate">Rate Kaavalan note</string>
+    <string name="settings_rate_cd">Open the Play Store listing for Kaavalan note</string>
+    <string name="settings_share_app">Share Kaavalan note</string>
     <string name="settings_share_app_chooser">Share with�</string>
-    <string name="settings_share_app_text">I am using Kaavalan note � a private instruction tracker for IPS officers. https://github.com/sampathmannam/kaavalan-note</string>
+    <string name="settings_share_app_text">I am using Kaavalan note � a private instruction tracker . https://github.com/sampathmannam/kaavalan-note</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P0-#9): onboarding explainer -->
-    <string name="onboarding_title">Kaavalan is not a notes app</string>
-    <string name="onboarding_subtitle">A short explanation of what makes Kaavalan different.</string>
+    <string name="onboarding_title">Kaavalan note is not a notes app</string>
+    <string name="onboarding_subtitle">A short explanation of what makes Kaavalan note different.</string>
     <string name="onboarding_screen_1_title">Local-only by design</string>
     <string name="onboarding_screen_1_body">Every byte of your data lives on this device, in a SQLCipher-encrypted database. There is no cloud sync, no analytics, no telemetry. A thief who pulls the SD card cannot read your notes.</string>
     <string name="onboarding_screen_2_title">Person-first, not folder-first</string>
@@ -691,22 +691,22 @@
     <string name="onboarding_screen_3_title">Ad-friendly, deniable</string>
     <string name="onboarding_screen_3_body">A 6-digit vault PIN hides sensitive notes from the list. A 24-word recovery phrase is the only way back in if you forget the PIN. Write the recovery phrase on paper and store the paper somewhere physically safe.</string>
     <string name="onboarding_screen_4_title">Free, forever</string>
-    <string name="onboarding_screen_4_body">Kaavalan is a private R&amp;D project by a serving IPS officer. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.</string>
+    <string name="onboarding_screen_4_body">Kaavalan note is private, local-only software. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.</string>
     <!-- v1.9.0 (PROD-READINESS-P3-P0-#8): update channel -->
     <string name="settings_check_for_updates">Check for updates</string>
     <string name="settings_check_for_updates_working">Checking�</string>
     <string name="settings_check_for_updates_up_to_date">You are on the latest version</string>
-    <string name="settings_check_for_updates_available">Kaavalan %1$s is available. You are on %2$s.</string>
+    <string name="settings_check_for_updates_available">Kaavalan note %1$s is available. You are on %2$s.</string>
     <string name="settings_check_for_updates_failed">Could not reach the update server. Try again later.</string>
     <string name="settings_check_for_updates_open">Open release page</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P1-#1): crash log -->
     <string name="crash_log_title">App crashed</string>
-    <string name="crash_log_body">Kaavalan caught an unhandled error. You can share the crash log with support to help diagnose the issue.</string>
+    <string name="crash_log_body">Kaavalan note caught an unhandled error. You can share the crash log with support to help diagnose the issue.</string>
     <string name="crash_log_share">Share crash log</string>
     <string name="crash_log_dismiss">Dismiss</string>
-    <string name="crash_log_share_subject">Kaavalan crash report</string>
-    <string name="crash_log_share_body">Kaavalan %1$s (build %2$d) crashed. See the attached crash log.</string>
+    <string name="crash_log_share_subject">Kaavalan note crash report</string>
+    <string name="crash_log_share_body">Kaavalan note %1$s (build %2$d) crashed. See the attached crash log.</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P1-#8): file-picker backup.
          v1.9.1 honest re-label: the v1.9.0 copy promised Google
@@ -785,6 +785,42 @@
     <string name="about_repo_header">Source</string>
     <string name="about_repo_url">github.com/sampathmannam/kaavalan-note (private — public release pending)</string>
     <string name="about_license">© 2026 Sampath Mannam. All rights reserved.</string>
+
+    <!-- v2.0 (Hierarchy): the audience + due chip + dispatch surface. -->
+    <string name="hierarchy_audience_picker_title">Send to…</string>
+    <string name="hierarchy_audience_picker_subtitle">Choose a station, designation, person, or broadcast</string>
+    <string name="hierarchy_audience_by_person">Person</string>
+    <string name="hierarchy_audience_by_designation">Designation</string>
+    <string name="hierarchy_audience_by_station">Station</string>
+    <string name="hierarchy_audience_by_all">Everyone</string>
+    <string name="hierarchy_audience_summary_to_person">To %1$s</string>
+    <string name="hierarchy_audience_summary_to_designation">To all %1$s</string>
+    <string name="hierarchy_audience_summary_to_station">To everyone at %1$s</string>
+    <string name="hierarchy_audience_summary_to_all">To everyone on the roster</string>
+    <string name="hierarchy_audience_recipient_count_one">1 recipient</string>
+    <string name="hierarchy_audience_recipient_count_other">%1$d recipients</string>
+    <string name="hierarchy_dispatch_title">Send</string>
+    <string name="hierarchy_dispatch_channel_sms">SMS</string>
+    <string name="hierarchy_dispatch_channel_whatsapp">WhatsApp</string>
+    <string name="hierarchy_dispatch_receipts_one">1 of 1 delivered</string>
+    <string name="hierarchy_dispatch_receipts_other">%1$d of %2$d delivered</string>
+    <string name="hierarchy_dispatch_receipts_none">0 of %1$d delivered (%2$d failed)</string>
+    <string name="hierarchy_due_chip_set">Due %1$s</string>
+    <string name="hierarchy_due_chip_tap_to_set">Set due</string>
+    <string name="hierarchy_due_chip_clear">Clear due</string>
+    <string name="hierarchy_contact_sync_picker_title">Pick from contacts</string>
+    <string name="hierarchy_contact_sync_permission_rationale">Read your contacts so you can quickly add a person + phone to the roster.</string>
+    <string name="hierarchy_contact_sync_no_results">No matching contacts on this device.</string>
+    <string name="hierarchy_contact_sync_grant">Grant access</string>
+    <string name="hierarchy_contact_sync_open_picker">Import from contacts</string>
+    <string name="hierarchy_section_outbox">Outbox</string>
+    <string name="hierarchy_section_inbox">Inbox</string>
+    <string name="hierarchy_section_tags">#tags</string>
+    <string name="hierarchy_tag_chip_count">%1$d</string>
+    <string name="hierarchy_inbound_draft_title">Draft from inbound</string>
+    <string name="hierarchy_inbound_draft_save">Save as outgoing</string>
+    <string name="hierarchy_inbound_draft_title_label">Title</string>
+    <string name="hierarchy_inbound_draft_body_label">Body</string>
 </resources>
 
 

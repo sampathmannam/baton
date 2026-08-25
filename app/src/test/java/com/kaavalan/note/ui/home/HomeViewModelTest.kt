@@ -2,6 +2,7 @@ package com.kaavalan.note.ui.home
 
 import app.cash.turbine.test
 import com.kaavalan.note.data.local.InstructionDao
+import com.kaavalan.note.data.local.TagDao
 import com.kaavalan.note.data.local.PersonOpenCount
 import com.kaavalan.note.data.local.RoomPersonRepository
 import com.kaavalan.note.data.person.Person
@@ -43,6 +44,7 @@ class HomeViewModelTest {
     private val repo: RoomPersonRepository = mockk(relaxed = true)
     private val instructionDao: InstructionDao = mockk(relaxed = true)
     private val tagRepository: RoomTagRepository = mockk(relaxed = true)
+    private val tagDao: TagDao = mockk(relaxed = true)
     // v2.0 T3-1: a real VaultModeHolder (a process-singleton by
     // design). The HomeViewModel reads its `mode` flow and re-queries
     // the person DAO when it changes. The default mode is Visible.
@@ -52,6 +54,7 @@ class HomeViewModelTest {
     private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
     private val countsFlow = MutableStateFlow<List<PersonOpenCount>>(emptyList())
     private val staleFlow = MutableStateFlow<List<com.kaavalan.note.data.local.PersonStaleAge>>(emptyList())
+    private val tagsFlow = MutableStateFlow<List<com.kaavalan.note.data.local.entities.TagEntity>>(emptyList())
 
     @Before
     fun setUp() {
@@ -63,6 +66,7 @@ class HomeViewModelTest {
         every { repo.observeAll() } returns personsFlow.asStateFlow()
         every { instructionDao.observeOpenCountByPerson() } returns countsFlow.asStateFlow()
         every { instructionDao.observeStaleByPerson() } returns staleFlow.asStateFlow()
+        every { tagDao.observeTop(20) } returns tagsFlow.asStateFlow()
     }
 
     @After
@@ -73,6 +77,8 @@ class HomeViewModelTest {
     private fun makeVm() = HomeViewModel(
         personRepository = repo,
         instructionDao = instructionDao,
+        contactSyncService = io.mockk.mockk(relaxed = true),
+        tagDao = tagDao,
         tagRepository = tagRepository,
         vaultModeHolder = vaultModeHolder,
     )

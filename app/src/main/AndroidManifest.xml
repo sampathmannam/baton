@@ -37,6 +37,16 @@
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
+        <!-- v2.0 (Hierarchy): outbound SMS dispatch -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <!-- v2.0 (Hierarchy): outbound WhatsApp dispatch -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 
     <!-- M1-T6: Calendar integration via CalendarContract.ACTION_INSERT.
@@ -66,6 +76,9 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- v2.0 (Hierarchy): contact sync -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <application
         android:name=".KaavalanApplication"
         android:allowBackup="false"
@@ -75,10 +88,10 @@
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Kaavalan">
+        android:theme="@style/Theme.KaavalanNote">
 
         <!-- M3-T2: disable WorkManager's default auto-init.
-             The KaavalanApplication provides a Configuration via
+             KaavalanApplication provides a Configuration via
              Configuration.Provider; the manual init lives in
              com.kaavalan.note.data.work.WorkManagerInitializer. -->
         <provider
@@ -96,7 +109,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:enableOnBackInvokedCallback="true"
-            android:theme="@style/Theme.Kaavalan">
+            android:theme="@style/Theme.KaavalanNote">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -125,7 +138,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Tier 0.3: share target. The user picks Kaavalan from
+        <!-- Tier 0.3: share target. The user picks Kaavalan note from
              another app's share sheet; the alias forwards the
              shared text (or the OCR'd text from a shared image)
              to MainActivity which opens the capture sheet
@@ -139,7 +152,7 @@
             android:exported="true"
             android:label="@string/share_to_kaavalan"
             android:launchMode="singleInstance"
-            android:theme="@style/Theme.Kaavalan.Translucent.NoDisplay">
+            android:theme="@style/Theme.KaavalanNote.Translucent.NoDisplay">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -163,7 +176,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Tier 0.2: quick-settings tile. The user adds Kaavalan
+        <!-- Tier 0.2: quick-settings tile. The user adds Kaavalan note
              from the system shade; tapping fires the
              ACTION_QUICK_CAPTURE deep link into MainActivity.
              The META_DATA_ACTIVE_TILE flag is set so the
@@ -217,13 +230,13 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/kaavalan_note_quick_note_widget_info" />
+                android:resource="@xml/kaavalan_quick_note_widget_info" />
         </receiver>
 
         <activity
             android:name=".features.widget.QuickNoteActivity"
             android:exported="false"
-            android:theme="@style/Theme.Kaavalan"
+            android:theme="@style/Theme.KaavalanNote"
             android:windowSoftInputMode="adjustResize"
             android:excludeFromRecents="true"
             android:noHistory="true" />

@@ -10,7 +10,7 @@
   background.
 
   v1.5.7 used a K + recording dot; v1.6.3 replaces it with the
-  shield mark to give Kaavalan a more permanent, less playful identity.
+  shield mark to give Kaavalan note a more permanent, less playful identity.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />

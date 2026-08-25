@@ -58,7 +58,7 @@ class DriveRestApi(
     /**
      * Upload [content] as a new file in the user's
      * `appDataFolder`. [fileName] is the file's display
-     * name (e.g. "kaavalan-note-backup-20260824-150000.json.enc").
+     * name (e.g. kaavalan-note-backup-20260824-150000.json.enc").
      * Returns the Drive file ID — the caller stores
      * this to delete the file later.
      */
@@ -100,7 +100,7 @@ class DriveRestApi(
     }
 
     /**
-     * List Kaavalan backup files in the user's appDataFolder.
+     * List Kaavalan note backup files in the user's appDataFolder.
      * Returns a list of [DriveFile] sorted by createdTime
      * DESC (newest first) — same shape as the on-device
      * [com.kaavalan.note.data.export.BackupManager.listBackups].

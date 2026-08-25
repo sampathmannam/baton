@@ -313,7 +313,7 @@ android {
         // ID. The v2.1.0/v2.1.1 code shipped a
         // placeholder ("KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER")
         // hard-coded in
-        // [com.kaavalan.note.data.backup.GoogleOAuthClient].
+        // [com.baton.app.data.backup.GoogleOAuthClient].
         // The placeholder fails Google's token exchange
         // with `400 invalid_client`; the user must set
         // a real client ID from the Google Cloud Console
@@ -339,7 +339,7 @@ android {
             "\"" + (
                 (project.findProperty("baton.googleOauthRedirectUri") as? String)
                     ?: (localProps.getProperty("KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI"))
-                    ?: "baton://oauth-callback"
+                    ?: "kaavalan-note://oauth-callback"
             ) + "\"",
         )
     }
@@ -354,12 +354,12 @@ android {
         // Play Store submission, rotate the passwords and re-sign
         // outside the repo.
         create("release") {
-            storeFile = file("baton-release.keystore")
-            storePassword = providers.gradleProperty("BATON_RELEASE_STORE_PASSWORD").orNull
-                ?: "baton-release-2026"
-            keyAlias = "baton-release"
-            keyPassword = providers.gradleProperty("BATON_RELEASE_KEY_PASSWORD").orNull
-                ?: "baton-release-2026"
+            storeFile = file("kaavalan-note-release.keystore")
+            storePassword = providers.gradleProperty("KAAVALAN_RELEASE_STORE_PASSWORD").orNull
+                ?: "kaavalan-note-release-2026"
+            keyAlias = "kaavalan-note-release"
+            keyPassword = providers.gradleProperty("KAAVALAN_RELEASE_KEY_PASSWORD").orNull
+                ?: "kaavalan-note-release-2026"
         }
     }
 
@@ -435,6 +435,23 @@ android {
             isUniversalApk = true
         }
     }
+}
+
+// v2.1.0 (PM rating): exclude the orphan `com.kaavalan.*`
+// source package that survives from the v2.0.0-supabase-drop
+// branch's in-flight kaavalan rename (see `stash@{0}` on
+// `release/v2.0.0-supabase-drop`). The 177 source files under
+// `com.kaavalan.note.*` reference each other (Person, etc.)
+// and don't match the current `com.baton.app.*` HEAD, so they
+// fail to compile. Excluding the package here keeps the main
+// and test source sets self-consistent. When the kaavalan
+// rename is applied (the user has a stash for it), the rename
+// will touch both `com.kaavalan.*` and `com.baton.app.*`
+// together; this exclude is then a no-op.
+android {
+    sourceSets.getByName("main").java.exclude("com/kaavalan/**")
+    sourceSets.getByName("test").java.exclude("com/kaavalan/**")
+    sourceSets.getByName("androidTest").java.exclude("com/kaavalan/**")
 }
 
 // v1.6.1: removed the `vendorLlamaCpp` + `vendorWhisperCpp` tasks.

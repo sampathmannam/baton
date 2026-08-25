@@ -68,6 +68,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
 import com.kaavalan.note.data.preferences.ThemeMode
+import com.kaavalan.note.data.preferences.KaavalanPreferences
 import com.kaavalan.note.data.tags.Tag
 import com.kaavalan.note.data.tags.TagKind
 import com.kaavalan.note.data.vault.VaultMode
@@ -135,7 +136,7 @@ fun SettingsSheet(
                 is com.kaavalan.note.data.update.UpdateChecker.UpdateInfo.UpToDate ->
                     "You are on the latest version"
                 is com.kaavalan.note.data.update.UpdateChecker.UpdateInfo.UpdateAvailable ->
-                    "Kaavalan ${info.latestVersion} is available. You are on ${info.currentVersion}."
+                    "Kaavalan note ${info.latestVersion} is available. You are on ${info.currentVersion}."
                 is com.kaavalan.note.data.update.UpdateChecker.UpdateInfo.Unavailable ->
                     "Could not reach the update server. Try again later."
             }
@@ -867,7 +868,7 @@ fun SettingsSheet(
             // v1.9.0 (PROD-READINESS-P3-P1-#4): the
             // support row. Tapping it opens the
             // system email composer with a
-            // pre-filled subject (Kaavalan {version}
+            // pre-filled subject (Kaavalan note {version}
             // support) and body (version + device
             // + Android). The row uses
             // [androidx.compose.ui.platform.LocalContext]

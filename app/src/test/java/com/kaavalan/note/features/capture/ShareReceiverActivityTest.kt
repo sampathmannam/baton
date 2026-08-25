@@ -100,7 +100,7 @@ class ShareReceiverActivityTest {
     @Test
     fun `translucent theme file is on the source classpath`() {
         // The manifest's <activity-alias> declares
-        // android:theme="@style/Theme.Kaavalan.Translucent.NoDisplay".
+        // android:theme="@style/Theme.KaavalanNote.Translucent.NoDisplay".
         // If a future commit drops the theme, the activity
         // flashes white on a share intent. We check the
         // themes.xml file directly (the R class is
@@ -113,8 +113,8 @@ class ShareReceiverActivityTest {
         )
         val contents = themesFile.readText()
         assertTrue(
-            "themes.xml must declare Theme.Kaavalan.Translucent.NoDisplay",
-            "Theme.Kaavalan.Translucent.NoDisplay" in contents,
+            "themes.xml must declare Theme.KaavalanNote.Translucent.NoDisplay",
+            "Theme.KaavalanNote.Translucent.NoDisplay" in contents,
         )
     }
 }

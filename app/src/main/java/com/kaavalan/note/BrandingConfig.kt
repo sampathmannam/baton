@@ -34,7 +34,7 @@ import android.content.Context
  * **No persistence.** Branding is a build-time concern, not
  * a user preference. Switching brands means rebuilding the
  * APK, not flipping a Settings toggle. (A future build-flavor
- * "Demo" can set `brand.name="Kaavalan — Demo"` to make
+ * "Demo" can set `brand.name="Kaavalan note — Demo"` to make
  * screenshots / QA demo builds self-identify.)
  */
 data class BrandingConfig(

@@ -17,7 +17,7 @@ import androidx.core.view.WindowCompat
  * palette (the same tokens the dark scheme uses) now backs
  * the light scheme too. No red anywhere.
  */
-private val KaavalanLightScheme = lightColorScheme(
+private val KaavalanNoteLightScheme = lightColorScheme(
     primary = KaavalanColors.Primary,
     onPrimary = KaavalanColors.OnPrimary,
     background = KaavalanColors.Background,
@@ -30,7 +30,7 @@ private val KaavalanLightScheme = lightColorScheme(
     outlineVariant = KaavalanColors.OutlineMuted,
 )
 
-private val KaavalanDarkScheme = darkColorScheme(
+private val KaavalanNoteDarkScheme = darkColorScheme(
     primary = KaavalanColors.Primary,
     onPrimary = KaavalanColors.OnPrimary,
     background = Color(0xFF1A1714),
@@ -56,7 +56,7 @@ fun KaavalanNoteTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colourScheme = if (darkTheme) KaavalanDarkScheme else KaavalanLightScheme
+    val colourScheme = if (darkTheme) KaavalanNoteDarkScheme else KaavalanNoteLightScheme
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

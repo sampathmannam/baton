@@ -7,7 +7,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
 /**
- * Kaavalan design tokens. Per spec §3: no red "overdue" colour anywhere.
+ * Kaavalan note design tokens. Per spec §3: no red "overdue" colour anywhere.
  * "Quiet" / "stale" surfaces use a soft amber, not red.
  *
  * v1.6.8: added Light/Dark pairs for the colors that were wrong

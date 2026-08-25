@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
  * 4 steps in a Compose `HorizontalPager`:
  *  1. Welcome — short hero + the K+dot icon.
  *  2. Privacy — "your data lives only here" + 3 plain lines.
- *  3. How Kaavalan is different — the v1.9.0 "Kaavalan is not a
+ *  3. How Kaavalan note is different — the v1.9.0 "Kaavalan note is not a
  *     notes app" explainer (3 short bullet rows). The
  *     strings (`onboarding_screen_1_*` .. `onboarding_screen_4_*`)
  *     shipped in v1.9.0 but were never wired into the
@@ -205,7 +205,7 @@ private fun WelcomePage() {
         // with the new 05-shieldmark adaptive foreground. The
         // brand mark on the onboarding now matches the launcher
         // icon. The cream background of the shield is the
-        // Kaavalan brand surface; we render the shield on its
+        // Kaavalan note brand surface; we render the shield on its
         // native background (no clip / circle) so the W
         // cutout is visible.
         androidx.compose.foundation.Image(
@@ -345,7 +345,7 @@ private fun GetStartedPage(
 }
 
 /**
- * v1.9.1 (PROD-READINESS-P3-P0-#9 wiring): the "Kaavalan is not
+ * v1.9.1 (PROD-READINESS-P3-P0-#9 wiring): the "Kaavalan note is not
  * a notes app" explainer page. This is the v1.9.0
  * `onboarding_title` + `onboarding_subtitle` content rendered
  * inside the first-run pager rather than as a separate

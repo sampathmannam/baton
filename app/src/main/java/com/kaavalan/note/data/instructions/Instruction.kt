@@ -40,6 +40,12 @@ data class Instruction(
     // v1.1: lifecycle fields. Set by markDone / markDropped.
     @SerialName("completed_at") val completedAt: String? = null,
     @SerialName("dropped_reason") val droppedReason: String? = null,
+    // v2.0 (Hierarchy): the audience pointer. See [AudienceRef].
+    @SerialName("audience") val audience: AudienceRef? = null,
+    // v2.0 (Hierarchy): manual due-chip (epoch millis).
+    @SerialName("due_at_ms") val dueAtMs: Long? = null,
+    // v2.0 (Hierarchy): outbound delivery channel.
+    @SerialName("channel") val channel: String? = null,
 )
 
 /** Wire values match the `instruction_direction` Postgres enum. */

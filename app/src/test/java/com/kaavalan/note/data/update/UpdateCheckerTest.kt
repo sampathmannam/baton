@@ -106,7 +106,7 @@ class UpdateCheckerTest {
                 "tag_name": "$tag",
                 "html_url": "https://github.com/sampathmannam/kaavalan-note/releases/tag/$tag",
                 "published_at": "2026-08-21T00:00:00Z",
-                "name": "Kaavalan $tag",
+                "name": "Kaavalan note $tag",
                 "prerelease": false,
                 "draft": false
             }

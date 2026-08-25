@@ -74,7 +74,7 @@ import javax.inject.Inject
  * shows up immediately in the app's Home → Recent Captures feed; the
  * existing v1.9.9 atomic-create guarantees the row + sync-queue
  * entry are committed together (or both rolled back on process
- * death). No Supabase call — Kaavalan's offline-first threat model means
+ * death). No Supabase call — app's offline-first threat model means
  * the capture lives in the local SQLCipher DB until the next sync
  * window.
  *

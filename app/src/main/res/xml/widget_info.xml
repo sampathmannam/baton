@@ -3,7 +3,7 @@
   AppWidgetProviderInfo for KaavalanCaptureWidget.
 
   minWidth/minHeight: 110dp x 110dp is the smallest cell that still
-  shows the mic button + "Kaavalan" label clearly on most launchers.
+  shows the mic button + "Kaavalan note" label clearly on most launchers.
   minResizeWidth/Height: lets the user shrink to a 2x1 cell.
 
   widgetCategory: home_screen only on M2 (keyguard/lock-screen widget

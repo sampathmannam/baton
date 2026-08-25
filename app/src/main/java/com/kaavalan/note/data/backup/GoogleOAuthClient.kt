@@ -74,7 +74,7 @@ import javax.inject.Singleton
  *     (or if the file is missing — which means the
  *     legitimate flow already consumed it). A
  *     malicious `am start -a android.intent.action.VIEW
- *     -d "kaavalan-note://oauth-callback?code=ATTACKER_CODE"`
+ *     -d kaavalan-note://oauth-callback?code=ATTACKER_CODE"`
  *     fires the activity but the state file is absent
  *     (or already consumed) so the exchange is
  *     rejected.
@@ -154,7 +154,7 @@ class GoogleOAuthClient @Inject constructor(
         // `state` parameter + PKCE (S256). Without these,
         // any installed app on the device can fire
         // `kaavalan-note://oauth-callback?code=ATTACKER_CODE` and
-        // have Kaavalan exchange the attacker's auth code
+        // have Kaavalan note exchange the attacker's auth code
         // for a real access + refresh token (the
         // settings sheet will then show "Signed in as
         // attacker@evil.com" and every Drive backup

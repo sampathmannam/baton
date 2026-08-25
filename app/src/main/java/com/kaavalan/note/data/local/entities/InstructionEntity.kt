@@ -33,6 +33,10 @@ import androidx.room.PrimaryKey
         Index(value = ["dueAt"]),
         Index(value = ["syncStatus"]),
         Index(value = ["urgency"]),
+        Index(value = ["audienceKind"]),
+        Index(value = ["audienceTarget"]),
+        Index(value = ["dueAtMs"]),
+        Index(value = ["channel"]),
     ],
 )
 data class InstructionEntity(
@@ -69,4 +73,21 @@ data class InstructionEntity(
     // v2.0 Tier 2 (§2.10): if urgency == "worry_with_date", the
     // epoch-day on which the user wants to revisit the worry.
     val reviewAtEpochDay: Long? = null,
+    // v2.0 (Hierarchy): the audience pointer denormalised onto the
+    // row. See [com.kaavalan.note.data.instructions.AudienceRef].
+    // The four columns together reconstruct the sealed type
+    // (PERSON | DESIGNATION | STATION | ALL); `audienceIsBroadcast`
+    // is true for the three non-PERSON variants. All four are
+    // `null` for the pre-v2.0 single-person case (the [personId]
+    // is the only audience).
+    val audienceKind: String? = null,
+    val audienceTarget: String? = null,
+    val audienceLabel: String? = null,
+    val audienceIsBroadcast: Boolean = false,
+    // v2.0 (Hierarchy): manual due-chip (epoch millis). Independent
+    // of the LLM's [dueAt] ISO string.
+    val dueAtMs: Long? = null,
+    // v2.0 (Hierarchy): outbound delivery channel (SMS / WHATSAPP
+    // / "SMS,WHATSAPP" for both). `null` = "no dispatch attempted".
+    val channel: String? = null,
 )

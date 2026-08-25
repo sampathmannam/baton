@@ -204,7 +204,7 @@ class BackupCrypto @Inject constructor() {
     }
 
     companion object {
-        // "BTV1" — Kaavalan encrypted-backup Version 1
+        // "BTV1" — Kaavalan note encrypted-backup Version 1
         // (v2.1.0 / v2.1.1's original format). Kept
         // here so [decrypt] can recognise + restore
         // old backups. The 'B' = 0x42, 'T' = 0x54,

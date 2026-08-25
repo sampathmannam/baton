@@ -117,7 +117,7 @@ class BackupCryptoTest {
         // valid byte, but not 'B').
         val bad = good.copyOf()
         bad[0] = 0xFF.toByte()
-        val ex = assertThrows(IllegalStateException::class.java) {
+        val ex = assertThrows(IllegalArgumentException::class.java) {
             crypto.decrypt(bad, "pass".toCharArray())
         }
         assertTrue(

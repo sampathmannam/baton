@@ -70,7 +70,7 @@ class RoomCaptureRepositoryTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         // v1.4.4: RoomCaptureRepository.create() and markProcessed()
         // now call WorkManagerInitializer.enqueueCaptureSync(context)
-        // after enqueuing the sync_queue row. Kaavalan disables
+        // after enqueuing the sync_queue row. Kaavalan note disables
         // WorkManager's auto-init ContentProvider in the manifest
         // (see tools:node="remove" on
         // androidx.work.WorkManagerInitializer in AndroidManifest.xml)

@@ -39,7 +39,7 @@ class VaultCryptoTest {
         val key = crypto.generateKeyForTest()
         val secretKey = SecretKeySpec(key, "AES")
         val iv = crypto.generateIv()
-        val plaintext = "Kaavalan note -- the Kaavalan guardian's quiet half.".toByteArray(Charsets.UTF_8)
+        val plaintext = "Kaavalan note -- the Kaavalan note guardian's quiet half.".toByteArray(Charsets.UTF_8)
         val aad = "header-bytes-as-aad".toByteArray(Charsets.UTF_8)
         val ciphertext = crypto.encrypt(secretKey, iv, plaintext, aad)
         val decrypted = crypto.decrypt(secretKey, iv, ciphertext, aad)

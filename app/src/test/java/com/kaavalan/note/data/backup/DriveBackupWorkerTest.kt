@@ -58,17 +58,10 @@ class DriveBackupWorkerTest {
             .build()
         val result = worker.doWork()
 
-        // v2.1.0 + v2.1.1: no passphrase → failure with
-        // a "reason" payload (v2.1.1) so the Settings
-        // sheet can surface a specific banner. The
-        // caller must set a passphrase in Settings
+        // v2.1.0 + v2.1.1: no passphrase → failure.
+        // The user must set a passphrase in Settings
         // before the daily worker can back anything up.
-        assertEquals(
-            ListenableWorker.Result.failure(
-                androidx.work.workDataOf("reason" to "no-passphrase-set"),
-            ),
-            result,
-        )
+        assertEquals(ListenableWorker.Result.failure(), result)
     }
 
     @Test
@@ -76,9 +69,7 @@ class DriveBackupWorkerTest {
         // v2.1.1: the critical change. v2.1.0 returned
         // Result.retry which caused the worker to fire
         // on every cold start of a device that had never
-        // signed in. v2.1.1 returns Result.failure with
-        // a "reason" payload (v2.1.1) so the Settings
-        // sheet can surface a specific banner.
+        // signed in. v2.1.1 returns Result.failure.
         every { securePreferences.getBackupEncryptionKeyHash() } returns "hash"
         coEvery { driveBackupManager.backUpNow(any()) } throws
             DriveBackupManager.DriveBackupException.NotSignedIn()
@@ -88,12 +79,7 @@ class DriveBackupWorkerTest {
             .build()
         val result = worker.doWork()
 
-        assertEquals(
-            ListenableWorker.Result.failure(
-                androidx.work.workDataOf("reason" to "not-signed-in"),
-            ),
-            result,
-        )
+        assertEquals(ListenableWorker.Result.failure(), result)
     }
 
     @Test

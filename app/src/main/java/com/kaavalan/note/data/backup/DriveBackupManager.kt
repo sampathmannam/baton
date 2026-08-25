@@ -21,7 +21,7 @@ import javax.inject.Singleton
  *  1. **Sign-in.** [GoogleOAuthClient] opens a Chrome
  *     Custom Tab to Google's OAuth page. The user
  *     signs in + grants the `drive.appdata` scope.
- *     Google redirects to a custom scheme Kaavalan
+ *     Google redirects to a custom scheme Kaavalan note
  *     catches; the auth code is exchanged for an
  *     access + refresh token. The refresh token is
  *     stored in `SecurePreferences`; the access token
@@ -101,7 +101,7 @@ class DriveBackupManager @Inject constructor(
     }
 
     /**
-     * List the existing Kaavalan backups in the user's
+     * List the existing Kaavalan note backups in the user's
      * `appDataFolder`, newest first. Same shape as
      * [com.kaavalan.note.data.export.BackupManager.listBackups].
      */
@@ -167,6 +167,6 @@ class DriveBackupManager @Inject constructor(
     }
 
     private companion object {
-        private const val TAG = "KaavalanDriveBackup"
+        private const val TAG = "KaavalanNoteDriveBackup"
     }
 }

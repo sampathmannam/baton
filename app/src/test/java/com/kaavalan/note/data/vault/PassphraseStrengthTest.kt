@@ -62,7 +62,7 @@ class PassphraseStrengthTest {
 
     @Test
     fun `mixed-case with symbols, length 16 -- score 4 (very strong)`() {
-        val s = scorer.score("MyKaavalanIs!Kaavalan")
+        val s = scorer.score("MyKaavalanNoteIs!Kaavalan")
         assertTrue("expected strong score, got $s", s >= 3)
     }
 

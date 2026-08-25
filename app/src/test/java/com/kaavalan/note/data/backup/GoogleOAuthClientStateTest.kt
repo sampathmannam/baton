@@ -42,7 +42,7 @@ import java.io.File
  * the `code_verifier` is the PKCE binding (RFC 7636).
  * Without these, any installed app on the device can fire
  * `kaavalan-note://oauth-callback?code=ATTACKER_CODE` and have
- * Kaavalan exchange the attacker's auth code.
+ * Kaavalan note exchange the attacker's auth code.
  *
  * Robolectric is used for the [Context] (the real Android
  * `filesDir` is internal). [SecurePreferences] is mocked

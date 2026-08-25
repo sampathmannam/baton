@@ -1361,7 +1361,7 @@ class SettingsViewModel @Inject constructor(
     /**
 
 
-     * Tier 0.6: compute the on-disk size of the Kaavalan note's
+     * Tier 0.6: compute the on-disk size of the app's
 
 
      * local data. The calculation sums:

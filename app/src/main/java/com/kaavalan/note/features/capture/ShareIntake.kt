@@ -6,7 +6,7 @@ import android.os.Build
 
 /**
  * M1-T7 / M2-T1 helper that extracts the shared payload from a SEND
- * intent. The user picks Kaavalan from another app's share sheet; the
+ * intent. The user picks Kaavalan note from another app's share sheet; the
  * system dispatches an `Intent(ACTION_SEND)` to our
  * `ShareReceiverActivity`. This object pulls the payload out and
  * validates the shape before we forward to MainActivity.
@@ -45,7 +45,7 @@ object ShareIntake {
 
     /**
      * Inspect [intent] and return the share payload, or `null` if
-     * the intent is not a valid Kaavalan share.
+     * the intent is not a valid Kaavalan note share.
      *
      *  - `ACTION_SEND` + `text/plain` + non-blank `EXTRA_TEXT`
      *    → `Result.Text(<text>)`

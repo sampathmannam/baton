@@ -42,7 +42,6 @@ class VaultCryptoCharArrayTest {
     private val crypto = VaultCrypto()
 
     @Test
-    @org.junit.Ignore("requires Argon2Kt native lib (JVM-only test runner); covered by androidTest")
     fun `deriveKey with a CharArray is deterministic for the same input`() {
         val salt = ByteArray(VaultCrypto.SALT_BYTES) { it.toByte() }
         val a = crypto.deriveKey("correct horse battery staple".toCharArray(), salt)
@@ -54,7 +53,6 @@ class VaultCryptoCharArrayTest {
     }
 
     @Test
-    @org.junit.Ignore("requires Argon2Kt native lib (JVM-only test runner); covered by androidTest")
     fun `deriveKey is sensitive to the passphrase`() {
         val salt = ByteArray(VaultCrypto.SALT_BYTES) { it.toByte() }
         val a = crypto.deriveKey("correct horse battery staple".toCharArray(), salt)
@@ -70,7 +68,6 @@ class VaultCryptoCharArrayTest {
     }
 
     @Test
-    @org.junit.Ignore("requires Argon2Kt native lib (JVM-only test runner); covered by androidTest")
     fun `deriveKey is sensitive to the salt`() {
         val saltA = ByteArray(VaultCrypto.SALT_BYTES) { 0x00 }
         val saltB = ByteArray(VaultCrypto.SALT_BYTES) { 0x01 }
@@ -84,7 +81,6 @@ class VaultCryptoCharArrayTest {
     }
 
     @Test
-    @org.junit.Ignore("requires Argon2Kt native lib (JVM-only test runner); covered by androidTest")
     fun `deriveKey rejects a wrong-sized salt`() {
         val badSalt = ByteArray(8) // not 16
         val ex = assertThrows(IllegalArgumentException::class.java) {
@@ -97,7 +93,6 @@ class VaultCryptoCharArrayTest {
     }
 
     @Test
-    @org.junit.Ignore("requires Argon2Kt native lib (JVM-only test runner); covered by androidTest")
     fun `CharArray and String-with-same-content produce the same key (wire-compat)`() {
         // v2.1.1: the KDF must accept the same byte
         // sequence whether it came in as a CharArray

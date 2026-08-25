@@ -28,7 +28,7 @@ import javax.inject.Singleton
  * here so the fixture's UUIDs and timestamps are preserved
  * verbatim — the repositories would re-stamp both).
  *
- * **Scope.** This is private R&D. The Kaavalan app has a single
+ * **Scope.** This is private R&D. The Kaavalan note app has a single
  * user (the project owner) and zero Supabase connectivity in
  * vault mode. The fixture exists to drive a UI/UX review on the
  * phone with realistic data without typing it in by hand.

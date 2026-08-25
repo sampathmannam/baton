@@ -304,7 +304,7 @@ class VoiceCaptureService : Service() {
     }
 
     companion object {
-        private const val TAG = "KaavalanVoice"
+        private const val TAG = "KaavalanNoteVoice"
 
         // v1.6.1: belt-and-suspenders teardown timeout. If
         // the system SpeechRecognizer never fires its final

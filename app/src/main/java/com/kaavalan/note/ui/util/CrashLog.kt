@@ -142,7 +142,7 @@ object CrashLog {
         val sw = StringWriter()
         throwable.printStackTrace(PrintWriter(sw))
         return buildString {
-            appendLine("# Kaavalan crash log")
+            appendLine("# Kaavalan note crash log")
             appendLine("timestamp=$timestampStr")
             appendLine("app_version=${BuildConfig.VERSION_NAME}")
             appendLine("app_build=${BuildConfig.VERSION_CODE}")
