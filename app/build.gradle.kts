@@ -313,7 +313,7 @@ android {
         // ID. The v2.1.0/v2.1.1 code shipped a
         // placeholder ("KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER")
         // hard-coded in
-        // [com.baton.app.data.backup.GoogleOAuthClient].
+        // [com.kaavalan.note.data.backup.GoogleOAuthClient].
         // The placeholder fails Google's token exchange
         // with `400 invalid_client`; the user must set
         // a real client ID from the Google Cloud Console
