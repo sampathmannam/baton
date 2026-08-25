@@ -91,6 +91,8 @@ google-services.json
 /ui-*.xml
 /ui.xml
 /ui_*.xml
+/_ui*.xml
+/_verify_*.xml
 /v170_*.xml
 /ui_v171*.xml
 /ui_v172*.xml
@@ -102,6 +104,9 @@ google-services.json
 /m[0-9]-*.png
 /m[0-9]-*.xml
 /baton-*.png
+# v1.6.1 dev scratchpads (untracked 2026-08-25 hygiene pass; contents
+# kept on disk for reference but no longer carried in git).
+/logs/
 # v1.7.2: ad-hoc drive-verify helper scripts (Python one-liners
 # used during the critique walkthrough). Re-runnable from the
 # repo root (`python parse-ui.py ui_v172_*.xml`).
