@@ -213,7 +213,14 @@ class AccessibilityContentDescriptionTest {
      * visible text.
      */
     private fun findCallSites(file: File): List<CallSite> {
-        val text = file.readText()
+        // v2.0 (Hierarchy): strip comments before scanning so the
+        // regex doesn't false-positive on `Surface(onClick = …)`
+        // mentioned in a trailing comment (e.g. DueChip.kt line 37
+        // explains the propagation guard with a Surface call name
+        // in a `//` line — a real bug-fix that added a brand-new
+        // a11y label is a much more important thing for this test
+        // to keep catching, and the comment-match was masking it).
+        val text = stripComments(file.readText())
         val sites = mutableListOf<CallSite>()
 
         // Button / IconButton / *Chip
@@ -264,6 +271,44 @@ class AccessibilityContentDescriptionTest {
         }
 
         return sites
+    }
+
+    /**
+     * Replace single-line (`// ...`) and block (`/* ... */`)
+     * comments with whitespace of equal length so byte offsets
+     * reported to [lineNumberAt] still match the original file.
+     * String literals are not stripped — the source is Kotlin
+     * so a `//` inside a `String` would not start a comment
+     * anyway, and we don't want to over-engineer this.
+     */
+    private fun stripComments(text: String): String {
+        val out = CharArray(text.length) { ' ' }
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            val n = text.getOrNull(i + 1)
+            if (c == '/' && n == '/') {
+                // single-line comment until newline
+                while (i < text.length && text[i] != '\n') { out[i] = ' '; i++ }
+            } else if (c == '/' && n == '*') {
+                // block comment; preserve newlines for line numbers
+                out[i] = ' '; out[i + 1] = ' '
+                i += 2
+                while (i < text.length) {
+                    if (text[i] == '*' && text.getOrNull(i + 1) == '/') {
+                        out[i] = ' '; out[i + 1] = ' '
+                        i += 2
+                        break
+                    }
+                    out[i] = if (text[i] == '\n') '\n' else ' '
+                    i++
+                }
+            } else {
+                out[i] = c
+                i++
+            }
+        }
+        return String(out)
     }
 
     /**
