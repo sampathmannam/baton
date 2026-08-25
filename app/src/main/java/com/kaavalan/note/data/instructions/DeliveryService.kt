@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.telephony.PhoneNumberUtils
+import android.telephony.TelephonyManager
 import android.util.Log
 import com.kaavalan.note.data.local.DeliveryReceiptDao
 import com.kaavalan.note.data.local.entities.DeliveryReceiptEntity
@@ -40,10 +41,11 @@ open class DeliveryService @Inject constructor(@ApplicationContext private val c
         // `https://wa.me/<number>` only routes to a contact when `<number>` is in
         // E.164 format (e.g. `919876543210` for India). Contacts frequently store
         // local numbers without the country code (`9876543210`), so normalise
-        // before building the URL. `PhoneNumberUtils` is locale-aware; on
-        // Android 12+ it needs a `defaultCountryIso`, which we derive from
-        // the SIM's network country (falls back to "IN" — the deployment's
-        // primary market per AGENTS.md §3.1).
+        // before building the URL. `PhoneNumberUtils.formatNumberToE164`
+        // requires a `defaultCountryIso`; we resolve it from the SIM/network
+        // country (most accurate for the user's home country), then the
+        // system locale, then fall back to "IN" — the deployment's primary
+        // market per AGENTS.md §3.1.
         val e164 = normaliseToE164(phone)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$e164?text=" + Uri.encode(body))).apply { setPackage("com.whatsapp"); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
         return fireIntent(intent)
@@ -51,12 +53,40 @@ open class DeliveryService @Inject constructor(@ApplicationContext private val c
     private fun normaliseToE164(phone: String): String {
         val digits = phone.filter { it.isDigit() || it == '+' }
         if (digits.startsWith("+")) return digits.drop(1) // wa.me expects digits-only after the country code
-        val countryIso = context.resources.configuration.locales[0].country.uppercase().ifBlank { "IN" }
+        val countryIso = resolveCountryIso()
+        if (countryIso.isBlank()) return digits
         return try {
-            PhoneNumberUtils.formatNumberToE164(digits, if (countryIso.length == 2) countryIso else "IN") ?: digits
-        } catch (_: Throwable) {
+            PhoneNumberUtils.formatNumberToE164(digits, countryIso) ?: digits
+        } catch (e: IllegalArgumentException) {
+            // PhoneNumberUtils throws IAE for unparseable numbers (e.g. too
+            // short, wrong digit count). Surface the original local
+            // format so the dispatch still fires; the WhatsApp lookup
+            // will just fail to resolve and we record a clear FAILED
+            // receipt downstream.
+            Log.d("DeliveryService", "formatNumberToE164 failed for $phone (country=$countryIso)", e)
             digits
         }
+    }
+    /**
+     * Country-code resolution order: SIM (most accurate for the home
+     * country) > network (the country the device is currently attached
+     * to) > system locale (the user's preferred UI language) > the
+     * deployment's primary market ("IN" per AGENTS.md §3.1).
+     *
+     * `TelephonyManager` is safe to instantiate without READ_PHONE_STATE;
+     * both `getSimCountryIso()` and `getNetworkCountryIso()` return "" on
+     * missing SIM / no service. We do NOT call `READ_PHONE_STATE`-gated
+     * APIs.
+     */
+    private fun resolveCountryIso(): String {
+        val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+        val fromSim = tm?.simCountryIso?.uppercase().orEmpty()
+        if (fromSim.isNotBlank()) return fromSim
+        val fromNetwork = tm?.networkCountryIso?.uppercase().orEmpty()
+        if (fromNetwork.isNotBlank()) return fromNetwork
+        val fromLocale = context.resources.configuration.locales[0].country.uppercase()
+        if (fromLocale.isNotBlank()) return fromLocale
+        return "IN"
     }
     private fun channelFailureReason(channel: Channel, phone: String): String = when (channel) {
         Channel.WHATSAPP -> "WhatsApp not reachable at $phone (check E.164 country code)"
