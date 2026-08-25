@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.data.instructions.toDomain
 import com.kaavalan.note.data.local.InstructionDao
-import com.kaavalan.note.data.local.InstructionTagDao
 import com.kaavalan.note.data.local.PersonStaleAge
 import com.kaavalan.note.data.local.RoomPersonRepository
 import com.kaavalan.note.data.local.TagDao
@@ -29,7 +28,6 @@ class HomeViewModel @Inject constructor(
     private val personRepository: RoomPersonRepository,
     private val instructionDao: InstructionDao,
     private val tagDao: TagDao,
-    private val instructionTagDao: InstructionTagDao,
     private val tagRepository: RoomTagRepository,
     private val vaultModeHolder: VaultModeHolder,
 ) : ViewModel() {
@@ -47,7 +45,7 @@ class HomeViewModel @Inject constructor(
                         instructionDao.observeStaleByPerson(),
                         instructionDao.observeOutgoingOpen(),
                         instructionDao.observeIncomingOpen(),
-                        tagDao.observeAll().map { it.take(20).map { e -> TagCount(e.id, e.name, e.usageCount) } },
+                        tagDao.observeTop(20).map { it.map { e -> TagCount(e.id, e.name, e.usageCount) } },
                     ) { values ->
                         val persons = values[0] as List<com.kaavalan.note.data.person.Person>
                         @Suppress("UNCHECKED_CAST")

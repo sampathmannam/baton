@@ -816,6 +816,8 @@
     <string name="hierarchy_tag_chip_count">%1$d</string>
     <string name="hierarchy_inbound_draft_title">Draft from inbound</string>
     <string name="hierarchy_inbound_draft_save">Save as outgoing</string>
+    <string name="hierarchy_inbound_draft_title_label">Title</string>
+    <string name="hierarchy_inbound_draft_body_label">Body</string>
 </resources>
 
 

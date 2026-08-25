@@ -27,7 +27,24 @@ object MentionAndTagParser {
         return ParseResult(body, tokens, mentions, hashtags)
     }
     private fun scanToken(body: String, start: Int): Int { var i = start; while (i < body.length && !body[i].isWhitespace()) { if (body[i] == ':' && i > start) { i++; while (i < body.length && !body[i].isWhitespace()) i++; return i }; i++ }; return i }
-    private fun classifyMention(raw: String): Mention { val payload = raw.substring(1); val lower = payload.lowercase(); return when { lower == "all" -> Mention(raw, Mention.Prefix.ALL, "all"); lower.startsWith("station:") -> Mention(raw, Mention.Prefix.STATION, lower.removePrefix("station:")); KNOWN_DESIGNATIONS.contains(lower) -> Mention(raw, Mention.Prefix.DESIGNATION, lower); else -> Mention(raw, Mention.Prefix.NAME, lower) } }
+    private fun classifyMention(raw: String): Mention {
+        val payload = raw.substring(1)
+        val lower = payload.lowercase()
+        // Reject multi-colon station mentions like `@station:Red:Hills`.
+        // A single colon is the documented format; two or more colons
+        // is almost certainly a typo (e.g. the user typed `:name:` in
+        // the middle of a station name). Treating it as NAME keeps the
+        // mention visible in the UI without silently sending the
+        // broadcast to the wrong station.
+        val stationPayload = lower.removePrefix("station:")
+        return when {
+            lower == "all" -> Mention(raw, Mention.Prefix.ALL, "all")
+            lower.startsWith("station:") && !stationPayload.contains(':') ->
+                Mention(raw, Mention.Prefix.STATION, stationPayload)
+            KNOWN_DESIGNATIONS.contains(lower) -> Mention(raw, Mention.Prefix.DESIGNATION, lower)
+            else -> Mention(raw, Mention.Prefix.NAME, lower)
+        }
+    }
     val KNOWN_DESIGNATIONS: Set<String> = setOf("inspector", "si", "asi", "sho", "hc", "head constable", "constable", "sp", "superintendent", "dig", "ig", "addl sp", "additional sp", "dsp", "asp", "sub-inspector")
     private val TRAILING_PUNCTUATION = charArrayOf(',', '.', '!', '?', ';', ':', '\n', '\r')
 }

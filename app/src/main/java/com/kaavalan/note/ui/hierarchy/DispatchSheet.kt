@@ -34,16 +34,32 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
                 enabled = state.audience != null && state.recipientCount > 0,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Icon(Icons.Default.Send, contentDescription = null)
-                Text("  " + stringResource(R.string.hierarchy_dispatch_title))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Send, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.hierarchy_dispatch_title))
+                }
             }
             state.lastResult?.let { r ->
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text = if (r.failed == 0) stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) else stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) + " (${r.failed} failed)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (r.failed == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                )
+                // Three states, not two: fully-sent (sent > 0, failed == 0),
+                // partial-failure (failed > 0, sent > 0), and fully-failed
+                // (sent == 0, failed > 0). The original `if (r.failed == 0)`
+                // collapsed the last two into "X of Y delivered" with the
+                // success colour, which is misleading when nothing was
+                // actually delivered (e.g. every recipient had no phone
+                // number on file).
+                val color = when {
+                    r.failed == 0 -> MaterialTheme.colorScheme.primary
+                    r.sent == 0 -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.tertiary
+                }
+                val text = when {
+                    r.failed == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients)
+                    r.sent == 0 -> "0 of ${r.recipients} delivered (${r.failed} failed)"
+                    else -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) + " (${r.failed} failed)"
+                }
+                Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
             }
             Spacer(Modifier.height(24.dp))
         }

@@ -29,7 +29,13 @@ fun DueChip(dueAtMs: Long?, onSet: (Long?) -> Unit, modifier: Modifier = Modifie
             onClick = { pickerOpen = true },
             label = { Text(label) },
             leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(AssistChipDefaults.IconSize)) },
-            trailingIcon = if (dueAtMs != null) { { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.hierarchy_due_chip_clear), modifier = Modifier.size(AssistChipDefaults.IconSize).clickable { onSet(null) }) } } else null,
+            // Wrap the clear icon in a `Box.clickable` so the click
+            // event is consumed by the icon's own handler (`onSet(null)`)
+            // and does NOT propagate to the parent chip's `onClick`
+            // (which would also open the date picker). On its own
+            // `Modifier.clickable` on an `Icon` does not always stop
+            // propagation through a `Surface(onClick = ...)` parent.
+            trailingIcon = if (dueAtMs != null) { { Box(modifier = Modifier.size(AssistChipDefaults.IconSize + 8.dp).clickable { onSet(null) }, contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.hierarchy_due_chip_clear), modifier = Modifier.size(AssistChipDefaults.IconSize)) } } } else null,
         )
     }
     if (pickerOpen) {

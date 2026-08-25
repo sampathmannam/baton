@@ -10,4 +10,5 @@ class MentionAndTagParserTest {
     @Test fun `at-all broadcast mention`() { val r = MentionAndTagParser.parse("Roll call for @all at 0900"); assertEquals(1, r.mentions.size); assertEquals("all", r.mentions[0].payload); assertEquals(MentionAndTagParser.Mention.Prefix.ALL, r.mentions[0].prefix) }
     @Test fun `hashtags are extracted lowercase`() { val r = MentionAndTagParser.parse("Please #BudgetReview and #FIR-2026 today"); assertEquals(2, r.hashtags.size); assertEquals("budgetreview", r.hashtags[0]); assertEquals("fir-2026", r.hashtags[1]) }
     @Test fun `email is not treated as a mention`() { val r = MentionAndTagParser.parse("Email user@example.com about the case"); assertTrue(r.mentions.isEmpty()) }
+    @Test fun `multi-colon station mention is treated as NAME`() { val r = MentionAndTagParser.parse("Dispatch to @station:Red:Hills now"); assertEquals(1, r.mentions.size); assertEquals(MentionAndTagParser.Mention.Prefix.NAME, r.mentions[0].prefix); assertEquals("station:red:hills", r.mentions[0].payload) }
 }

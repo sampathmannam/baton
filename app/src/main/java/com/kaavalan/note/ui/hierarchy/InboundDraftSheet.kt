@@ -18,9 +18,9 @@ fun InboundDraftSheet(inboundTitle: String, inboundRawText: String, onSaveAsOutg
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(stringResource(R.string.hierarchy_inbound_draft_title), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.hierarchy_inbound_draft_title_label)) }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = rawText, onValueChange = { rawText = it }, label = { Text("Body") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 10)
+            OutlinedTextField(value = rawText, onValueChange = { rawText = it }, label = { Text(stringResource(R.string.hierarchy_inbound_draft_body_label)) }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 10)
             Spacer(Modifier.height(16.dp))
             Button(onClick = { onSaveAsOutgoing(title, rawText) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.hierarchy_inbound_draft_save)) }
             Spacer(Modifier.height(24.dp))

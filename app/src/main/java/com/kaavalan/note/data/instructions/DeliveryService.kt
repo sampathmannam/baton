@@ -36,7 +36,17 @@ open class DeliveryService @Inject constructor(@ApplicationContext private val c
         }
         return Result(recipients.size, sent, failed)
     }
-    private fun sendSms(phone: String, body: String): Boolean { val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone")).apply { putExtra("sms_body", body); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }; return fireIntent(intent) }
+    private fun sendSms(phone: String, body: String): Boolean {
+        // Apply the same E.164 normalisation as the WhatsApp path: a
+        // local number like `9876543210` silently fails to dispatch on
+        // some carriers / dual-SIM setups (common in India per AGENTS.md
+        // §3.1). The `smsto:` URI accepts both E.164 and the local form,
+        // but normalising at the entry point keeps the two channels in
+        // lockstep.
+        val e164 = normaliseToE164(phone)
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$e164")).apply { putExtra("sms_body", body); addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        return fireIntent(intent)
+    }
     private fun sendWhatsApp(phone: String, body: String): Boolean {
         // `https://wa.me/<number>` only routes to a contact when `<number>` is in
         // E.164 format (e.g. `919876543210` for India). Contacts frequently store
