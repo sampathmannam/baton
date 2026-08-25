@@ -52,7 +52,7 @@ private val KaavalanDarkScheme = darkColorScheme(
  * without an app restart.
  */
 @Composable
-fun KaavalanTheme(
+fun KaavalanNoteTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {

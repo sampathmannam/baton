@@ -30,7 +30,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.BuildConfig
 import com.kaavalan.note.data.preferences.KaavalanPreferences
-import com.kaavalan.note.ui.theme.KaavalanTheme
+import com.kaavalan.note.ui.theme.KaavalanNoteTheme
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
