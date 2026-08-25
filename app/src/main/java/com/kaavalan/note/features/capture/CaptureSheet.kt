@@ -5,16 +5,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -72,7 +67,19 @@ import com.kaavalan.note.features.tags.TagPicker
 @Composable
 fun CaptureSheet(
     viewModel: CaptureViewModel,
-    sheetState: SheetState = rememberModalBottomSheetState(),
+    // v2.1.2 (P1-#2): skip the partially-expanded state so
+    // the sheet has enough vertical room to keep the bottom
+    // Save button above the IME. The previous default left
+    // the sheet at ~50% height; when the keyboard opened the
+    // sheet's content area was smaller than the column, so
+    // the fixed-bottom Save button got clipped behind the
+    // keyboard regardless of `imePadding()`. Going straight
+    // to fully expanded gives the column its full content
+    // area, and the `imePadding()` on the outer column then
+    // pushes the Save button above the keyboard reliably.
+    sheetState: SheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+    ),
     onDismiss: () -> Unit,
     onOpenAddPerson: () -> Unit = {},
 ) {
@@ -189,88 +196,105 @@ private fun CaptureSheetContent(
     onSaveRaw: () -> Unit = { },
     onOpenAddPerson: () -> Unit = {},
 ) {
-    // v1.5.5 (QA): the sheet content can overflow the
-    // visible height when the NoPeopleCard + a long
-    // TextField + the TagPicker + a Save button are all
-    // visible at the same time. Without `verticalScroll`
-    // the buttons at the bottom are pushed below the
-    // screen edge. The scroll keeps the existing top-down
-    // layout. The keyboard-aware `imePadding` on the
-    // primary-action column still keeps the buttons
-    // above the soft keyboard.
+    // v2.1.2 (P1-#2): the sheet content is split into a
+    // scrollable body and a fixed bottom action bar. The
+    // previous single-Column-with-verticalScroll design put
+    // the Save button at the bottom of the scrollable
+    // content; when the IME opened, `verticalScroll`
+    // scrolled to keep the Note field visible and pushed
+    // the Save button off-screen below the keyboard. A
+    // user who tapped where Save used to be (the bottom
+    // of the visible sheet) hit the Note field instead.
+    // The fix lifts the PrimaryAction out of the
+    // scrollable area and pins it above the IME via
+    // `imePadding()` on the outer Column (the
+    // `ModalBottomSheet` doesn't apply the IME insets to
+    // its content by default, so the inset has to be
+    // applied here for the bottom action bar to clear the
+    // keyboard). The scrollable body keeps the existing
+    // `verticalScroll` so overflow (NoPeopleCard + long
+    // text + tag picker + calendar toggle) still scrolls
+    // inside the sheet.
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .imePadding(),
     ) {
-        SheetHeader(onClose = onClose)
-        // v1.4 (PHONE-FINDING-8): brand-new users have no
-        // people, so the capture sheet is unusable. The
-        // inline surfaceVariant card sits at the top with
-        // the exact next action ("Add person"). The card
-        // is non-dismissive (X / scrim / BACK still close
-        // the sheet as normal) -- the user can keep typing,
-        // just not save, until they've added a person. The
-        // "Add person" button on the card calls
-        // [onOpenAddPerson], the same entry point the Home
-        // screen uses. The surfaceVariant colour is
-        // neutral grey (per the no-red rule).
-        if (!hasPeople) {
-            NoPeopleCard(onOpenAddPerson = onOpenAddPerson)
-        }
-        CaptureTextField(
-            text = state.text,
-            isSaving = state.isSaving,
-            onTextChanged = onTextChanged,
-        )
-        if (state.error != null) {
-            // v1.4 (PHONE-FINDING-7): the error is rendered
-            // in `onSurfaceVariant` (a neutral grey) -- NEVER
-            // `colorScheme.error` (bright red), which would
-            // be a spec §1 violation. The icon is
-            // `Icons.Outlined.Info` for the standard "I have
-            // something to tell you" cue.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = state.error!!,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SheetHeader(onClose = onClose)
+            // v1.4 (PHONE-FINDING-8): brand-new users have no
+            // people, so the capture sheet is unusable. The
+            // inline surfaceVariant card sits at the top with
+            // the exact next action ("Add person"). The card
+            // is non-dismissive (X / scrim / BACK still close
+            // the sheet as normal) -- the user can keep typing,
+            // just not save, until they've added a person. The
+            // "Add person" button on the card calls
+            // [onOpenAddPerson], the same entry point the Home
+            // screen uses. The surfaceVariant colour is
+            // neutral grey (per the no-red rule).
+            if (!hasPeople) {
+                NoPeopleCard(onOpenAddPerson = onOpenAddPerson)
             }
+            CaptureTextField(
+                text = state.text,
+                isSaving = state.isSaving,
+                onTextChanged = onTextChanged,
+            )
+            if (state.error != null) {
+                // v1.4 (PHONE-FINDING-7): the error is rendered
+                // in `onSurfaceVariant` (a neutral grey) -- NEVER
+                // `colorScheme.error` (bright red), which would
+                // be a spec §1 violation. The icon is
+                // `Icons.Outlined.Info` for the standard "I have
+                // something to tell you" cue.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Outlined.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = state.error!!,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            // M3-T7: tag picker sits below the text field. The
+            // user picks from the existing taxonomy or authors a
+            // free-form `#tag` on the fly. The state
+            // `availableTags` is observed from the VM's collect;
+            // `selectedTagIds` is the user's pre-save selection.
+            TagPicker(
+                available = state.availableTags,
+                selected = state.selectedTagIds,
+                onToggle = onTagToggled,
+                onAddFree = onAddFreeTag,
+            )
+            // M1-T6: the "Add to calendar" toggle. Lives next
+            // to the primary action so the user sees it before
+            // tapping Save. Defaults to off. The intent fires
+            // on Save (not on extract) so the user can attach
+            // a calendar event to any free-form note.
+            AddToCalendarRow(
+                addToCalendar = state.addToCalendar,
+                onAddToCalendarChange = onAddToCalendarChange,
+            )
         }
-        // M3-T7: tag picker sits below the text field. The
-        // user picks from the existing taxonomy or authors a
-        // free-form `#tag` on the fly. The state
-        // `availableTags` is observed from the VM's collect;
-        // `selectedTagIds` is the user's pre-save selection.
-        TagPicker(
-            available = state.availableTags,
-            selected = state.selectedTagIds,
-            onToggle = onTagToggled,
-            onAddFree = onAddFreeTag,
-        )
-        // M1-T6: the "Add to calendar" toggle. Lives next
-        // to the primary action so the user sees it before
-        // tapping Save. Defaults to off. The intent fires
-        // on Save (not on extract) so the user can attach
-        // a calendar event to any free-form note.
-        AddToCalendarRow(
-            addToCalendar = state.addToCalendar,
-            onAddToCalendarChange = onAddToCalendarChange,
-        )
         PrimaryAction(
             isSaving = state.isSaving,
             canSaveRaw = state.canSaveRaw,
@@ -278,6 +302,9 @@ private fun CaptureSheetContent(
             isVoiceRecording = isVoiceRecording,
             onStopVoice = onStopVoice,
             onSaveRaw = onSaveRaw,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
         )
     }
 }
@@ -358,18 +385,19 @@ private fun PrimaryAction(
     isVoiceRecording: Boolean = false,
     onStopVoice: () -> Unit = {},
     onSaveRaw: () -> Unit,
+    // v2.1.2 (P1-#2): the caller pins the PrimaryAction
+    // above the IME via `imePadding()`. The previous
+    // `windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))`
+    // lived INSIDE the scrollable content, so when the
+    // IME opened and the scroll kept the Note field
+    // visible, the Save button was scrolled off-screen
+    // below the keyboard. The caller now owns the inset
+    // handling because the action bar sits outside the
+    // scrollable area.
+    modifier: Modifier = Modifier,
 ) {
-    // v1.4 (PHONE-FINDING-9): respect both the soft
-    // keyboard (ime) and the system navigation/gesture bar
-    // (navigationBars). On 1264x2780 devices the Save
-    // button was being clipped by the gesture bar. The
-    // `union` covers the case where only the gesture bar
-    // is present (no keyboard) and the case where the
-    // keyboard is up.
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Tier 0.4: in-app stop-voice button. Renders
