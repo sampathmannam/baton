@@ -42,8 +42,8 @@ fun DueChip(dueAtMs: Long?, onSet: (Long?) -> Unit, modifier: Modifier = Modifie
         val state = rememberDatePickerState(initialSelectedDateMillis = dueAtMs ?: System.currentTimeMillis())
         DatePickerDialog(
             onDismissRequest = { pickerOpen = false },
-            confirmButton = { TextButton(onClick = { val ms = state.selectedDateMillis; if (ms != null) { val local: LocalDateTime = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate().atTime(12, 0); onSet(local.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()) }; pickerOpen = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { pickerOpen = false }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = { val ms = state.selectedDateMillis; if (ms != null) { val local: LocalDateTime = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate().atTime(12, 0); onSet(local.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()) }; pickerOpen = false }) { Text(stringResource(R.string.date_picker_ok)) } },
+            dismissButton = { TextButton(onClick = { pickerOpen = false }) { Text(stringResource(R.string.date_picker_cancel)) } },
         ) { Box(Modifier.padding(8.dp)) { DatePicker(state = state) } }
     }
 }

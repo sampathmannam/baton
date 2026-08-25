@@ -23,7 +23,7 @@ fun DispatchComposerSheet(initialText: String, senderName: String, senderDesigna
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(stringResource(R.string.hierarchy_audience_picker_title), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(value = rawText, onValueChange = { rawText = it }, label = { Text("Instruction") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 8)
+            OutlinedTextField(value = rawText, onValueChange = { rawText = it }, label = { Text(stringResource(R.string.hierarchy_instruction_label)) }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 8)
             Spacer(Modifier.height(12.dp))
             AssistChip(
                 onClick = { pickerOpen = true },
@@ -46,7 +46,7 @@ fun DispatchComposerSheet(initialText: String, senderName: String, senderDesigna
                 // on `rosterReady` so the entire flow stays consistent.
                 enabled = state.audience != null && rawText.isNotBlank() && state.rosterReady,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Next") }
+            ) { Text(stringResource(R.string.hierarchy_next_button)) }
             Spacer(Modifier.height(24.dp))
         }
     }

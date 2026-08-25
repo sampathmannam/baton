@@ -275,7 +275,7 @@ fun SyncConflictDiffScreen(
     if (showConfirm != null) {
         AlertDialog(
             onDismissRequest = { showConfirm = null },
-            title = { Text("Conflict resolution") },
+            title = { Text(stringResource(R.string.sync_conflict_resolve_title)) },
             text = {
                 Text(
                     "Cloud sync is not enabled in this build. " +
@@ -286,10 +286,10 @@ fun SyncConflictDiffScreen(
                 TextButton(onClick = {
                     showConfirm = null
                     onResolved()
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.sync_conflict_resolve_ok)) }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirm = null }) { Text("Cancel") }
+                TextButton(onClick = { showConfirm = null }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }

@@ -3,6 +3,7 @@ package com.kaavalan.note.ui.privacy
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import com.kaavalan.note.R
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
@@ -91,7 +92,7 @@ object RecoveryPdfGenerator {
         val margin = 36f  // 0.5 inch
         var y = margin + 22f
 
-        canvas.drawText("Kaavalan note — Recovery Sheet", margin, y, titlePaint)
+        canvas.drawText(context.getString(R.string.recovery_pdf_title), margin, y, titlePaint)
         y += 18f
         canvas.drawText(
             "Generated: ${LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)}",

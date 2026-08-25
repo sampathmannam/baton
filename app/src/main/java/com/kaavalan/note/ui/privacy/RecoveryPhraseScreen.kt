@@ -146,12 +146,13 @@ private fun DisplayStep(
     paddingValues: androidx.compose.foundation.layout.PaddingValues,
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val clipboardLabel = stringResource(R.string.recovery_clipboard_label)
     // v2.1.1 (security): clear the clipboard when the
     // user leaves the recovery-phrase screen, so the
     // 12 words don't sit in the system clipboard
     // indefinitely. The ClipData the [setPrimaryClip]
     // call below wrote has a known label
-    // ("Kaavalan note recovery phrase") and the same package
+    // (R.string.recovery_clipboard_label) and the same package
     // (this app), so we can identify + clear it
     // safely without wiping the user's other
     // clipboard content.
@@ -160,7 +161,7 @@ private fun DisplayStep(
             val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val current = cm.primaryClip
             if (current != null &&
-                current.description?.label == "Kaavalan note recovery phrase"
+                current.description?.label == clipboardLabel
             ) {
                 // Android 13+ supports clearPrimaryClip;
                 // on older versions the best we can do is
@@ -241,7 +242,7 @@ private fun DisplayStep(
                         // clipboard indefinitely.
                         val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         val phrase = state.phrase.joinToString(" ")
-                        val clip = ClipData.newPlainText("Kaavalan note recovery phrase", phrase)
+                        val clip = ClipData.newPlainText(clipboardLabel, phrase)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             val extras = PersistableBundle().apply {
                                 putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)

@@ -644,6 +644,7 @@
     <string name="sync_conflict_back_cd">Back</string>
     <string name="sync_conflict_gone">Conflict no longer exists.</string>
     <string name="sync_conflict_resolve_title">Conflict resolution</string>
+    <string name="sync_conflict_resolve_ok">OK</string>
 
     <!-- v1.8.0 (PROD-READINESS-P2-#4): audit chain -->
     <string name="audit_chain_intact">Audit chain intact: %1$d events</string>
@@ -823,6 +824,17 @@
     <string name="hierarchy_inbound_draft_save">Save as outgoing</string>
     <string name="hierarchy_inbound_draft_title_label">Title</string>
     <string name="hierarchy_inbound_draft_body_label">Body</string>
+    <string name="hierarchy_instruction_label">Instruction</string>
+    <string name="hierarchy_next_button">Next</string>
+
+    <!-- v2.0 (recovery): the clipboard label and PDF
+         header for the recovery-phrase export. Both are
+         user-visible ("Kaavalan note recovery phrase"
+         is the description Android shows under the
+         clipboard preview; the PDF title is the H1 on
+         the printable sheet). -->
+    <string name="recovery_clipboard_label">Kaavalan note recovery phrase</string>
+    <string name="recovery_pdf_title">Kaavalan note \u2014 Recovery Sheet</string>
 </resources>
 
 
