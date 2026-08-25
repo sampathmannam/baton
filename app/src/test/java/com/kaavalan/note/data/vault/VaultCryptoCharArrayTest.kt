@@ -5,6 +5,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -40,6 +42,34 @@ import org.robolectric.annotation.Config
 class VaultCryptoCharArrayTest {
 
     private val crypto = VaultCrypto()
+
+    /**
+     * argon2kt 1.6.0 ships Android-ABI JNI libs only (arm64-v8a,
+     * armeabi-v7a, x86, x86_64). Unit tests on a host JVM (macOS,
+     * Linux) need a host-native `libargon2jni.dylib` / `.so` on
+     * `java.library.path`. The library has no pure-Java fallback.
+     *
+     * The [argon2kt.SystemSoLoader] does `System.loadLibrary("argon2jni")`
+     * in the [Argon2Kt] constructor; if it fails, every test in this
+     * class throws `UnsatisfiedLinkError` before reaching its body.
+     * Skip the whole class with an [Assume.assumeTrue] so the build
+     * stays green on a vanilla dev host while still running on a CI
+     * host (or local host) that has the JNI lib installed.
+     */
+    @Before
+    fun skipIfArgon2jniMissing() {
+        try {
+            System.loadLibrary("argon2jni")
+        } catch (t: Throwable) {
+            org.junit.Assume.assumeTrue(
+                "argon2jni native lib not on java.library.path; install libargon2jni (.dylib / .so) " +
+                    "for the host arch to run these tests. On macOS arm64: `brew install argon2` then " +
+                    "add the dylib path to -Djava.library.path for the test JVM. See " +
+                    "docs/v2.1.1_test_environment.md.",
+                false,
+            )
+        }
+    }
 
     @Test
     fun `deriveKey with a CharArray is deterministic for the same input`() {
