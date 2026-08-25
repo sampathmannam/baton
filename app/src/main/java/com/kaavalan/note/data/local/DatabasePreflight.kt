@@ -250,7 +250,7 @@ class DatabasePreflight @Inject constructor(
          */
         private val EXPECTED_SCHEMA: Map<String, Set<String>> = mapOf(
             "users" to setOf(
-                "id", "displayName", "deviceOwner",
+                "id", "displayName", "role", "deviceOwner", "createdAt",
             ),
             "instructions" to setOf(
                 "id", "personId", "direction", "status", "source",
@@ -262,10 +262,15 @@ class DatabasePreflight @Inject constructor(
                 "audienceIsBroadcast", "dueAtMs", "channel",
             ),
             "sync_queue" to setOf(
-                "id", "captureId", "status", "nextAttemptAt",
+                "id", "table", "rowId", "op", "payloadJson",
+                "createdAt", "attempts", "lastError", "nextAttemptAt",
             ),
             "audit_chain_events" to setOf(
-                "id", "timestamp", "kind", "payload",
+                "id", "tableName", "rowId", "kind", "payload",
+                "signingKey", "createdAtMs", "prevHash", "thisHash",
+            ),
+            "app_state" to setOf(
+                "id", "source", "valueJson", "updatedAt",
             ),
         )
     }
