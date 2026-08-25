@@ -52,11 +52,16 @@ fun DispatchSheet(title: String, rawText: String, senderName: String, senderDesi
                 val color = when {
                     r.failed == 0 -> MaterialTheme.colorScheme.primary
                     r.sent == 0 -> MaterialTheme.colorScheme.error
-                    else -> MaterialTheme.colorScheme.tertiary
+                    // Partial-failure: use the project's `Quiet` (amber)
+                    // token, not the M3-default tertiary (which is
+                    // purple-ish and clashes with the warm beige/blue
+                    // palette). Amber matches the AGENTS.md "no red
+                    // overdue" rule — warning without alarm.
+                    else -> com.kaavalan.note.ui.theme.KaavalanColors.Quiet
                 }
                 val text = when {
                     r.failed == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients)
-                    r.sent == 0 -> "0 of ${r.recipients} delivered (${r.failed} failed)"
+                    r.sent == 0 -> stringResource(R.string.hierarchy_dispatch_receipts_none, r.recipients, r.failed)
                     else -> stringResource(R.string.hierarchy_dispatch_receipts_other, r.sent, r.recipients) + " (${r.failed} failed)"
                 }
                 Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)

@@ -4,7 +4,17 @@ import com.kaavalan.note.data.person.Person
 
 data class RosterNode(val station: String, val byDesignation: Map<String, List<Person>>) {
     val designations: List<String> get() = byDesignation.keys.sortedBy { RosterBuilder.seniority(it) }
-    fun peopleFor(designation: String): List<Person> = byDesignation[designation] ?: emptyList()
+    fun peopleFor(designation: String): List<Person> {
+        // Case-insensitive lookup: a user types `@si` in the mention,
+        // but the stored designation might be "SI". Map look-up is
+        // case-sensitive by default, so the naive lookup misses
+        // real matches. The original-case key is preserved for
+        // display (see `designations`) — only the query is
+        // case-folded.
+        val needle = designation.lowercase()
+        val key = byDesignation.keys.firstOrNull { it.lowercase() == needle }
+        return key?.let { byDesignation[it] } ?: emptyList()
+    }
     val totalPeople: Int get() = byDesignation.values.sumOf { it.size }
 }
 data class RosterPicker(val stations: List<RosterNode>, val allDesignations: List<String>) {

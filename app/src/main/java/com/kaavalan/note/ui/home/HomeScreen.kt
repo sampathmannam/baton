@@ -23,6 +23,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -91,6 +93,13 @@ fun HomeScreen(
     val quickCapture by rootViewModel.quickCapture.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showAddPerson by remember { mutableStateOf(false) }
+    // v2.0 (Hierarchy): the #tag chip tap has no dedicated screen
+    // yet. Surface a Snackbar so the tap is observable (rather than
+    // a silent no-op) and the user knows the system heard them.
+    // The #tag-screen destination is on the v2.x roadmap; until then
+    // this is the lowest-risk affordance.
+    var selectedTagId by remember { mutableStateOf<String?>(null) }
+    var showTagSnackbar by remember { mutableStateOf(false) }
     // v1.7.0: search-result → instruction detail sheet state.
     // The entity is the row that came back from FTS; the domain
     // model is what the sheet renders. We hold the entity and
@@ -168,7 +177,15 @@ fun HomeScreen(
         }
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(showTagSnackbar, selectedTagId) {
+        if (showTagSnackbar && selectedTagId != null) {
+            showTagSnackbar = false
+            snackbarHostState.showSnackbar("Tag #$selectedTagId — detail view coming in v2.x")
+        }
+    }
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column {
                 // v1.6.3: Obsidian-style title. The default Material
@@ -306,8 +323,8 @@ fun HomeScreen(
                         popularTags = s.popularTags,
                         padding = padding,
                         onPersonClick = onOpenPerson,
-                        onTagClick = { /* TODO: navigate to #tag screen in v2.x */ },
-                        onInstructionClick = { /* TODO: open detail sheet in v2.x */ },
+                        onTagClick = { tagId -> selectedTagId = tagId; showTagSnackbar = true },
+                        onInstructionClick = { entity -> selectedInstructionEntity = entity },
                     )
                     is HomeUiState.Error -> ErrorState(s.message, padding)
                 }

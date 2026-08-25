@@ -2,7 +2,6 @@ package com.kaavalan.note.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kaavalan.note.data.instructions.toDomain
 import com.kaavalan.note.data.local.InstructionDao
 import com.kaavalan.note.data.local.PersonStaleAge
 import com.kaavalan.note.data.local.RoomPersonRepository
@@ -53,9 +52,9 @@ class HomeViewModel @Inject constructor(
                         @Suppress("UNCHECKED_CAST")
                         val stale = values[2] as List<PersonStaleAge>
                         @Suppress("UNCHECKED_CAST")
-                        val outgoing = (values[3] as List<com.kaavalan.note.data.local.entities.InstructionEntity>).map { it.toDomain() }
+                        val outgoing = values[3] as List<com.kaavalan.note.data.local.entities.InstructionEntity>
                         @Suppress("UNCHECKED_CAST")
-                        val incoming = (values[4] as List<com.kaavalan.note.data.local.entities.InstructionEntity>).map { it.toDomain() }
+                        val incoming = values[4] as List<com.kaavalan.note.data.local.entities.InstructionEntity>
                         @Suppress("UNCHECKED_CAST")
                         val popularTags = values[5] as List<TagCount>
                         val openMap = persons.associate { it.id to 0 } + counts.associate { it.personId to it.cnt }

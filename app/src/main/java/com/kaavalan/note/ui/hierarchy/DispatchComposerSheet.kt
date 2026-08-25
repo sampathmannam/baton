@@ -25,9 +25,28 @@ fun DispatchComposerSheet(initialText: String, senderName: String, senderDesigna
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(value = rawText, onValueChange = { rawText = it }, label = { Text("Instruction") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 8)
             Spacer(Modifier.height(12.dp))
-            AssistChip(onClick = { pickerOpen = true }, label = { Text(state.audience?.label ?: "Pick audience", style = MaterialTheme.typography.bodyMedium) }, leadingIcon = { Icon(Icons.Default.Group, contentDescription = null) })
+            AssistChip(
+                onClick = { pickerOpen = true },
+                // Same race-fix: the audience picker iterates over the
+                // roster. Until the roster is loaded, the picker would
+                // show "Unassigned" / empty designations. Disable the
+                // trigger until `rosterReady` flips.
+                enabled = state.rosterReady,
+                label = { Text(state.audience?.label ?: "Pick audience", style = MaterialTheme.typography.bodyMedium) },
+                leadingIcon = { Icon(Icons.Default.Group, contentDescription = null) },
+            )
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { dispatchOpen = true }, enabled = state.audience != null && rawText.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Next") }
+            Button(
+                onClick = { dispatchOpen = true },
+                // Race-fix: the roster is loaded asynchronously in
+                // `init { refreshRoster() }`. Until it lands, computing
+                // the recipient count is meaningless (it'll be 0) and
+                // the user could open the dispatch sheet and watch the
+                // "Send" button stay disabled. Gate the "Next" button
+                // on `rosterReady` so the entire flow stays consistent.
+                enabled = state.audience != null && rawText.isNotBlank() && state.rosterReady,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Next") }
             Spacer(Modifier.height(24.dp))
         }
     }
