@@ -118,8 +118,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        consumeSharedText(intent)
-        consumeQuickCapture(intent)
+        // v2.1.1 (QA P1-#3): only consume the launch intent on the
+        // FIRST create, not on a config change. On rotation
+        // savedInstanceState is non-null, so re-firing
+        // consumeSharedText / consumeQuickCapture here would re-open
+        // the capture sheet every time the user rotates the device.
+        // The onNewIntent path below is the right path for new
+        // shared-text / widget intents delivered while the activity
+        // is already alive; the cold-start path runs exactly once.
+        if (savedInstanceState == null) {
+            consumeSharedText(intent)
+            consumeQuickCapture(intent)
+        }
         briefNotifier.schedule()
         setContent {
             val themeViewModel: ThemeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
