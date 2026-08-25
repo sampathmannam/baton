@@ -84,11 +84,20 @@ fun LazyListScope.homeHierarchySections(
 
 @Composable
 fun HomeHierarchyAwarePersonList(persons: List<Person>, openCountByPersonId: Map<String, Int>, stalePersonIds: Set<String>, outgoing: List<InstructionEntity>, incoming: List<InstructionEntity>, popularTags: List<TagCount>, padding: PaddingValues, onPersonClick: (String) -> Unit, onTagClick: (String) -> Unit, onInstructionClick: (InstructionEntity) -> Unit) {
+    // v2.1.2 (P1-#1): people cards render first so the People
+    // section is visible above the fold. Previously the hierarchy
+    // sections (#tags, Outbox, Inbox) pushed the persons far down
+    // the LazyColumn — with 55+ people the user had to scroll
+    // through dozens of instructions to find a person. Search now
+    // filters this list instead of gating it. The hierarchy
+    // sections still render below the people so power users
+    // (who rely on the at-a-glance outbox/inbox counts) keep the
+    // same surface.
     LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 112.dp)) {
-        homeHierarchySections(outgoing = outgoing, incoming = incoming, popularTags = popularTags, onTagClick = onTagClick, onInstructionClick = onInstructionClick)
         items(persons, key = { it.id }) { person ->
             PersonRowSimple(person = person, openCount = openCountByPersonId[person.id] ?: 0, isStale = person.id in stalePersonIds, onClick = { onPersonClick(person.id) })
         }
+        homeHierarchySections(outgoing = outgoing, incoming = incoming, popularTags = popularTags, onTagClick = onTagClick, onInstructionClick = onInstructionClick)
     }
 }
 
