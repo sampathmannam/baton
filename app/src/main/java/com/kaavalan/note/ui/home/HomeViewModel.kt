@@ -47,7 +47,11 @@ class HomeViewModel @Inject constructor(
                         instructionDao.observeIncomingOpen(),
                         tagDao.observeTop(20).map { it.map { e -> TagCount(e.id, e.name, e.usageCount) } },
                     ) { values ->
-                        val persons = values[0] as List<com.kaavalan.note.data.person.Person>
+                        // values[0] is typed as List<Any> by the heterogeneous-flow combine,
+                        // but observeAllInMode(...) emits List<Person> at runtime, so the
+                        // filterIsInstance is a type-narrowing no-op that gives us a proper
+                        // List<Person> without an unchecked cast.
+                        val persons = values[0].filterIsInstance<com.kaavalan.note.data.person.Person>()
                         @Suppress("UNCHECKED_CAST")
                         val counts = values[1] as List<com.kaavalan.note.data.local.PersonOpenCount>
                         @Suppress("UNCHECKED_CAST")
