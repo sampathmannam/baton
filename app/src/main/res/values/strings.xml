@@ -30,7 +30,7 @@
     <string name="capture_sheet_add_to_calendar">Add to calendar</string>
 
     <!-- M1-T7: share-target ingest -->
-    <string name="share_to_baton">Save to Kaavalan note</string>
+    <string name="share_to_kaavalan">Save to Kaavalan note</string>
 
     <!-- M2-T5: quick-settings tile + lock-screen widget -->
     <string name="widget_label">Kaavalan note</string>
@@ -186,10 +186,10 @@
     <string name="vault_export_failed">Couldn\'t save the vault. Try again.</string>
     <string name="vault_export_no_apps">No app available to save the file</string>
     <string name="vault_import_title">Import encrypted vault</string>
-    <string name="vault_import_body">Pick a .baton-vault file and type the passphrase. Your current data will be replaced.</string>
+    <string name="vault_import_body">Pick a .kaavalan-note-vault file and type the passphrase. Your current data will be replaced.</string>
     <string name="vault_import_button">Pick vault file</string>
     <string name="vault_import_incorrect">Incorrect passphrase</string>
-    <string name="vault_import_not_vault">This doesn\'t look like a Baton vault</string>
+    <string name="vault_import_not_vault">This doesn\'t look like a Kaavalan vault</string>
     <string name="vault_import_unsupported">This vault was made with a newer version. Update the app and try again.</string>
     <string name="vault_import_disk_full">Not enough space to save the vault</string>
     <string name="vault_import_io">Couldn\'t read the file. Try again.</string>
@@ -201,7 +201,7 @@
     <string name="settings_plain_export">Export as CSV or JSON</string>
 
     <!-- Tier 1.2 (v2.0): First-run onboarding. -->
-    <string name="onboarding_welcome_title">Welcome to Baton</string>
+    <string name="onboarding_welcome_title">Welcome to Kaavalan</string>
     <string name="onboarding_welcome_body">Track every instruction that flows in from your SP and out to your SHOs.</string>
     <string name="onboarding_privacy_title">Your data lives only here</string>
     <string name="onboarding_privacy_body">No cloud. No login. No analytics. Everything is stored on this phone, encrypted at rest.</string>
@@ -258,7 +258,7 @@
          idempotent (upsert by id). -->
     <string name="plain_import_title">Import from</string>
     <string name="plain_import_button">Import a saved file</string>
-    <string name="plain_import_failed">Couldn\'t read the file. Is it a Baton export (CSV/JSON)?</string>
+    <string name="plain_import_failed">Couldn\'t read the file. Is it a Kaavalan export (CSV/JSON)?</string>
 
     <!-- v2.0 Tier 2 features. -->
     <string name="decay_section_title">Quiet a while</string>
@@ -284,7 +284,7 @@
          small AssistChip above the filter row on first run
          when the user has >= 3 quiet contacts. Tapping the
          chip (or marking a row recent) hides it permanently
-         via BatonPreferences.decay_gesture_hint_shown_v1. -->
+         via KaavalanPreferences.decay_gesture_hint_shown_v1. -->
     <string name="decay_gesture_hint">Swipe right or long-press a card to mark someone as recent.</string>
     <string name="decay_gesture_hint_dismiss">Got it</string>
     <string name="status_quiet_a_while">Quiet a while</string>
@@ -315,7 +315,7 @@
     <string name="important_date_custom_label_hint">Label (e.g. Birthday, Anniversary)</string>
     <string name="important_date_empty">No dates yet.</string>
     <string name="important_date_a11y_open">Open date</string>
-    <string name="morning_brief_channel_name">Baton Brief</string>
+    <string name="morning_brief_channel_name">Kaavalan Brief</string>
     <string name="morning_brief_channel_description">Daily morning summary from Kaavalan note.</string>
     <string name="morning_brief_title">Kaavalan brief</string>
     <string name="morning_brief_nothing">Nothing on your plate.</string>
@@ -439,13 +439,13 @@
          any time. The v1.6.0 design rule forbids auto-showing
          it at first launch as a modal. -->
     <string name="settings_changelog">What\'s new</string>
-    <string name="settings_changelog_explainer">Release notes for every Baton version. Tap to see what changed.</string>
+    <string name="settings_changelog_explainer">Release notes for every Kaavalan version. Tap to see what changed.</string>
     <!-- v2.0 (PM rating): the in-app audit-log viewer is
          reachable from Settings. The chain has been writing
          rows since v1.8.0; v2.0 surfaces them. -->
     <string name="settings_audit_log">Audit log</string>
     <string name="settings_audit_log_value">View the audit chain</string>
-    <string name="settings_audit_log_explainer">Every state change in Baton is appended to a SHA-256 hash chain. Tap to see the entries and verify the chain.</string>
+    <string name="settings_audit_log_explainer">Every state change in Kaavalan is appended to a SHA-256 hash chain. Tap to see the entries and verify the chain.</string>
     <!-- v2.0.2 (PM rating): the About screen. The version
          is already in the storage card; this is the
          canonical build-info + privacy-posture surface. -->
@@ -457,7 +457,7 @@
          The only safe recovery is "Erase all data" +
          restore from backup. -->
     <string name="settings_db_error_title">Database error</string>
-    <string name="settings_db_error_body">Baton could not open the local database. The most likely cause is a corrupt file after a force-stop. Tap "Erase and restart" to wipe the local data; you can then restore from a backup.</string>
+    <string name="settings_db_error_body">Kaavalan could not open the local database. The most likely cause is a corrupt file after a force-stop. Tap "Erase and restart" to wipe the local data; you can then restore from a backup.</string>
     <string name="settings_db_error_action">Erase and restart</string>
     <!-- v2.1.0 (PM rating): the Google Drive backup
          surface. "like WhatsApp" — the local DB stays
@@ -578,9 +578,9 @@
     <string name="person_drop_title">Drop instruction</string>
     <string name="person_drop_reason_label">Reason (optional)</string>
     <!-- Nudge sheet -->
-    <string name="nudge_edit_before_sending">Edit before sending. The draft is local; the message itself goes through WhatsApp or SMS, not Baton.</string>
+    <string name="nudge_edit_before_sending">Edit before sending. The draft is local; the message itself goes through WhatsApp or SMS, not Kaavalan.</string>
     <string name="nudge_message_label">Message</string>
-    <string name="nudge_clipboard_label">Baton nudge</string>
+    <string name="nudge_clipboard_label">Kaavalan nudge</string>
     <string name="nudge_tone_polite">Polite</string>
     <string name="nudge_tone_urgent">Urgent</string>
     <string name="nudge_tone_casual">Casual</string>
@@ -660,7 +660,7 @@
     <!-- v1.9.0 (PROD-READINESS-P3-P1-#4): support -->
     <string name="settings_support">Support</string>
     <string name="settings_support_email">kaavalan-note@protonmail.com</string>
-    <string name="settings_support_email_subject">Baton %1$s support</string>
+    <string name="settings_support_email_subject">Kaavalan %1$s support</string>
     <string name="settings_support_email_body">Describe the issue. Attach a screenshot if you can.\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s</string>
     <string name="settings_support_email_cd">Email support</string>
     <!-- v1.9.9 (A10 audit fix): one-tap problem report. Distinct
@@ -671,19 +671,19 @@
          body so the support reply has the stack trace inline. -->
     <string name="settings_report_problem">Report a problem</string>
     <string name="settings_report_problem_subtitle">Send a bug report with crash log</string>
-    <string name="settings_report_problem_subject">Baton %1$s problem report</string>
+    <string name="settings_report_problem_subject">Kaavalan %1$s problem report</string>
     <string name="settings_report_problem_body_no_crash">What happened? (steps to reproduce)\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s</string>
     <string name="settings_report_problem_body_with_crash">What happened? (steps to reproduce)\n\nApp version: %1$s (build %2$d)\nDevice: %3$s\nAndroid: %4$s\n\n--- Crash log (most recent) ---\n%5$s</string>
     <string name="settings_report_problem_cd">Email a bug report</string>
-    <string name="settings_rate">Rate Baton</string>
-    <string name="settings_rate_cd">Open the Play Store listing for Baton</string>
-    <string name="settings_share_app">Share Baton</string>
+    <string name="settings_rate">Rate Kaavalan</string>
+    <string name="settings_rate_cd">Open the Play Store listing for Kaavalan</string>
+    <string name="settings_share_app">Share Kaavalan</string>
     <string name="settings_share_app_chooser">Share with�</string>
-    <string name="settings_share_app_text">I am using Baton (Kaavalan note) � a private instruction tracker for IPS officers. https://github.com/sampathmannam/baton</string>
+    <string name="settings_share_app_text">I am using Kaavalan note � a private instruction tracker for IPS officers. https://github.com/sampathmannam/kaavalan-note</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P0-#9): onboarding explainer -->
-    <string name="onboarding_title">Baton is not a notes app</string>
-    <string name="onboarding_subtitle">A short explanation of what makes Baton different.</string>
+    <string name="onboarding_title">Kaavalan is not a notes app</string>
+    <string name="onboarding_subtitle">A short explanation of what makes Kaavalan different.</string>
     <string name="onboarding_screen_1_title">Local-only by design</string>
     <string name="onboarding_screen_1_body">Every byte of your data lives on this device, in a SQLCipher-encrypted database. There is no cloud sync, no analytics, no telemetry. A thief who pulls the SD card cannot read your notes.</string>
     <string name="onboarding_screen_2_title">Person-first, not folder-first</string>
@@ -691,22 +691,22 @@
     <string name="onboarding_screen_3_title">Ad-friendly, deniable</string>
     <string name="onboarding_screen_3_body">A 6-digit vault PIN hides sensitive notes from the list. A 24-word recovery phrase is the only way back in if you forget the PIN. Write the recovery phrase on paper and store the paper somewhere physically safe.</string>
     <string name="onboarding_screen_4_title">Free, forever</string>
-    <string name="onboarding_screen_4_body">Baton is a private R&amp;D project by a serving IPS officer. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.</string>
+    <string name="onboarding_screen_4_body">Kaavalan is a private R&amp;D project by a serving IPS officer. No ads, no premium tier, no tracking. The full source is on GitHub if you want to read the threat model or audit the crypto.</string>
     <!-- v1.9.0 (PROD-READINESS-P3-P0-#8): update channel -->
     <string name="settings_check_for_updates">Check for updates</string>
     <string name="settings_check_for_updates_working">Checking�</string>
     <string name="settings_check_for_updates_up_to_date">You are on the latest version</string>
-    <string name="settings_check_for_updates_available">Baton %1$s is available. You are on %2$s.</string>
+    <string name="settings_check_for_updates_available">Kaavalan %1$s is available. You are on %2$s.</string>
     <string name="settings_check_for_updates_failed">Could not reach the update server. Try again later.</string>
     <string name="settings_check_for_updates_open">Open release page</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P1-#1): crash log -->
     <string name="crash_log_title">App crashed</string>
-    <string name="crash_log_body">Baton caught an unhandled error. You can share the crash log with support to help diagnose the issue.</string>
+    <string name="crash_log_body">Kaavalan caught an unhandled error. You can share the crash log with support to help diagnose the issue.</string>
     <string name="crash_log_share">Share crash log</string>
     <string name="crash_log_dismiss">Dismiss</string>
-    <string name="crash_log_share_subject">Baton crash report</string>
-    <string name="crash_log_share_body">Baton %1$s (build %2$d) crashed. See the attached crash log.</string>
+    <string name="crash_log_share_subject">Kaavalan crash report</string>
+    <string name="crash_log_share_body">Kaavalan %1$s (build %2$d) crashed. See the attached crash log.</string>
 
     <!-- v1.9.0 (PROD-READINESS-P3-P1-#8): file-picker backup.
          v1.9.1 honest re-label: the v1.9.0 copy promised Google
@@ -733,7 +733,7 @@
 
     <!-- v1.9.10: Quick Note widget (Tier 1.1) — single-tap
          capture from the home screen. Distinct from the existing
-         BatonCaptureWidget (which opens the main app) — this
+         KaavalanCaptureWidget (which opens the main app) — this
          widget opens a fullscreen entry activity so the user
          captures without app navigation. -->
     <string name="quick_note_widget_label">Quick note</string>
@@ -749,7 +749,7 @@
     <!-- v1.9.11 (A9 audit fix): the in-app "What's new" screen.
          Reads from assets/changelog.json on first launch after a
          version bump. The "Got it" button writes the current
-         version code to BatonPreferences so the screen doesn't
+         version code to KaavalanPreferences so the screen doesn't
          show again until the next version bump. -->
     <string name="changelog_title">What\'s new</string>
     <string name="changelog_got_it">Got it</string>
@@ -783,7 +783,7 @@
     <string name="about_privacy_local_only">All data stays on this device. SQLCipher-encrypted Room DB. No cloud sync, no remote auth, no analytics.</string>
     <string name="about_privacy_ocr">ML Kit OCR is a Google SDK. Disable in Settings → Capture if that is in scope for you.</string>
     <string name="about_repo_header">Source</string>
-    <string name="about_repo_url">github.com/sampathmannam/baton (private — public release pending)</string>
+    <string name="about_repo_url">github.com/sampathmannam/kaavalan-note (private — public release pending)</string>
     <string name="about_license">© 2026 Sampath Mannam. All rights reserved.</string>
 </resources>
 

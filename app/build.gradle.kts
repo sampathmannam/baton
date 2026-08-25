@@ -22,7 +22,7 @@ val localProps = Properties().apply {
 // in the on-device SQLCipher DB.
 
 android {
-    namespace = "com.baton.app"
+    namespace = "com.kaavalan.note"
     compileSdk = 35
     // v1.2: pin NDK for reproducible builds + first-class 16 KB
     // page-size support. The version catalog (libs.versions.toml)
@@ -31,7 +31,7 @@ android {
     ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
-        applicationId = "com.baton.app"
+        applicationId = "com.kaavalan.note"
         minSdk = 26
         targetSdk = 35
         // v1.6.3: UI/UX round 3 (Obsidian-style pass + app icon).

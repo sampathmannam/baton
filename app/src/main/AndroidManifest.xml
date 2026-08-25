@@ -67,7 +67,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name=".BatonApplication"
+        android:name=".KaavalanApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
@@ -75,12 +75,12 @@
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Baton">
+        android:theme="@style/Theme.Kaavalan">
 
         <!-- M3-T2: disable WorkManager's default auto-init.
-             The BatonApplication provides a Configuration via
+             The KaavalanApplication provides a Configuration via
              Configuration.Provider; the manual init lives in
-             com.baton.app.data.work.WorkManagerInitializer. -->
+             com.kaavalan.note.data.work.WorkManagerInitializer. -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -96,7 +96,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:enableOnBackInvokedCallback="true"
-            android:theme="@style/Theme.Baton">
+            android:theme="@style/Theme.Kaavalan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -105,7 +105,7 @@
 
         <!-- v2.1.0 (PM rating): the Google Drive OAuth
              callback. Google redirects to
-             `baton://oauth-callback?code=...` after the
+             `kaavalan-note://oauth-callback?code=...` after the
              user signs in + grants the `drive.appdata`
              scope. The activity is a transparent
              overlay that catches the intent, extracts
@@ -120,12 +120,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="baton"
+                    android:scheme="kaavalan-note"
                     android:host="oauth-callback" />
             </intent-filter>
         </activity>
 
-        <!-- Tier 0.3: share target. The user picks Baton from
+        <!-- Tier 0.3: share target. The user picks Kaavalan from
              another app's share sheet; the alias forwards the
              shared text (or the OCR'd text from a shared image)
              to MainActivity which opens the capture sheet
@@ -137,9 +137,9 @@
             android:name=".features.capture.ShareReceiverActivity"
             android:targetActivity=".MainActivity"
             android:exported="true"
-            android:label="@string/share_to_baton"
+            android:label="@string/share_to_kaavalan"
             android:launchMode="singleInstance"
-            android:theme="@style/Theme.Baton.Translucent.NoDisplay">
+            android:theme="@style/Theme.Kaavalan.Translucent.NoDisplay">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -163,7 +163,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Tier 0.2: quick-settings tile. The user adds Baton
+        <!-- Tier 0.2: quick-settings tile. The user adds Kaavalan
              from the system shade; tapping fires the
              ACTION_QUICK_CAPTURE deep link into MainActivity.
              The META_DATA_ACTIVE_TILE flag is set so the
@@ -171,7 +171,7 @@
              a battery and privacy win for a fire-and-forget
              capture tile. -->
         <service
-            android:name=".features.capture.BatonTileService"
+            android:name=".features.capture.KaavalanTileService"
             android:label="@string/tier0_tile_label"
             android:icon="@mipmap/ic_launcher"
             android:exported="true"
@@ -187,9 +187,9 @@
         <!-- Tier 0.1: Glance home-screen / lock-screen widget.
              Same deep link as the tile (ACTION_QUICK_CAPTURE ->
              MainActivity). The receiver is a GlanceAppWidgetReceiver
-             that wraps the BatonCaptureWidget Glance composable. -->
+             that wraps the KaavalanCaptureWidget Glance composable. -->
         <receiver
-            android:name=".features.capture.BatonCaptureWidgetReceiver"
+            android:name=".features.capture.KaavalanCaptureWidgetReceiver"
             android:exported="true"
             android:label="@string/tier0_widget_label">
             <intent-filter>
@@ -197,7 +197,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/baton_capture_widget_info" />
+                android:resource="@xml/kaavalan_capture_widget_info" />
         </receiver>
 
         <!-- v1.9.10: the Quick Note widget (Tier 1.1). A
@@ -209,7 +209,7 @@
              only the widget (running as the user) can launch it;
              the OS cannot launch it from a generic intent. -->
         <receiver
-            android:name=".features.widget.BatonQuickNoteWidgetReceiver"
+            android:name=".features.widget.KaavalanQuickNoteWidgetReceiver"
             android:exported="true"
             android:label="@string/quick_note_widget_label">
             <intent-filter>
@@ -217,13 +217,13 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/baton_quick_note_widget_info" />
+                android:resource="@xml/kaavalan-note_quick_note_widget_info" />
         </receiver>
 
         <activity
             android:name=".features.widget.QuickNoteActivity"
             android:exported="false"
-            android:theme="@style/Theme.Baton"
+            android:theme="@style/Theme.Kaavalan"
             android:windowSoftInputMode="adjustResize"
             android:excludeFromRecents="true"
             android:noHistory="true" />
@@ -235,7 +235,7 @@
              badge to the Room query that backs the Today screen).
              The receiver is the standard Glance receiver pattern. -->
         <receiver
-            android:name=".features.widget.BatonTodayWidgetReceiver"
+            android:name=".features.widget.KaavalanTodayWidgetReceiver"
             android:exported="true"
             android:label="@string/widget_today_description">
             <intent-filter>
@@ -243,7 +243,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/baton_today_widget_info" />
+                android:resource="@xml/kaavalan_today_widget_info" />
         </receiver>
 
         <!-- v1.9.0 (PROD-READINESS-P3-P2-#3): widget gallery
@@ -251,7 +251,7 @@
              and shows a small badge with the quiet-contacts
              count. Same "—" placeholder as the Today widget. -->
         <receiver
-            android:name=".features.widget.BatonDecayWidgetReceiver"
+            android:name=".features.widget.KaavalanDecayWidgetReceiver"
             android:exported="true"
             android:label="@string/widget_decay_description">
             <intent-filter>
@@ -259,7 +259,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/baton_decay_widget_info" />
+                android:resource="@xml/kaavalan_decay_widget_info" />
         </receiver>
 
         <!-- v1.6.1: voice capture foreground service. The user
