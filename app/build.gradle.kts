@@ -311,7 +311,7 @@ android {
         )
         // v2.1.1 (security): the Google OAuth 2.0 client
         // ID. The v2.1.0/v2.1.1 code shipped a
-        // placeholder ("BATON_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER")
+        // placeholder ("KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER")
         // hard-coded in
         // [com.baton.app.data.backup.GoogleOAuthClient].
         // The placeholder fails Google's token exchange
@@ -326,19 +326,19 @@ android {
         // `./gradlew assembleDebug` still compiles.
         buildConfigField(
             "String",
-            "BATON_GOOGLE_OAUTH_CLIENT_ID",
+            "KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID",
             "\"" + (
                 (project.findProperty("baton.googleOauthClientId") as? String)
-                    ?: (localProps.getProperty("BATON_GOOGLE_OAUTH_CLIENT_ID"))
-                    ?: "BATON_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER"
+                    ?: (localProps.getProperty("KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID"))
+                    ?: "KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER"
             ) + "\"",
         )
         buildConfigField(
             "String",
-            "BATON_GOOGLE_OAUTH_REDIRECT_URI",
+            "KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI",
             "\"" + (
                 (project.findProperty("baton.googleOauthRedirectUri") as? String)
-                    ?: (localProps.getProperty("BATON_GOOGLE_OAUTH_REDIRECT_URI"))
+                    ?: (localProps.getProperty("KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI"))
                     ?: "baton://oauth-callback"
             ) + "\"",
         )
