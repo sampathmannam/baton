@@ -44,7 +44,20 @@ fun LazyListScope.homeHierarchySections(
     if (popularTags.isNotEmpty()) {
         item { Text(stringResource(R.string.hierarchy_section_tags), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) }
         item {
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // v2.1.2 (Barrier 4): the LazyRow's `contentPadding`
+            // was symmetric (16dp on both sides) but the last
+            // chip's trailing count ("#Subedari PS ×20") sat
+            // flush with the parent's right edge when the row
+            // was scrolled fully right. The `padding(end = 8.dp)`
+            // on the LazyRow adds an extra 8dp on the right so
+            // the trailing icon has breathing room and is not
+            // visually clipped by the LazyColumn's 16dp end
+            // contentPadding.
+            LazyRow(
+                modifier = Modifier.padding(end = 8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 items(popularTags, key = { it.tagId }) { tag ->
                     AssistChip(onClick = { onTagClick(tag.tagId) }, label = { Text("#${tag.name}") }, trailingIcon = { Text(stringResource(R.string.hierarchy_tag_chip_count, tag.count), style = MaterialTheme.typography.labelSmall) })
                 }

@@ -388,10 +388,21 @@ fun SettingsSheet(
                     VaultMode.Visible -> stringResource(R.string.settings_vault_mode_visible)
                     VaultMode.Hidden -> stringResource(R.string.settings_vault_mode_hidden)
                 },
+                // v2.1.2 (Barrier 3): the no-PIN explainer was a
+                // single run-on paragraph. Split into a short
+                // description + a PIN-warning line so the user
+                // can scan the "what" and the "what to do"
+                // separately. When the PIN is already set, the
+                // legacy single-line explainer is enough.
                 explainer = if (hasVaultPin) {
                     stringResource(R.string.settings_vault_mode_explainer)
                 } else {
                     stringResource(R.string.settings_vault_mode_explainer_no_pin)
+                },
+                explainerExtra = if (!hasVaultPin) {
+                    stringResource(R.string.settings_vault_mode_pin_warning)
+                } else {
+                    null
                 },
                 onClick = {
                     if (vaultMode == VaultMode.Visible) {
@@ -1383,6 +1394,13 @@ fun SettingsSheet(
  * small explainer below. Tapping anywhere on the row fires
  * [onClick]. The row is non-destructive (no red, no error
  * colour) — the worst the user can do is open a dialog.
+ *
+ * v2.1.2 (Barrier 3): an optional second explainer line
+ * ([explainerExtra]) renders below [explainer] with a small
+ * gap. The vault-mode no-PIN row uses this to keep the
+ * "Hidden mode hides …" description and the "Set a PIN
+ * first …" warning on separate lines instead of one long
+ * run-on paragraph.
  */
 @Composable
 private fun PrivacyRow(
@@ -1390,6 +1408,7 @@ private fun PrivacyRow(
     value: String,
     explainer: String?,
     onClick: () -> Unit,
+    explainerExtra: String? = null,
 ) {
     Surface(
         modifier = Modifier
@@ -1431,6 +1450,19 @@ private fun PrivacyRow(
             if (explainer != null) {
                 Text(
                     text = explainer,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            // v2.1.2 (Barrier 3): second explainer line. The 4dp
+            // top spacer is the "small visual separator" — it
+            // reads as a paragraph break without drawing a real
+            // divider (which would compete with the row's
+            // affordance as a tappable surface).
+            if (explainerExtra != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = explainerExtra,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -36,6 +36,14 @@ data class CaptureUiState(
     val errorType: ErrorType = ErrorType.NONE,
     val availableTags: List<Tag> = emptyList(),
     val selectedTagIds: Set<String> = emptySet(),
+    // v2.1.3: attribution-picker state. `null` = the user has not
+    // picked a person (the note is free-floating, matches the
+    // v1.6.1 "unassigned" default). `non-null` = the note will
+    // be saved with that `personId` on the instruction row. Reset
+    // to `null` on [CaptureViewModel.openSheet] so a fresh sheet
+    // always starts unassigned. The chip-row UI is the only
+    // writer; the discard-cancel / Save paths do not touch it.
+    val selectedPersonId: String? = null,
 ) {
     val canSaveRaw: Boolean
         get() = isVisible && text.isNotBlank() && !isSaving

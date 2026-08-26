@@ -4,20 +4,26 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,20 +35,25 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kaavalan.note.R
+import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.features.tags.TagPicker
 
 /**
@@ -85,6 +96,13 @@ fun CaptureSheet(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val hasPeople by viewModel.hasPeople.collectAsStateWithLifecycle()
+    // v2.1.3: the people list for the attribution chip row.
+    // The VM emits the full list; the UI caps it at 8 chips so
+    // the row stays one-line on small screens (overflow scrolls
+    // horizontally via [LazyRow]). Empty list = no chip row
+    // rendered (a fresh install with zero people skips the row
+    // entirely; the existing NoPeopleCard above takes over).
+    val availablePeople by viewModel.availablePeople.collectAsStateWithLifecycle()
     // Tier 0.4: collect the process-wide voice-recording
     // state. When `isRecording == true` the sheet renders an
     // in-app "Stop" button above the primary action; tapping
@@ -129,6 +147,12 @@ fun CaptureSheet(
 
     ModalBottomSheet(
         onDismissRequest = {
+            // Scrim / BACK / swipe-down: close without prompting.
+            // v2.1.3: the discard prompt is reserved for the
+            // explicit "I want to throw this away" intent (X
+            // button). The scrim is a passive dismiss; the
+            // spec says "Cancel" (the X) and "Close" both go
+            // through the prompt, not the scrim.
             viewModel.dismissSheet()
             onDismiss()
         },
@@ -137,6 +161,7 @@ fun CaptureSheet(
         CaptureSheetContent(
             state = state,
             hasPeople = hasPeople,
+            availablePeople = availablePeople,
             isVoiceRecording = isVoiceRecording,
             onStopVoice = {
                 val svc = Intent(context, VoiceCaptureService::class.java).apply {
@@ -151,6 +176,8 @@ fun CaptureSheet(
             onAddFreeTag = viewModel::onAddFreeTag,
             onSaveRaw = viewModel::onSaveRaw,
             onOpenAddPerson = onOpenAddPerson,
+            onPersonSelected = viewModel::onPersonSelected,
+            onDismissSheet = { onDismiss() },
         )
     }
 
@@ -184,6 +211,9 @@ fun CaptureSheet(
 private fun CaptureSheetContent(
     state: CaptureUiState,
     hasPeople: Boolean,
+    // v2.1.3: the people list for the attribution chip row.
+    // Empty list = no chip row rendered.
+    availablePeople: List<Person> = emptyList(),
     // Tier 0.4: the in-app voice stop button. Rendered
     // above the Save button when `isVoiceRecording == true`.
     isVoiceRecording: Boolean = false,
@@ -195,6 +225,16 @@ private fun CaptureSheetContent(
     onAddFreeTag: (String) -> Unit = { },
     onSaveRaw: () -> Unit = { },
     onOpenAddPerson: () -> Unit = {},
+    // v2.1.3: chip-row callback. `null` = clear the selection
+    // (called when the user re-taps the active chip, or via a
+    // future "Unassigned" chip).
+    onPersonSelected: (String?) -> Unit = {},
+    // v2.1.3: parent-driven sheet dismiss. The chip row
+    // doesn't own this — the discard prompt does. The parent
+    // composable (CaptureSheet) is the one that hides the
+    // bottom sheet on a successful dismiss; the child just
+    // signals "yes, throw this away".
+    onDismissSheet: () -> Unit = {},
 ) {
     // v2.1.2 (P1-#2): the sheet content is split into a
     // scrollable body and a fixed bottom action bar. The
@@ -215,6 +255,15 @@ private fun CaptureSheetContent(
     // `verticalScroll` so overflow (NoPeopleCard + long
     // text + tag picker + calendar toggle) still scrolls
     // inside the sheet.
+    // v2.1.3: the discard-confirmation gate. Tapping the
+    // X (close) button sets `showDiscardDialog = true` so
+    // the [AlertDialog] below renders. The dialog only
+    // opens when the note text is non-blank; an empty
+    // close passes through and dismisses the sheet
+    // immediately. The dialog state is local to this
+    // composable so a config change (rotation) re-opens
+    // the sheet cleanly without re-prompting.
+    var showDiscardDialog by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -228,7 +277,19 @@ private fun CaptureSheetContent(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SheetHeader(onClose = onClose)
+            // v2.1.3: the close button now routes through the
+            // discard-confirmation gate. The header still owns
+            // the X (close) affordance; the close handler here
+            // decides whether to prompt.
+            SheetHeader(
+                onClose = {
+                    if (state.text.isNotBlank()) {
+                        showDiscardDialog = true
+                    } else {
+                        onClose()
+                    }
+                },
+            )
             // v1.4 (PHONE-FINDING-8): brand-new users have no
             // people, so the capture sheet is unusable. The
             // inline surfaceVariant card sits at the top with
@@ -242,6 +303,24 @@ private fun CaptureSheetContent(
             // neutral grey (per the no-red rule).
             if (!hasPeople) {
                 NoPeopleCard(onOpenAddPerson = onOpenAddPerson)
+            }
+            // v2.1.3: the attribution chip row. Sits between
+            // the optional NoPeopleCard and the Note text
+            // field so the user picks BEFORE typing. Hidden
+            // when the people list is empty (the NoPeopleCard
+            // above is the recovery path; showing an empty
+            // chip row on top of it would be noise). Hidden
+            // also when the VM hasn't emitted yet (empty
+            // list on cold start). When the list has people,
+            // we cap at 8 chips so the row stays one-line on
+            // small screens; overflow is a horizontal scroll
+            // on the [LazyRow] below.
+            if (availablePeople.isNotEmpty()) {
+                PersonChipRow(
+                    people = availablePeople.take(8),
+                    selectedId = state.selectedPersonId,
+                    onSelected = onPersonSelected,
+                )
             }
             CaptureTextField(
                 text = state.text,
@@ -307,6 +386,44 @@ private fun CaptureSheetContent(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
         )
     }
+    // v2.1.3: the discard-confirmation dialog. Renders ONLY
+    // when [showDiscardDialog] is true; the gate is in
+    // [SheetHeader]'s onClose. "Keep" closes the dialog
+    // (back to typing); "Discard" dismisses the sheet via
+    // the parent's [onDismissSheet] (the parent's
+    // `LaunchedEffect(state.isVisible)` then calls
+    // `onDismiss()` to tear down the bottom sheet). The
+    // dialog is co-located with the sheet so a config
+    // change (rotation) re-renders cleanly — the local
+    // `showDiscardDialog` state is remembered across
+    // recompositions but reset on a fresh sheet (because
+    // the parent composable's `state.isVisible` flips
+    // back to true on re-open via openSheet() and the
+    // outer CaptureSheet is re-keyed on visibility).
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text(stringResource(R.string.capture_sheet_discard_title)) },
+            text = { Text(stringResource(R.string.capture_sheet_discard_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardDialog = false
+                        onClose()
+                    },
+                ) {
+                    Text(stringResource(R.string.capture_sheet_discard_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDiscardDialog = false },
+                ) {
+                    Text(stringResource(R.string.capture_sheet_discard_keep))
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -327,6 +444,105 @@ private fun SheetHeader(onClose: () -> Unit) {
             )
         }
     }
+}
+
+/**
+ * v2.1.3: the attribution chip row. A single-select horizontal
+ * [LazyRow] of [FilterChip]s — one per person, capped at 8 by
+ * the caller. Tapping a chip selects that person; tapping the
+ * currently-selected chip clears the selection (a single tap
+ * toggles off so the user can revert to "Unassigned" without
+ * a separate Unassigned chip). The row scrolls horizontally
+ * when the list overflows the sheet width, so 8+ people with
+ * long names are still one swipe away. The "For" label sits
+ * above the row to mirror the existing "Tags" / "Add to
+ * calendar" labels and make the affordance discoverable.
+ */
+@Composable
+private fun PersonChipRow(
+    people: List<Person>,
+    selectedId: String?,
+    onSelected: (String?) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.capture_sheet_pick_person),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.padding(start = 6.dp))
+            // Show the currently-selected person name as a
+            // quiet hint next to the label; "For" + name is
+            // a more useful affordance than "For" alone.
+            val selectedName = people.firstOrNull { it.id == selectedId }?.name
+            if (selectedName != null) {
+                Text(
+                    text = selectedName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.capture_sheet_person_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(vertical = 2.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            items(items = people, key = { it.id }) { person ->
+                PersonChip(
+                    person = person,
+                    selected = person.id == selectedId,
+                    onClick = {
+                        // Toggle: tapping the active chip
+                        // clears the selection (back to
+                        // "Unassigned"). Tapping a different
+                        // chip switches the selection.
+                        onSelected(if (person.id == selectedId) null else person.id)
+                    },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * v2.1.3: a single attribution chip. [FilterChip] matches
+ * the existing tag-picker style (M3-T7). The label is the
+ * person's name with a quiet designation suffix when present
+ * (e.g. "Ramu — SP"). The chip uses the Material 3 default
+ * colours (no red, per the no-shame spec rule).
+ */
+@Composable
+private fun PersonChip(
+    person: Person,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val label = if (!person.designation.isNullOrBlank()) {
+        "${person.name} — ${person.designation}"
+    } else {
+        person.name
+    }
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        },
+    )
 }
 
 @Composable

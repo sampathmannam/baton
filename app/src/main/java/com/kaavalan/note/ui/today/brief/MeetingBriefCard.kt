@@ -1,5 +1,6 @@
 package com.kaavalan.note.ui.today.brief
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,18 +27,45 @@ import java.time.format.DateTimeFormatter
  * Hidden when the user has not granted `READ_CALENDAR` (the
  * state reports `isPermissionMissing = true`; we render the
  * rationale hint instead of the event list).
+ *
+ * v2.1.2 (Barrier 5): the permission-missing state is now
+ * tappable. The card's `clickable` modifier fires
+ * [onOpenSettings] so a tap on the rationale text opens the
+ * Settings sheet (where `READ_CALENDAR` can be granted). The
+ * event-full and no-events states do not need navigation,
+ * so the click handler is a no-op for them — making the
+ * whole card clickable would imply an affordance that
+ * doesn't exist ("view brief detail" is not a screen).
  */
 @Composable
 fun MeetingBriefCard(
     viewModel: MeetingBriefViewModel = hiltViewModel(),
+    onOpenSettings: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Re-query when the user navigates to the Today tab.
     LaunchedEffect(Unit) { viewModel.refresh() }
+    val openLabel = stringResource(R.string.meeting_brief_title)
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            // v2.1.2 (Barrier 5): only the permission-missing
+            // card is tappable. The other states (no events /
+            // events listed) are informational and have no
+            // destination to navigate to. Conditionally applying
+            // `clickable` keeps the card's hit-target honest —
+            // the affordance only appears when it has a job.
+            .let { base ->
+                if (state.isPermissionMissing) {
+                    base.clickable(
+                        onClickLabel = openLabel,
+                        onClick = onOpenSettings,
+                    )
+                } else {
+                    base
+                }
+            },
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

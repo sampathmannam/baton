@@ -28,6 +28,23 @@
     <string name="capture_sheet_text_placeholder">Type a free-form note.</string>
     <string name="capture_sheet_save">Save</string>
     <string name="capture_sheet_add_to_calendar">Add to calendar</string>
+    <!-- v2.1.3: attribution picker. The chip row at the top of
+         the capture sheet; sits above the Note field so the user
+         picks a person BEFORE typing. "For" mirrors the
+         existing "Tags" / "Add to calendar" labels. The
+         "Unassigned" placeholder is the chip-row default when
+         the user has not tapped a chip. -->
+    <string name="capture_sheet_pick_person">For</string>
+    <string name="capture_sheet_person_none">Unassigned</string>
+    <!-- v2.1.3: discard confirmation. Tapping the X (close)
+         button with non-empty text opens the [AlertDialog]
+         below; "Keep" returns to the sheet, "Discard" closes
+         the sheet and discards the typed text. The message
+         is short and non-shame (no "lost" / "deleted" / red). -->
+    <string name="capture_sheet_discard_title">Discard this note?</string>
+    <string name="capture_sheet_discard_message">Your text will be lost. You can pick up where you left off by adding a new one.</string>
+    <string name="capture_sheet_discard_keep">Keep</string>
+    <string name="capture_sheet_discard_confirm">Discard</string>
 
     <!-- M1-T7: share-target ingest -->
     <string name="share_to_kaavalan">Save to KaavalanNote</string>
@@ -409,7 +426,12 @@
     <string name="settings_vault_mode_hidden">Hidden</string>
     <string name="settings_vault_mode_value">%1$s</string>
     <string name="settings_vault_mode_explainer">Hidden mode hides selected items from the home list. Tap to switch modes. Switching back to Visible asks for your PIN.</string>
-    <string name="settings_vault_mode_explainer_no_pin">Hidden mode hides selected items from the home list. Tap to switch to Hidden. Set a PIN first so you can switch back to Visible.</string>
+    <string name="settings_vault_mode_explainer_no_pin">Hidden mode hides selected items from the home list.</string>
+    <!-- v2.1.2 (Barrier 3): the long vault-mode explainer was one
+         run-on paragraph. The PIN-warning line is rendered on a
+         second line below the description so the user can read the
+         "why" and the "what to do" separately. -->
+    <string name="settings_vault_mode_pin_warning">Set a PIN first so you can switch back to Visible.</string>
     <string name="settings_vault_pin">Vault PIN</string>
     <string name="settings_vault_pin_set">Set</string>
     <string name="settings_vault_pin_change">Change</string>

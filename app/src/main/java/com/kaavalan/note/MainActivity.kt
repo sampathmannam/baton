@@ -355,6 +355,12 @@ private fun MainScaffold(
                 composable(Routes.TODAY) {
                     TodayScreen(
                         onOpenPerson = { id -> navController.navigate("person/$id") },
+                        // v2.1.2 (Barrier 5): the meeting-brief
+                        // card's permission-missing state is now
+                        // tappable and routes to the Settings
+                        // sheet (the same `showSettings` flag the
+                        // bottom-nav Settings tab uses).
+                        onOpenSettings = { showSettings = true },
                     )
                 }
                 composable(Routes.PERSON) { entry ->

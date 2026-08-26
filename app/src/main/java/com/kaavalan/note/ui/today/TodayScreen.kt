@@ -70,6 +70,13 @@ import com.kaavalan.note.ui.today.worry.WorryBoxSection
 fun TodayScreen(
     viewModel: TodayViewModel = hiltViewModel(),
     onOpenPerson: (String) -> Unit = {},
+    // v2.1.2 (Barrier 5): the meeting-brief card's
+    // permission-missing state is tappable and opens Settings
+    // (where `READ_CALENDAR` can be granted). MainActivity wires
+    // this to the same `showSettings` flag the Home screen's
+    // settings gear uses, so the brief card and the bottom-nav
+    // Settings tab land on the same sheet.
+    onOpenSettings: () -> Unit = {},
 ) {
     val brief by viewModel.brief.collectAsStateWithLifecycle()
     var showReview by remember { mutableStateOf(false) }
@@ -208,7 +215,9 @@ fun TodayScreen(
             // surface).
             item { WorryBoxSection() }
             // v2.0 Tier 2 (§2.7): meeting brief card.
-            item { MeetingBriefCard() }
+            // v2.1.2 (Barrier 5): the permission-missing card
+            // is now tappable; the callback opens Settings.
+            item { MeetingBriefCard(onOpenSettings = onOpenSettings) }
             // Existing brief sections.
             if (brief.isEmpty) {
                 item { EmptyBriefContent() }

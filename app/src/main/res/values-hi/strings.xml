@@ -33,6 +33,14 @@
     <string name="capture_sheet_text_placeholder">यहां मुफ्त-प्रपत्र नोट टाइप करें।</string>
     <string name="capture_sheet_save">सहेजें</string>
     <string name="capture_sheet_add_to_calendar">कैलेंडर में जोड़ें</string>
+    <!-- v2.1.3: attribution picker -->
+    <string name="capture_sheet_pick_person">के लिए</string>
+    <string name="capture_sheet_person_none">अनिर्दिष्ट</string>
+    <!-- v2.1.3: discard confirmation -->
+    <string name="capture_sheet_discard_title">इस नोट को छोड़ दें?</string>
+    <string name="capture_sheet_discard_message">आपका टेक्स्ट खो जाएगा। नया जोड़कर आप वहीं से शुरू कर सकते हैं जहां छोड़ा था।</string>
+    <string name="capture_sheet_discard_keep">रखें</string>
+    <string name="capture_sheet_discard_confirm">छोड़ें</string>
     <string name="capture_needs_person_message">पहले एक व्यक्ति जोड़ें, फिर अपना पहला नोट सहेजें।</string>
 
     <!-- Today -->

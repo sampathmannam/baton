@@ -11,6 +11,7 @@ import com.kaavalan.note.data.captures.CaptureRepository
 import com.kaavalan.note.data.instructions.InstructionRepository
 import com.kaavalan.note.data.instructions.Priority
 import com.kaavalan.note.data.instructions.Source
+import com.kaavalan.note.data.person.Person
 import com.kaavalan.note.data.person.PersonRepository
 import com.kaavalan.note.data.tags.RoomTagRepository
 import com.kaavalan.note.ui.util.SafeError
@@ -39,9 +40,18 @@ import javax.inject.Inject
  *   2. User types, or speaks (`android.speech.SpeechRecognizer`),
  *      or photographs (CameraX + ML Kit on-device OCR).
  *   3. User taps Save — the note is persisted with the current
- *      [CaptureMode] (TEXT / VOICE / PHOTO), `personId = null`,
+ *      [CaptureMode] (TEXT / VOICE / PHOTO), the picked
+ *      `selectedPersonId` (or `null` for free-floating),
  *      `priority = NORMAL`, and the title is the first 40 chars
  *      of the note.
+ *
+ * v2.1.3: the sheet now has an attribution chip row at the top
+ * (driven by [availablePeople] + [onPersonSelected]) so the user
+ * can pick a person BEFORE typing. The pick is in-memory only;
+ * `onSaveRaw` reads `current.selectedPersonId` and passes it to
+ * [InstructionRepository.create]. Picking a person is OPTIONAL —
+ * the v1.6.1 "unassigned" default is preserved when the user
+ * skips the chip row.
  *
  * The "Add to Calendar" toggle still works (M1-T6) — the
  * calendar event is fired on Save, not on Extract. The tag
@@ -169,6 +179,23 @@ class CaptureViewModel @Inject constructor(
         )
 
     /**
+     * v2.1.3: the people list for the capture-sheet attribution
+     * chip row. We re-use the same [personRepository.observeAll]
+     * flow that drives [hasPeople] so the chip row stays in sync
+     * with Home / Search automatically (Room emits a new list on
+     * every local write). The UI is responsible for any
+     * client-side limit (e.g. "first 8"); the VM emits the full
+     * list. Default is `emptyList()` so a fresh VM doesn't briefly
+     * render a non-empty chip row before Room has emitted.
+     */
+    val availablePeople: StateFlow<List<Person>> = personRepository.observeAll()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList(),
+        )
+
+    /**
      * M1-T6: one-shot side effects. The ViewModel emits an
      * [CalendarEventData] here when the user saves with "Add to
      * Calendar" on. The Composable collects this and launches
@@ -204,7 +231,15 @@ class CaptureViewModel @Inject constructor(
     }
 
     fun openSheet() {
-        _state.update { it.copy(isVisible = true) }
+        // v2.1.3: reset the attribution picker on a fresh sheet.
+        // The chip row should always start unassigned so the
+        // user makes an explicit pick (or skips one). The
+        // process-death restore path (SavedStateHandle) does
+        // not preserve `selectedPersonId` — a re-launched
+        // sheet from a process death starts unassigned, which
+        // is the safest default (a stale pick from minutes ago
+        // is worse than "no person" the user can fix in one tap).
+        _state.update { it.copy(isVisible = true, selectedPersonId = null) }
     }
 
     /**
@@ -231,6 +266,23 @@ class CaptureViewModel @Inject constructor(
             val next = if (current.contains(tagId)) current - tagId else current + tagId
             it.copy(selectedTagIds = next)
         }
+    }
+
+    /**
+     * v2.1.3: pick a person from the chip row. The chip row is
+     * a single-select (only one attribution per note). Passing
+     * `null` clears the selection — exposed via tapping the
+     * currently-selected chip again, or via a future "Unassigned"
+     * entry point. The pick is in-memory only until Save; on
+     * Save the instruction row is created with the picked
+     * `personId` (or `null` if cleared, matching the v1.6.1
+     * free-floating default). The pick survives the discard
+     * dialog because the dialog only opens the dismiss path —
+     * the user tapping "Keep" returns to the sheet with the
+     * pick intact.
+     */
+    fun onPersonSelected(personId: String?) {
+        _state.update { it.copy(selectedPersonId = personId) }
     }
 
     /**
@@ -404,8 +456,15 @@ class CaptureViewModel @Inject constructor(
             val truncated = rawText.take(40)
             val title = if (rawText.length > 40) "$truncated…" else rawText
             val result = runCatching {
+                // v2.1.3: honour the chip-row pick. The v1.6.1
+                // "free-floating" default (personId = null) is
+                // preserved when the user did not tap a chip —
+                // the existing v1.6.1 contract test still
+                // passes because `current.selectedPersonId`
+                // defaults to `null` on a fresh sheet and after
+                // a `clearDraft()`.
                 instructionRepository.create(
-                    personId = null,
+                    personId = current.selectedPersonId,
                     source = modeToSource(current.mode),
                     priority = Priority.NORMAL,
                     title = title,
