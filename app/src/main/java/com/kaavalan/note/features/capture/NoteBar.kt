@@ -1,11 +1,14 @@
 package com.kaavalan.note.features.capture
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,6 +56,15 @@ fun NoteBar(
     val addNoteDesc = stringResource(R.string.a11y_add_note)
     val photoLabel = stringResource(R.string.note_bar_camera)
     val voiceLabel = stringResource(R.string.note_bar_mic)
+    // v2.1.1+1 (P1 fix: NoteBar click routing): the
+    // Surface's onClick used to fire for any tap on the bar
+    // (including near-but-not-on the Photo/Voice icon
+    // columns), which meant a tap at the bottom of the bar
+    // opened the text capture sheet instead of opening the
+    // camera. Make the Surface non-clickable; bind the
+    // text-trigger to a clickable Box that owns the left
+    // "Quick note" region; leave the Photo/Voice icon
+    // columns as the only clickable areas on the right.
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -61,7 +73,6 @@ fun NoteBar(
             .semantics { contentDescription = addNoteDesc },
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 2.dp,
-        onClick = onTextClick,
     ) {
         Row(
             modifier = Modifier
@@ -71,12 +82,27 @@ fun NoteBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = stringResource(R.string.note_bar_hint),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
+            // The text region is the only place a tap should
+            // open the capture sheet. The Photo/Voice columns
+            // handle their own taps. Bind the click to a Box
+            // around the Text so taps in the padding between
+            // Text and Photo don't fall through to nothing.
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(
+                        onClickLabel = addNoteDesc,
+                        onClick = onTextClick,
+                    ),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    text = stringResource(R.string.note_bar_hint),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             // v1.7.1 (P1 Q1): icon + label stack. The
             // IconButton wraps the whole Column so the
             // clickable target is the full icon+label
