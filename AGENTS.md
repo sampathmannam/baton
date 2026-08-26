@@ -1,12 +1,14 @@
-# Baton — Agent Guide
+# KaavalanNote — Agent Guide
 
-Baton is a private Android project. This file is the entry point for any AI coding agent (Mavis, Codex, Cursor, Aider, etc.) working in this repo.
+KaavalanNote (formerly Baton) is a private Android project. This file is the entry point for any AI coding agent (Mavis, Codex, Cursor, Aider, etc.) working in this repo.
 
-> **Before doing anything, read [`docs/PLAN.md`](docs/PLAN.md) for current priorities and [`docs/superpowers/specs/2026-08-10-baton-design.md`](docs/superpowers/specs/2026-08-10-baton-design.md) for the design source of truth.**
+> **Before doing anything, read [`docs/PLAN.md`](docs/PLAN.md) for current priorities and [`docs/superpowers/specs/2026-08-10-kaavalan-design.md`](docs/superpowers/specs/2026-08-10-kaavalan-design.md) for the design source of truth.**
+>
+> **v2.1.1 brand rename** (2026-08-26): the package, theme, widget classes, and color tokens all moved from `com.baton.app` / `Baton*` to `com.kaavalan.note` / `Kaavalan*`. The launcher label, widget label, and tile label are CamelCase `KaavalanNote` (one token). In-prose mentions keep the spaced form `Kaavalan note` for natural English. The app icon (the KAAVALAN shield on cream) is unchanged.
 
 ## What this project is
 
-A native Android (Kotlin/Compose) app for an IPS officer with ADHD. It tracks instructions flowing in from superiors and out to subordinates, with on-device AI for capture/extraction, Supabase for sync/auth, and a cloud MCP server for desktop tools. Currently at **v1.9.6** with weekly shipping cadence.
+A native Android (Kotlin/Compose) app for an IPS officer with ADHD. It tracks instructions flowing in from superiors and out to subordinates, with on-device AI for capture/extraction, and a cloud MCP server for desktop tools. The v2.0.0 release dropped Supabase (local-only). Currently at **v2.1.1** (hierarchy polish + brand rename) with weekly shipping cadence.
 
 ## How to work in this repo
 

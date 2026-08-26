@@ -1,7 +1,0 @@
-﻿  bounds=[42,317][1038,464]  w=996  h=147
----ALL CLICKABLE---
-  bounds=[0,2157][346,2307]  w=346  h=150
-  bounds=[367,2148][713,2317]  w=346  h=169
-  bounds=[734,2157][1080,2307]  w=346  h=150
-FOCUS: mCurrentFocus=Window{cfd2713 u0 com.baton.app/com.baton.app.MainActivity}
-FOCUS: mFocusedApp=ActivityRecord{4a469 u0 com.baton.app/.MainActivity t1758}

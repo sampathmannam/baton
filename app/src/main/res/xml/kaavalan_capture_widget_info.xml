@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppWidgetProviderInfo for the Tier 0.1 Glance widget
+  (KaavalanCaptureWidget + KaavalanCaptureWidgetReceiver).
+
+  - minWidth/minHeight: 180dp x 80dp is the smallest cell that
+    still shows the mic icon + "Capture" label clearly on most
+    launchers (the official Glance sample uses 180x80 as the
+    floor for a single-button widget).
+  - resizeMode: horizontal|vertical so the user can stretch
+    the cell on a Pixel 6 home screen without losing the
+    corner radius.
+  - widgetCategory: home_screen + keyguard so the widget is
+    offered on the lock-screen picker on API 31+ launchers.
+  - updatePeriodMillis: 1800000 (30 min) is the documented
+    minimum the system honours. The widget is a single
+    button; no data-driven content, so the period is
+    effectively never triggered.
+  - previewLayout: shows the Glance composable's initial frame
+    in the widget picker (Android 12+).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="180dp"
+    android:minHeight="80dp"
+    android:minResizeWidth="120dp"
+    android:minResizeHeight="60dp"
+    android:previewLayout="@layout/glance_default_loading_layout"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen|keyguard"
+    android:description="@string/tier0_widget_description" />

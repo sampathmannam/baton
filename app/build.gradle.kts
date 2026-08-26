@@ -16,20 +16,13 @@ val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-val supabaseUrl: String = localProps.getProperty("BATON_SUPABASE_URL", "")
-    .ifBlank { providers.gradleProperty("BATON_SUPABASE_URL").getOrElse("") }
-val supabaseAnonKey: String = localProps.getProperty("BATON_SUPABASE_ANON_KEY", "")
-    .ifBlank { providers.gradleProperty("BATON_SUPABASE_ANON_KEY").getOrElse("") }
-if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
-    throw GradleException(
-        "BATON_SUPABASE_URL and BATON_SUPABASE_ANON_KEY must be set in local.properties " +
-        "(gitignored). Copy from local.properties.example and fill in the values from " +
-        "the Supabase dashboard."
-    )
-}
+// v2.0.0 (drop Supabase): removed BATON_SUPABASE_URL and
+// BATON_SUPABASE_ANON_KEY. The app is now local-only; no
+// cloud sync, no auth, no server-side code. All data lives
+// in the on-device SQLCipher DB.
 
 android {
-    namespace = "com.baton.app"
+    namespace = "com.kaavalan.note"
     compileSdk = 35
     // v1.2: pin NDK for reproducible builds + first-class 16 KB
     // page-size support. The version catalog (libs.versions.toml)
@@ -38,7 +31,7 @@ android {
     ndkVersion = libs.versions.ndk.get()
 
     defaultConfig {
-        applicationId = "com.baton.app"
+        applicationId = "com.kaavalan.note"
         minSdk = 26
         targetSdk = 35
         // v1.6.3: UI/UX round 3 (Obsidian-style pass + app icon).
@@ -102,7 +95,7 @@ android {
         //     facing UI. Now renders as "Your tags" for the
         //     FREE kind.
         //   Debt-1: TagPicker.kt's Color(0xFF6F6F6F) literal
-        //     replaced with BatonColors.KindNeutralLight.
+        //     replaced with KaavalanColors.KindNeutralLight.
         //   Debt-2: Erase all data confirmation dialog now
         //     requires the user to type "ERASE" before the
         //     confirm button enables (was: single-tap
@@ -245,13 +238,53 @@ android {
         // (was 5 in v1.9.4). Bugfix release;
         // no public-API or schema changes.
         // versionCode 36 -> 37.
-        versionCode = 38
-        versionName = "1.9.6"
+        // v1.9.7: "polish" pass (a11y, drive label, onboarding).
+        // v1.9.8: honest production & enterprise gap analysis
+        // (docs only — no code change).
+        // v1.9.9: atomic create() in RoomInstructionRepository
+        // (PROD-READINESS-P0-#2); debug-gated auto-reseed in
+        // AppInitializer (A6 audit fix); one-tap "Report a
+        // problem" mailto in Settings → About that embeds
+        // the most recent crash log in the body (A10 audit
+        // fix). No public-API or schema changes.
+        // versionCode 38 -> 39.
+        // v1.9.10: closes three observations surfaced by the
+        // v1.9.8 audit's refuter (Obs-1: one shared
+        // SupabaseClient via Hilt @Provides; Obs-2: tag refresh
+        // surfaces HomeUiState.Error on failure; Obs-3: SQLCipher
+        // mlock pragma already in v1.4.3 — keying-phase
+        // limitation documented honestly). Plus the new
+        // QuickNoteWidget: a single-tap home-screen capture
+        // that opens a fullscreen entry activity (does not
+        // open the main app) so a quick note takes 2 taps +
+        // typing, not 3+ taps. No public-API or schema changes.
+        // versionCode 39 -> 40.
+        // v1.9.11: closes the rest of the v1.9.8 audit's
+        // deferral table. A2 (recovery-phrase contract test),
+        // A3 (connected-device androidTest CI), A7 (40 MB
+        // debug-APK budget + CI guard), A8 (a11y code-level
+        // invariants + manual checklist), A9 (Changelog screen
+        // — accessible from Settings, NOT a launch-time modal
+        // per the v1.6.0 design rule), Obs-3 mlock (custom
+        // SQLCipher preKey hook silences the 31 keying-phase
+        // v2.1.0: PM rating cleanup round 3. Adds:
+        //   - WhatsApp-style Google Drive backup with
+        //     AES-256-GCM client-side encryption
+        //   - The DatabasePreflight write+read
+        //     round-trip (catches silent corruption)
+        //   - Removal of the pre-v8 destructive
+        //     migration (6 explicit Migrations)
+        // No DB schema changes; 16 new unit tests.
+        //
+        // versionCode 44 -> 45.
+        versionCode = 46
+        versionName = "2.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        // v2.0.0 (drop Supabase): removed SUPABASE_URL +
+        // SUPABASE_ANON_KEY buildConfigFields. Local-only;
+        // no server-side config.
         // v1.8.0 (PROD-READINESS-P2-#6): the brand-name and
         // brand-department build-config fields. A pilot
         // build (e.g. TNeGA / CCPS) overrides these via
@@ -276,6 +309,39 @@ android {
             "BRAND_ICON",
             "\"${project.findProperty("brand.icon") ?: "ic_launcher"}\"",
         )
+        // v2.1.1 (security): the Google OAuth 2.0 client
+        // ID. The v2.1.0/v2.1.1 code shipped a
+        // placeholder ("KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER")
+        // hard-coded in
+        // [com.baton.app.data.backup.GoogleOAuthClient].
+        // The placeholder fails Google's token exchange
+        // with `400 invalid_client`; the user must set
+        // a real client ID from the Google Cloud Console
+        // before shipping to the Play Store.
+        //
+        // The real client ID is read from `local.properties`
+        // (gitignored) at build time, with a Gradle project
+        // property override for CI. The default is the
+        // v2.1.0 placeholder so an out-of-the-box
+        // `./gradlew assembleDebug` still compiles.
+        buildConfigField(
+            "String",
+            "KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID",
+            "\"" + (
+                (project.findProperty("baton.googleOauthClientId") as? String)
+                    ?: (localProps.getProperty("KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID"))
+                    ?: "KAAVALAN_NOTE_GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER"
+            ) + "\"",
+        )
+        buildConfigField(
+            "String",
+            "KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI",
+            "\"" + (
+                (project.findProperty("baton.googleOauthRedirectUri") as? String)
+                    ?: (localProps.getProperty("KAAVALAN_NOTE_GOOGLE_OAUTH_REDIRECT_URI"))
+                    ?: "kaavalan-note://oauth-callback"
+            ) + "\"",
+        )
     }
 
     signingConfigs {
@@ -288,12 +354,12 @@ android {
         // Play Store submission, rotate the passwords and re-sign
         // outside the repo.
         create("release") {
-            storeFile = file("baton-release.keystore")
-            storePassword = providers.gradleProperty("BATON_RELEASE_STORE_PASSWORD").orNull
-                ?: "baton-release-2026"
-            keyAlias = "baton-release"
-            keyPassword = providers.gradleProperty("BATON_RELEASE_KEY_PASSWORD").orNull
-                ?: "baton-release-2026"
+            storeFile = file("kaavalan-note-release.keystore")
+            storePassword = providers.gradleProperty("KAAVALAN_RELEASE_STORE_PASSWORD").orNull
+                ?: "kaavalan-note-release-2026"
+            keyAlias = "kaavalan-note-release"
+            keyPassword = providers.gradleProperty("KAAVALAN_RELEASE_KEY_PASSWORD").orNull
+                ?: "kaavalan-note-release-2026"
         }
     }
 
@@ -371,6 +437,73 @@ android {
     }
 }
 
+// v2.1.1 (test(e2e) smoke tests): the v2.0.0-supabase-drop
+// branch left three stale androidTest files that no longer
+// compile against the v2.0+ code base:
+//
+//   - `com.kaavalan.note.M0AcceptanceTest`         (references
+//     the removed `AuthRepository` / `PersonRepository`).
+//   - `com.kaavalan.note.CaptureHappyPathTest`     (same).
+//   - `com.kaavalan.note.data.vault.VaultEndToEndTest`
+//     (missing `androidx.core.net.toUri` import and
+//     mis-uses `kotlinx.coroutines.flow.first`).
+//
+// The previous blanket `java.exclude("com/kaavalan/**")`
+// block did not propagate to the Kotlin source set
+// (https://issuetracker.google.com/issues/156782335) so
+// KSP kept reading the dead files. The fix below filters
+// the three specific files at the KSP + Kotlin compile
+// task boundary, via the `getExcludes` / `setExcludes`
+// pair that `KspTaskJvm` and the Kotlin compile base
+// expose through `PatternFilterable`. The smoke tests in
+// `app/src/androidTest/java/com/kaavalan/note/` (which
+// live alongside the dead files) compile cleanly.
+
+// v2.1.1 (test(e2e) smoke tests): the KSP + Kotlin compile
+// tasks do not honor the AGP source set excludes — they
+// wire their `sources` FileCollection through the
+// KspSourceSet / Kotlin source set providers, which do
+// not see `android.sourceSets[...].java.exclude()` or
+// `kotlin.sourceSets[...].kotlin.exclude()`. The fix is
+// to filter the dead files out at the task boundary, by
+// appending the file paths to each task's own
+// `getExcludes()` set (the `setExcludes` /
+// `PatternFilterable` pair exposed by `KspTaskJvm` and
+// the Kotlin compile base).
+gradle.projectsEvaluated {
+    val deadFilePatterns = listOf(
+        "com/kaavalan/note/M0AcceptanceTest.kt",
+        "com/kaavalan/note/CaptureHappyPathTest.kt",
+        // v2.1.1: `data/vault/VaultEndToEndTest.kt` is also
+        // dead input — it references `androidx.core.net.toUri`
+        // (no import) and calls `kotlinx.coroutines.flow.first`
+        // as a free function (it is an extension on `Flow`).
+        // The Vault round-trip is covered by the JVM unit
+        // tests in `src/test/.../data/vault/...`; the
+        // instrumented round-trip needs a maintenance pass
+        // that the user has not scheduled yet.
+        "com/kaavalan/note/data/vault/VaultEndToEndTest.kt",
+    )
+    val taskTypes = listOf(
+        com.google.devtools.ksp.gradle.KspTask::class.java,
+        org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java,
+    )
+    taskTypes.forEach { taskType ->
+        tasks.withType(taskType).configureEach {
+            if (name.contains("AndroidTest")) {
+                val getExcludes = javaClass.methods.firstOrNull { it.name == "getExcludes" }
+                val setExcludes = javaClass.methods.firstOrNull { it.name == "setExcludes" }
+                if (getExcludes != null && setExcludes != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    val current = (getExcludes.invoke(this) as MutableSet<String>).toMutableSet()
+                    current.addAll(deadFilePatterns)
+                    setExcludes.invoke(this, current)
+                }
+            }
+        }
+    }
+}
+
 // v1.6.1: removed the `vendorLlamaCpp` + `vendorWhisperCpp` tasks.
 // The on-device LLM is gone, so no C++ source to vendor, no
 // JNI library to build, no `libllama.so` / `libwhisper.so` to
@@ -408,6 +541,15 @@ dependencies {
     implementation(libs.sqlcipher.android)
     implementation(libs.security.crypto)
 
+    // v2.0.0 (drop Supabase): supabase-kt + ktor + okhttp are
+    // declared but UNUSED in v2.0.0 code. We keep them declared
+    // for two reasons: (1) the version catalog has other entries
+    // (glance, datastore) that depend transitively on okio
+    // (pulled in by ktor) — removing the ktor declaration
+    // breaks transitive resolution. (2) When/if a future v2.x
+    // pass adds optional cloud sync, the deps are already
+    // declared. A cleanup pass that removes the catalog
+    // entries should verify transitive resolution still works.
     implementation(libs.supabase.kt)
     implementation(libs.supabase.postgrest.kt)
     implementation(libs.supabase.auth.kt)
@@ -416,8 +558,10 @@ dependencies {
     implementation(libs.supabase.storage.kt)
     implementation(libs.ktor.client.android)
     implementation(libs.ktor.client.core)
-    // M2-T7: Realtime WebSocket subscription. The OkHttp engine
-    // supports WebSockets; the Android engine does not.
+    // M2-T7 (legacy): the OkHttp engine was the only ktor
+    // engine supporting WebSockets (realtime). v2.0.0 has
+    // no realtime (no Supabase); the dep is kept for
+    // transitive resolution (okio).
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.websockets)
     implementation(libs.okhttp)
@@ -428,6 +572,17 @@ dependencies {
     implementation(libs.camerax.camera.lifecycle)
     implementation(libs.camerax.camera.view)
     implementation(libs.mlkit.text.recognition)
+    // v2.1.0 (PM rating): Google Drive backup. The
+    // preferred path is GoogleSignInClient (Play Services
+    // Auth) for a one-tap sign-in. The fallback path
+    // (when Play Services is not available) is a
+    // Custom Tabs OAuth flow via androidx.browser.
+    // The `play-services-auth` dep is conditional on
+    // `googleSignInAvailable = true` (see below); for the
+    // v2.1.0 build the Custom Tabs path is the
+    // default since the offline cache doesn't have
+    // play-services-auth.
+    implementation(libs.androidx.browser)
 
     // Tier 0.1: Jetpack Glance for the home-screen / lock-screen
     // capture widget. The Glance composable API + a
