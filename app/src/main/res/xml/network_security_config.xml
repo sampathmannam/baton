@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  v1.2 root-cause fix (BUG-AUTH-009): the manifest had no
-  android:networkSecurityConfig attribute, so the platform
-  default allowed cleartext on API 26-27 and there was no
-  cert pinning. We now:
-   - disallow cleartext globally
-   - trust only the system store
-   - restrict supabase.co to TLS only
-
-  Pin-set is intentionally omitted in v1.2 — pinning Supabase's
-  leaf is the next step (the cert SHA-256 is not stable across
-  Supabase cert renewals and pinning the wrong key would brick
-  the app on every cert rotation). The cert set is documented at
-  https://supabase.com/docs/guides/platform/ssl-configuration
+  v2.0.0 (drop Supabase): the supabase.co /
+  supabase.in domain-config entries are removed
+  (no Supabase network calls). The base config
+  stays (no cleartext, system trust store only).
+  v2.1.0 (PM rating): the Drive REST API
+  domains are added so the same no-cleartext /
+  system-store policy applies.
+  v2.1.1 (security): the Drive REST API
+  domain-config is the v2.1.1 baseline; cert
+  pinning for *.googleapis.com is the v2.1.1
+  follow-up. The pin set is intentionally
+  omitted here because the SPKI SHA-256 is not
+  stable across Google's cert rotations and
+  pinning the wrong key would brick the app on
+  every cert rotation. The full pin set is
+  documented at
+  https://developers.google.com/web/updates/2018/05/ct-news
+  (Chrome's pin-set) and the user can add
+  <pin-set><pin .../></pin-set> entries to the
+  <domain-config> below when ready.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -21,7 +28,9 @@
         </trust-anchors>
     </base-config>
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">supabase.co</domain>
-        <domain includeSubdomains="true">supabase.in</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">googleusercontent.com</domain>
+        <domain includeSubdomains="true">accounts.google.com</domain>
+        <domain includeSubdomains="true">oauth2.googleapis.com</domain>
     </domain-config>
 </network-security-config>
