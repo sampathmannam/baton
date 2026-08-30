@@ -74,9 +74,13 @@ class BackupCryptoTest {
         // across encryptions.
         val headerLen = 4 // BTV2 magic
         val variableLen = 32 + 12 // salt + nonce
-        for (i in headerLen until (headerLen + variableLen)) {
-            assertNotEquals("byte $i (salt or nonce) should differ across encryptions", a[i], b[i])
-        }
+        val aRandomSection = a.copyOfRange(headerLen, headerLen + variableLen)
+        val bRandomSection = b.copyOfRange(headerLen, headerLen + variableLen)
+        assertNotEquals(
+            "salt and nonce sections should not be identical across encryptions",
+            aRandomSection.toList(),
+            bRandomSection.toList(),
+        )
         // The blobs as a whole must differ.
         assertNotEquals(
             "two encryptions of the same plaintext with the same passphrase must produce different blobs",

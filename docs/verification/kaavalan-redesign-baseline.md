@@ -23,7 +23,7 @@ The Android tooling emitted a non-blocking warning that its SDK XML parser suppo
 
 ## Verification results
 
-### Unit tests — failed
+### Unit tests — passed after flaky-test repair
 
 Command used for an uncached result:
 
@@ -34,16 +34,15 @@ Command used for an uncached result:
 Observed result:
 
 - 578 tests executed
-- 565 passed
-- 1 failed
+- 566 passed
+- 0 failed
 - 12 skipped
-- Gradle result: `BUILD FAILED` in 11m 1s
-- Failed test: `BackupCryptoTest > encrypted blobs for the same plaintext are different (random salt and nonce)`
-- Failure: `BackupCryptoTest.kt:78` found an equal byte at offset 42 in two independently generated random salt/nonce headers.
+- 0 errors
+- Gradle result: `BUILD SUCCESSFUL` in 8m 2s; 31 actionable tasks executed
 
-Root-cause diagnosis: the test is probabilistically invalid. It requires every corresponding byte across the 44 random salt/nonce bytes to differ. Independent random byte arrays are expected to share at least one corresponding byte about 15.8% of the time (`1 - (255/256)^44`). The production implementation generates a fresh 32-byte salt and 12-byte nonce with `SecureRandom`, and the same test separately compares the complete encrypted blobs. No test or product code was changed, in accordance with the Stage 0 requirement not to manufacture a passing baseline.
+Root-cause diagnosis: the original test was probabilistically invalid. It required every corresponding byte across the 44 random salt/nonce bytes to differ. Independent random byte arrays are expected to share at least one corresponding byte about 15.8% of the time (`1 - (255/256)^44`). The repaired assertion verifies that the complete 44-byte random section differs, while the existing assertion separately verifies that the full encrypted blobs differ. Production code remains unchanged; it continues to generate a fresh 32-byte salt and 12-byte nonce with `SecureRandom`.
 
-An earlier non-rerun invocation reported success because all test tasks were `UP-TO-DATE`; that cached result is not accepted as baseline evidence.
+An earlier non-rerun invocation reported success because all test tasks were `UP-TO-DATE`; that cached result is not accepted as baseline evidence. The result above is the new uncached verification.
 
 ### Debug APK assembly — passed
 
@@ -79,4 +78,4 @@ This gate compiles the currently configured Android-test source set. The existin
 
 ## Stage 0 conclusion
 
-The branch can build debug APKs and compile its configured instrumentation tests, but it does not have a fully green uncached unit-test baseline. Stage 1 must not start until the baseline failure is explicitly accepted or the flaky assertion is repaired in a separately reviewed change.
+The branch has a green uncached unit-test baseline, can build debug APKs, and can compile its configured instrumentation tests. The only code change is the test-only repair for the probabilistic assertion; production behavior is unchanged. Stage 1 can proceed.
