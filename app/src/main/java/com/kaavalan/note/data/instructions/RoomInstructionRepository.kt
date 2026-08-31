@@ -9,8 +9,10 @@ import com.kaavalan.note.data.local.entities.InstructionFtsEntity
 import com.kaavalan.note.data.local.entities.SyncQueueEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
 import com.kaavalan.note.di.ApplicationScope
+import com.kaavalan.note.data.audit.AuditChainWriter
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import androidx.room.withTransaction
 import java.time.Instant
 import java.util.UUID
@@ -78,6 +80,7 @@ open class RoomInstructionRepository @Inject constructor(
     private val syncQueueDao: SyncQueueDao,
     private val touchOnActivity: TouchPersonOnActivity,
     @ApplicationScope private val appScope: CoroutineScope,
+    private val auditChainWriter: AuditChainWriter? = null,
 ) : InstructionRepository {
 
     /**
@@ -97,6 +100,12 @@ open class RoomInstructionRepository @Inject constructor(
         // shape is preserved for any future change. Local Room
         // is the source of truth.
     }
+
+    override fun observeTimeline(): Flow<List<Instruction>> =
+        dao.observeTimeline().map { rows -> rows.map(InstructionEntity::toDomain) }
+
+    override fun observeForPerson(personId: String): Flow<List<Instruction>> =
+        dao.observeForPerson(personId).map { rows -> rows.map(InstructionEntity::toDomain) }
 
     private fun Instruction.toEntity(): InstructionEntity = InstructionEntity(
         id = id,
@@ -120,6 +129,20 @@ open class RoomInstructionRepository @Inject constructor(
         audienceIsBroadcast = audience?.isBroadcast ?: false,
         dueAtMs = dueAtMs,
         channel = channel,
+        actionSummary = actionSummary,
+        hardDeadlineAtEpochMs = hardDeadlineAtEpochMs,
+        followUpAtEpochMs = followUpAtEpochMs,
+        archivedAtEpochMs = archivedAtEpochMs,
+        responsiblePersonId = responsiblePersonId,
+        groupLabel = groupLabel,
+        localRevision = localRevision,
+        migrationReviewRequired = migrationReviewRequired,
+        migrationMetadata = migrationMetadata,
+    )
+
+    override suspend fun create(draft: InstructionDraft): Instruction = createInternal(
+        draft = draft,
+        dueAt = draft.hardDeadlineAtEpochMs?.let { Instant.ofEpochMilli(it).toString() },
     )
 
     /**
@@ -142,55 +165,64 @@ open class RoomInstructionRepository @Inject constructor(
         title: String,
         rawText: String,
         dueAt: String?,
+    ): Instruction = createInternal(
+        draft = InstructionDraft(
+            rawText = rawText,
+            actionSummary = title,
+            personId = personId,
+            priority = priority,
+            hardDeadlineAtEpochMs = dueAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
+            source = source,
+        ),
+        dueAt = dueAt,
+    )
+
+    private suspend fun createInternal(
+        draft: InstructionDraft,
+        dueAt: String?,
+        audience: AudienceRef? = null,
+        dueAtMs: Long? = draft.hardDeadlineAtEpochMs,
+        channel: String? = null,
     ): Instruction {
         val now = Instant.now().toString()
-        val id = UUID.randomUUID().toString()
         val entity = InstructionEntity(
-            id = id,
-            personId = personId,
+            id = UUID.randomUUID().toString(),
+            personId = draft.personId,
             direction = Direction.OUTGOING.name,
-            status = Status.OPEN.name,
-            source = source.name,
-            priority = priority.name,
-            title = title,
-            rawText = rawText,
+            status = draft.status.name,
+            source = draft.source.name,
+            priority = draft.priority.name,
+            title = draft.actionSummary,
+            rawText = draft.rawText,
             dueAt = dueAt,
             capturedAt = now,
             createdAt = now,
             updatedAt = now,
             isSensitive = false,
             syncStatus = SyncStatus.PENDING_INSERT,
+            nextActionAt = draft.followUpAtEpochMs,
+            audienceKind = audience?.kind,
+            audienceTarget = audience?.target,
+            audienceLabel = audience?.label,
+            audienceIsBroadcast = audience?.isBroadcast ?: false,
+            dueAtMs = dueAtMs,
+            channel = channel,
+            actionSummary = draft.actionSummary,
+            hardDeadlineAtEpochMs = draft.hardDeadlineAtEpochMs,
+            followUpAtEpochMs = draft.followUpAtEpochMs,
+            responsiblePersonId = draft.responsiblePersonId,
+            groupLabel = draft.groupLabel,
+            localRevision = 1,
         )
-        // v1.9.8: atomic multi-write. All four side effects (main
-        // table, FTS index, sync outbox, last-interaction touch) land
-        // in one Room transaction, so a process death or cancellation
-        // between them rolls back the partial state. See the class
-        // docstring for the failure modes this closes.
-        val touchResult = db.withTransaction {
+        db.withTransaction {
             dao.upsert(entity)
-            // The FTS row's rowid is the main row's rowid, which
-            // is auto-assigned by SQLite on the insert above. Read
-            // it back inside the same transaction so we don't
-            // race against a concurrent insert.
-            val newRowid = ftsDao.maxInstructionRowid() ?: 0L
-            ftsDao.upsert(
-                InstructionFtsEntity(
-                    rowid = newRowid,
-                    title = title,
-                    rawText = rawText,
-                    personId = personId,
-                    capturedAt = now,
-                ),
-            )
-            enqueueInsert(id)
-            // v2.0 Tier 2 (§2.3): auto-snooze. A new instruction
-            // counts as activity for the person; bump their
-            // lastInteractionAt so the decay view drops them out of
-            // the "haven't touched" list. No-op on free-floating
-            // instructions (personId == null). Returns the touched
-            // personId (or null) so the caller can observe the side
-            // effect; the value is not used by [create] itself.
-            touchOnActivity.touch(personId)
+            upsertFts(entity)
+            enqueueInsert(entity.id)
+            touchOnActivity.touch(draft.personId)
+            appendAudit(entity.id, "CREATED", "{\"revision\":1}")
+            if (draft.confirmedAiProposal) {
+                appendAudit(entity.id, "AI_PROPOSAL_CONFIRMED", "{\"revision\":1}")
+            }
         }
         return entity.toDomain()
     }
@@ -205,6 +237,97 @@ open class RoomInstructionRepository @Inject constructor(
         dao.snapshot()
             .filter { !it.isSensitive }
             .map { it.toDomain() }
+
+    override suspend fun update(
+        id: String,
+        expectedUpdatedAt: String,
+        patch: InstructionPatch,
+    ): UpdateResult = db.withTransaction {
+        val current = dao.getById(id) ?: return@withTransaction UpdateResult.NotFound
+        if (current.updatedAt != expectedUpdatedAt) {
+            return@withTransaction UpdateResult.Conflict(current.toDomain())
+        }
+        val statusChanged = parseStatus(current.status) != patch.status
+        val fieldChanged = current.actionSummary != patch.actionSummary ||
+            parsePriority(current.priority) != patch.priority ||
+            current.hardDeadlineAtEpochMs != patch.hardDeadlineAtEpochMs ||
+            current.followUpAtEpochMs != patch.followUpAtEpochMs ||
+            current.personId != patch.personId ||
+            current.responsiblePersonId != patch.responsiblePersonId ||
+            current.groupLabel != patch.groupLabel
+        val now = Instant.now().toString()
+        val updated = current.copy(
+            personId = patch.personId,
+            status = patch.status.name,
+            priority = patch.priority.name,
+            title = patch.actionSummary,
+            dueAt = patch.hardDeadlineAtEpochMs?.let { Instant.ofEpochMilli(it).toString() },
+            updatedAt = now,
+            nextActionAt = patch.followUpAtEpochMs,
+            dueAtMs = patch.hardDeadlineAtEpochMs,
+            actionSummary = patch.actionSummary,
+            hardDeadlineAtEpochMs = patch.hardDeadlineAtEpochMs,
+            followUpAtEpochMs = patch.followUpAtEpochMs,
+            responsiblePersonId = patch.responsiblePersonId,
+            groupLabel = patch.groupLabel,
+            localRevision = current.localRevision + 1,
+            syncStatus = SyncStatus.PENDING_UPDATE,
+        )
+        dao.upsert(updated)
+        upsertFts(updated)
+        enqueueUpdate(id)
+        if (fieldChanged) appendAudit(id, "FIELD_CHANGED", "{\"revision\":${updated.localRevision}}")
+        if (statusChanged) appendAudit(id, "STATUS_CHANGED", "{\"status\":\"${updated.status}\",\"revision\":${updated.localRevision}}")
+        if (patch.confirmedAiProposal) {
+            appendAudit(id, "AI_PROPOSAL_CONFIRMED", "{\"revision\":${updated.localRevision}}")
+        }
+        UpdateResult.Updated(updated.toDomain())
+    }
+
+    override suspend fun markDone(id: String, completedAtEpochMs: Long) {
+        mutateLifecycle(id, completedAtEpochMs, "STATUS_CHANGED") { current, at ->
+            current.copy(status = Status.DONE.name, completedAt = at)
+        }
+    }
+
+    override suspend fun archive(id: String, archivedAtEpochMs: Long) {
+        mutateLifecycle(id, archivedAtEpochMs, "ARCHIVED") { current, _ ->
+            current.copy(archivedAtEpochMs = archivedAtEpochMs)
+        }
+    }
+
+    suspend fun restore(id: String, restoredAtEpochMs: Long) {
+        mutateLifecycle(id, restoredAtEpochMs, "RESTORED") { current, _ ->
+            current.copy(archivedAtEpochMs = null)
+        }
+    }
+
+    override suspend fun deletePermanently(id: String) {
+        db.withTransaction {
+            dao.getRowId(id)?.let { ftsDao.deleteByRowId(it) }
+            dao.deleteById(id)
+        }
+    }
+
+    private suspend fun mutateLifecycle(
+        id: String,
+        atEpochMs: Long,
+        auditKind: String,
+        mutate: (InstructionEntity, String) -> InstructionEntity,
+    ) {
+        db.withTransaction {
+            val current = dao.getById(id) ?: return@withTransaction
+            val at = Instant.ofEpochMilli(atEpochMs).toString()
+            val updated = mutate(current, at).copy(
+                updatedAt = at,
+                localRevision = current.localRevision + 1,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
+            dao.upsert(updated)
+            enqueueUpdate(id)
+            appendAudit(id, auditKind, "{\"revision\":${updated.localRevision}}")
+        }
+    }
 
     /**
      * v1.5.1 (VAULT-005): the interface-level PATCH. Reads the
@@ -227,21 +350,16 @@ open class RoomInstructionRepository @Inject constructor(
             droppedReason = droppedReason,
             isSensitive = isSensitive,
             updatedAt = now,
+            localRevision = current.localRevision + 1,
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
         dao.upsert(updated)
-        // v2.0: also re-upsert the FTS row.
-        val newRowid = ftsDao.maxInstructionRowid() ?: 0L
-        ftsDao.upsert(
-            InstructionFtsEntity(
-                rowid = newRowid,
-                title = updated.title,
-                rawText = updated.rawText,
-                personId = updated.personId,
-                capturedAt = updated.capturedAt,
-            ),
-        )
+        upsertFts(updated)
         enqueueUpdate(id)
+        appendAudit(id, "FIELD_CHANGED", "{\"revision\":${updated.localRevision}}")
+        if (parseStatus(current.status) != status) {
+            appendAudit(id, "STATUS_CHANGED", "{\"status\":\"${status.name}\",\"revision\":${updated.localRevision}}")
+        }
         return updated.toDomain()
     }
 
@@ -262,6 +380,7 @@ open class RoomInstructionRepository @Inject constructor(
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
         enqueueUpdate(id)
+        appendAudit(id, "STATUS_CHANGED", "{\"status\":\"DONE\"}")
     }
 
     /**
@@ -278,7 +397,9 @@ open class RoomInstructionRepository @Inject constructor(
             droppedReason = reason,
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
+        dao.setArchivedAt(id, runCatching { Instant.parse(at).toEpochMilli() }.getOrDefault(0L))
         enqueueUpdate(id)
+        appendAudit(id, "ARCHIVED", "{}")
     }
 
     // ---- v2.0 (Hierarchy): audience + due chip + channel ----
@@ -293,48 +414,23 @@ open class RoomInstructionRepository @Inject constructor(
         dueAt: String?,
         dueAtMs: Long?,
         channel: String?,
-    ): Instruction {
-        val now = Instant.now().toString()
-        val id = UUID.randomUUID().toString()
-        val entity = InstructionEntity(
-            id = id,
-            personId = personId,
-            direction = Direction.OUTGOING.name,
-            status = Status.OPEN.name,
-            source = source.name,
-            priority = priority.name,
-            title = title,
+    ): Instruction = createInternal(
+        draft = InstructionDraft(
             rawText = rawText,
-            dueAt = dueAt,
-            capturedAt = now,
-            createdAt = now,
-            updatedAt = now,
-            isSensitive = false,
-            syncStatus = SyncStatus.PENDING_INSERT,
-            audienceKind = audience?.kind,
-            audienceTarget = audience?.target,
-            audienceLabel = audience?.label,
-            audienceIsBroadcast = audience?.isBroadcast ?: false,
-            dueAtMs = dueAtMs,
-            channel = channel,
-        )
-        db.withTransaction {
-            dao.upsert(entity)
-            val newRowid = ftsDao.maxInstructionRowid() ?: 0L
-            ftsDao.upsert(
-                InstructionFtsEntity(
-                    rowid = newRowid,
-                    title = title,
-                    rawText = rawText,
-                    personId = personId,
-                    capturedAt = now,
-                ),
-            )
-            enqueueInsert(id)
-            touchOnActivity.touch(personId)
-        }
-        return entity.toDomain()
-    }
+            actionSummary = title,
+            personId = personId,
+            responsiblePersonId = audience?.takeIf { it.kind == "PERSON" }?.target,
+            groupLabel = audience?.takeIf { it.isBroadcast }?.label,
+            priority = priority,
+            hardDeadlineAtEpochMs = dueAtMs
+                ?: dueAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
+            source = source,
+        ),
+        dueAt = dueAt,
+        audience = audience,
+        dueAtMs = dueAtMs,
+        channel = channel,
+    )
 
     override suspend fun setAudience(id: String, audience: AudienceRef?) {
         val now = Instant.now().toString()
@@ -348,6 +444,7 @@ open class RoomInstructionRepository @Inject constructor(
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
         enqueueUpdate(id)
+        appendAudit(id, "FIELD_CHANGED", "{}")
     }
 
     override suspend fun setDueChip(id: String, dueAtMs: Long?) {
@@ -359,6 +456,7 @@ open class RoomInstructionRepository @Inject constructor(
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
         enqueueUpdate(id)
+        appendAudit(id, "FIELD_CHANGED", "{}")
     }
 
     override suspend fun setChannel(id: String, channel: String?) {
@@ -370,6 +468,7 @@ open class RoomInstructionRepository @Inject constructor(
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
         enqueueUpdate(id)
+        appendAudit(id, "FIELD_CHANGED", "{}")
     }
 
     // ---- existing direct-call helpers (unchanged) ----
@@ -396,6 +495,7 @@ open class RoomInstructionRepository @Inject constructor(
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
         enqueueUpdate(id)
+        appendAudit(id, "STATUS_CHANGED", "{\"status\":\"DONE\"}")
     }
 
     /**
@@ -414,7 +514,9 @@ open class RoomInstructionRepository @Inject constructor(
             droppedReason = reason,
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
+        dao.setArchivedAt(id, runCatching { Instant.parse(now).toEpochMilli() }.getOrDefault(0L))
         enqueueUpdate(id)
+        appendAudit(id, "ARCHIVED", "{}")
     }
 
     /**
@@ -433,7 +535,9 @@ open class RoomInstructionRepository @Inject constructor(
             droppedReason = null,
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
+        dao.setArchivedAt(id, null)
         enqueueUpdate(id)
+        appendAudit(id, "RESTORED", "{}")
     }
 
     /**
@@ -449,10 +553,34 @@ open class RoomInstructionRepository @Inject constructor(
             row.copy(
                 isSensitive = sensitive,
                 updatedAt = Instant.now().toString(),
+                localRevision = row.localRevision + 1,
                 syncStatus = SyncStatus.PENDING_UPDATE,
             )
         )
         enqueueUpdate(id)
+        appendAudit(id, "FIELD_CHANGED", "{\"revision\":${row.localRevision + 1}}")
+    }
+
+    private suspend fun upsertFts(entity: InstructionEntity) {
+        val rowid = dao.getRowId(entity.id) ?: ftsDao.maxInstructionRowid() ?: return
+        ftsDao.upsert(
+            InstructionFtsEntity(
+                rowid = rowid,
+                title = entity.actionSummary,
+                rawText = entity.rawText,
+                personId = entity.personId,
+                capturedAt = entity.capturedAt,
+            ),
+        )
+    }
+
+    private suspend fun appendAudit(id: String, kind: String, payload: String) {
+        auditChainWriter?.append(
+            tableName = "instructions",
+            rowId = id,
+            kind = kind,
+            payload = payload,
+        )
     }
 
     /**
@@ -512,9 +640,9 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     id = id,
     personId = personId,
     direction = Direction.valueOf(direction),
-    status = Status.valueOf(status),
+    status = parseStatus(status),
     source = Source.valueOf(source),
-    priority = Priority.valueOf(priority),
+    priority = parsePriority(priority),
     title = title,
     rawText = rawText,
     dueAt = dueAt,
@@ -528,4 +656,13 @@ internal fun InstructionEntity.toDomain(): Instruction = Instruction(
     audience = audienceFromColumns(audienceKind, audienceTarget, audienceLabel),
     dueAtMs = dueAtMs,
     channel = channel,
+    actionSummary = actionSummary,
+    hardDeadlineAtEpochMs = hardDeadlineAtEpochMs,
+    followUpAtEpochMs = followUpAtEpochMs,
+    archivedAtEpochMs = archivedAtEpochMs,
+    responsiblePersonId = responsiblePersonId,
+    groupLabel = groupLabel,
+    localRevision = localRevision,
+    migrationReviewRequired = migrationReviewRequired,
+    migrationMetadata = migrationMetadata,
 )

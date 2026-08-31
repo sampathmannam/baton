@@ -700,6 +700,8 @@ private fun StatusChip(status: Status) {
             MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
         Status.DROPPED ->
             MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        else ->
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
     val statusLabel = status.name.replace('_', ' ').lowercase()
         .replaceFirstChar { it.uppercase() }

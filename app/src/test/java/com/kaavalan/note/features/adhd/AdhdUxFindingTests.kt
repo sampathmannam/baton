@@ -37,22 +37,13 @@ class AdhdUxFindingTests {
     /**
      * 1. No red "overdue" badge anywhere. The spec says
      * "no red colour tokens on instruction rows" and the
-     * only carry-over language is "carried over" — never
-     * "overdue". We assert the Status enum has CARRIED_OVER
-     * (not OVERDUE) and that the person-row badge uses
-     * tertiaryContainer (not error/red).
+     * redesigned lifecycle has only TO_DO, WAITING, and DONE.
      */
     @Test
-    fun `1 no red overdue status - Status enum has no OVERDUE`() {
+    fun `1 simplified lifecycle has no overdue status`() {
         val statusNames = Status.values().map { it.name }
-        assertFalse(
-            "The Status enum must not contain OVERDUE; the only silent rollover state is CARRIED_OVER",
-            "OVERDUE" in statusNames,
-        )
-        assertTrue(
-            "The Status enum must contain CARRIED_OVER (spec §3.3)",
-            "CARRIED_OVER" in statusNames,
-        )
+        assertFalse("The Status enum must not contain OVERDUE", "OVERDUE" in statusNames)
+        assertEquals(listOf("TO_DO", "WAITING", "DONE"), statusNames)
     }
 
     /**

@@ -2,6 +2,8 @@ package com.kaavalan.note.data.instructions
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.Instant
+import java.time.ZoneId
 
 /**
  * M1 domain model for a tracked instruction. Mirrors the `instructions`
@@ -46,24 +48,108 @@ data class Instruction(
     @SerialName("due_at_ms") val dueAtMs: Long? = null,
     // v2.0 (Hierarchy): outbound delivery channel.
     @SerialName("channel") val channel: String? = null,
+    @SerialName("action_summary") val actionSummary: String = title,
+    @SerialName("hard_deadline_at_epoch_ms") val hardDeadlineAtEpochMs: Long? = dueAtMs,
+    @SerialName("follow_up_at_epoch_ms") val followUpAtEpochMs: Long? = null,
+    @SerialName("archived_at_epoch_ms") val archivedAtEpochMs: Long? = null,
+    @SerialName("responsible_person_id") val responsiblePersonId: String? = null,
+    @SerialName("group_label") val groupLabel: String? = null,
+    @SerialName("local_revision") val localRevision: Long = 1,
+    @SerialName("migration_review_required") val migrationReviewRequired: Boolean = false,
+    @SerialName("migration_metadata") val migrationMetadata: String? = null,
 )
 
 /** Wire values match the `instruction_direction` Postgres enum. */
 enum class Direction { INCOMING, OUTGOING, SELF }
 
-/** Wire values match the `instruction_status` Postgres enum. */
 enum class Status {
-    OPEN,
-    ACK_PENDING,
-    IN_PROGRESS,
-    WAITING_ON_OTHER,
-    DONE,
-    CARRIED_OVER,
-    DROPPED,
+    TO_DO,
+    WAITING,
+    DONE;
+
+    companion object {
+        @Deprecated("Stage 1 compatibility; use TO_DO") val OPEN = TO_DO
+        @Deprecated("Stage 1 compatibility; use WAITING") val ACK_PENDING = WAITING
+        @Deprecated("Stage 1 compatibility; use WAITING") val IN_PROGRESS = WAITING
+        @Deprecated("Stage 1 compatibility; use WAITING") val WAITING_ON_OTHER = WAITING
+        @Deprecated("Stage 1 compatibility; use TO_DO") val CARRIED_OVER = TO_DO
+        @Deprecated("Stage 1 compatibility; archived records keep a current status") val DROPPED = DONE
+    }
 }
 
 /** Wire values match the `instruction_source` Postgres enum. */
 enum class Source { VOICE, TEXT, PHOTO, MCP }
 
-/** Wire values match the `instruction_priority` Postgres enum. */
-enum class Priority { LOW, NORMAL, HIGH, URGENT }
+enum class Priority {
+    NORMAL,
+    URGENT;
+
+    companion object {
+        @Deprecated("Stage 1 compatibility; use NORMAL") val LOW = NORMAL
+        @Deprecated("Stage 1 compatibility; use URGENT") val HIGH = URGENT
+    }
+}
+
+enum class TimelineBucket { LATE, TODAY, NEXT_7_DAYS, LATER }
+
+val Instruction.timelineAtEpochMs: Long?
+    get() = followUpAtEpochMs ?: hardDeadlineAtEpochMs
+
+fun Instruction.timelineBucket(now: Instant, zoneId: ZoneId): TimelineBucket {
+    val actionDate = timelineAtEpochMs
+        ?.let(Instant::ofEpochMilli)
+        ?.atZone(zoneId)
+        ?.toLocalDate()
+        ?: return TimelineBucket.LATER
+    val today = now.atZone(zoneId).toLocalDate()
+    return when {
+        actionDate.isBefore(today) -> TimelineBucket.LATE
+        actionDate == today -> TimelineBucket.TODAY
+        !actionDate.isAfter(today.plusDays(7)) -> TimelineBucket.NEXT_7_DAYS
+        else -> TimelineBucket.LATER
+    }
+}
+
+data class InstructionDraft(
+    val rawText: String,
+    val actionSummary: String,
+    val personId: String? = null,
+    val responsiblePersonId: String? = null,
+    val groupLabel: String? = null,
+    val status: Status = Status.TO_DO,
+    val priority: Priority = Priority.NORMAL,
+    val hardDeadlineAtEpochMs: Long? = null,
+    val followUpAtEpochMs: Long? = null,
+    val source: Source = Source.TEXT,
+    val confirmedAiProposal: Boolean = false,
+)
+
+data class InstructionPatch(
+    val actionSummary: String,
+    val status: Status,
+    val priority: Priority,
+    val hardDeadlineAtEpochMs: Long?,
+    val followUpAtEpochMs: Long?,
+    val personId: String?,
+    val responsiblePersonId: String?,
+    val groupLabel: String?,
+    val confirmedAiProposal: Boolean = false,
+)
+
+sealed interface UpdateResult {
+    data class Updated(val instruction: Instruction) : UpdateResult
+    data class Conflict(val current: Instruction) : UpdateResult
+    data object NotFound : UpdateResult
+}
+
+internal fun parseStatus(value: String): Status = when (value) {
+    "TO_DO", "OPEN", "CARRIED_OVER" -> Status.TO_DO
+    "WAITING", "ACK_PENDING", "IN_PROGRESS", "WAITING_ON_OTHER" -> Status.WAITING
+    "DONE", "DROPPED" -> Status.DONE
+    else -> Status.TO_DO
+}
+
+internal fun parsePriority(value: String): Priority = when (value) {
+    "URGENT", "HIGH" -> Priority.URGENT
+    else -> Priority.NORMAL
+}

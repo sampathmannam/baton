@@ -117,7 +117,7 @@ import com.kaavalan.note.data.user.UserEntity
     // v2.0 (Hierarchy): v16 adds the audience + due chip +
     // channel columns on `instructions` and the new
     // `delivery_receipts` table.
-    version = 16,
+    version = 17,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -620,6 +620,67 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_delivery_receipts_instructionId` ON `delivery_receipts`(`instructionId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_delivery_receipts_status` ON `delivery_receipts`(`status`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_delivery_receipts_channel` ON `delivery_receipts`(`channel`)")
+            }
+        }
+
+        val MIGRATION_16_17: Migration = object : Migration(16, 17) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE instructions ADD COLUMN actionSummary TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN hardDeadlineAtEpochMs INTEGER")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN followUpAtEpochMs INTEGER")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN archivedAtEpochMs INTEGER")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN responsiblePersonId TEXT")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN groupLabel TEXT")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN localRevision INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN migrationReviewRequired INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE instructions ADD COLUMN migrationMetadata TEXT")
+                db.execSQL(
+                    """
+                    UPDATE instructions
+                    SET actionSummary = title,
+                        hardDeadlineAtEpochMs = COALESCE(
+                            dueAtMs,
+                            CASE WHEN dueAt IS NULL THEN NULL
+                                 ELSE CAST(strftime('%s', dueAt) AS INTEGER) * 1000 END
+                        ),
+                        followUpAtEpochMs = nextActionAt,
+                        responsiblePersonId = CASE
+                            WHEN audienceKind = 'PERSON' THEN audienceTarget ELSE NULL END,
+                        groupLabel = CASE
+                            WHEN audienceIsBroadcast = 1 THEN audienceLabel ELSE NULL END,
+                        priority = CASE
+                            WHEN priority IN ('HIGH', 'URGENT') THEN 'URGENT'
+                            ELSE 'NORMAL'
+                        END,
+                        archivedAtEpochMs = CASE
+                            WHEN status = 'DROPPED' THEN COALESCE(
+                                CAST(strftime('%s', updatedAt) AS INTEGER) * 1000,
+                                CAST(strftime('%s', capturedAt) AS INTEGER) * 1000,
+                                CAST(strftime('%s', createdAt) AS INTEGER) * 1000,
+                                0
+                            )
+                            ELSE NULL
+                        END,
+                        migrationReviewRequired = CASE
+                            WHEN status IN ('ACK_PENDING', 'IN_PROGRESS', 'WAITING_ON_OTHER')
+                                 AND direction NOT IN ('OUTGOING', 'INCOMING', 'SELF') THEN 1
+                            ELSE 0
+                        END,
+                        migrationMetadata = CASE
+                            WHEN status = 'DROPPED' THEN 'legacy_status=DROPPED'
+                            ELSE NULL
+                        END,
+                        status = CASE
+                            WHEN status = 'DONE' THEN 'DONE'
+                            WHEN status IN ('ACK_PENDING', 'IN_PROGRESS', 'WAITING_ON_OTHER')
+                                 AND direction = 'OUTGOING' THEN 'WAITING'
+                            ELSE 'TO_DO'
+                        END
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_hardDeadlineAtEpochMs` ON `instructions`(`hardDeadlineAtEpochMs`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_followUpAtEpochMs` ON `instructions`(`followUpAtEpochMs`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_archivedAtEpochMs` ON `instructions`(`archivedAtEpochMs`)")
             }
         }
     }

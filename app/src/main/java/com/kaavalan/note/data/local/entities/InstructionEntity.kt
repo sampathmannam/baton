@@ -37,6 +37,9 @@ import androidx.room.PrimaryKey
         Index(value = ["audienceTarget"]),
         Index(value = ["dueAtMs"]),
         Index(value = ["channel"]),
+        Index(value = ["hardDeadlineAtEpochMs"]),
+        Index(value = ["followUpAtEpochMs"]),
+        Index(value = ["archivedAtEpochMs"]),
     ],
 )
 data class InstructionEntity(
@@ -90,4 +93,13 @@ data class InstructionEntity(
     // v2.0 (Hierarchy): outbound delivery channel (SMS / WHATSAPP
     // / "SMS,WHATSAPP" for both). `null` = "no dispatch attempted".
     val channel: String? = null,
+    val actionSummary: String = title,
+    val hardDeadlineAtEpochMs: Long? = dueAtMs,
+    val followUpAtEpochMs: Long? = nextActionAt,
+    val archivedAtEpochMs: Long? = null,
+    val responsiblePersonId: String? = null,
+    val groupLabel: String? = null,
+    val localRevision: Long = 1,
+    val migrationReviewRequired: Boolean = false,
+    val migrationMetadata: String? = null,
 )

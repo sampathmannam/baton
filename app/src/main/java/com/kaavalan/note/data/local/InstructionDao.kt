@@ -14,6 +14,21 @@ interface InstructionDao {
     @Query("SELECT * FROM instructions ORDER BY capturedAt DESC")
     fun observeAll(): Flow<List<InstructionEntity>>
 
+    @Query(
+        """
+        SELECT * FROM instructions
+        WHERE archivedAtEpochMs IS NULL
+        ORDER BY
+            CASE
+                WHEN followUpAtEpochMs IS NOT NULL THEN followUpAtEpochMs
+                WHEN hardDeadlineAtEpochMs IS NOT NULL THEN hardDeadlineAtEpochMs
+                ELSE 9223372036854775807
+            END ASC,
+            createdAt DESC
+        """,
+    )
+    fun observeTimeline(): Flow<List<InstructionEntity>>
+
     /**
      * v1.6.5: brief-source view. Excludes DONE / DROPPED
      * (closed states that the brief never reads) and
@@ -39,7 +54,19 @@ interface InstructionDao {
     )
     fun observeForBrief(): Flow<List<InstructionEntity>>
 
-    @Query("SELECT * FROM instructions WHERE personId = :personId ORDER BY capturedAt DESC")
+    @Query(
+        """
+        SELECT * FROM instructions
+        WHERE personId = :personId AND archivedAtEpochMs IS NULL
+        ORDER BY
+            CASE
+                WHEN followUpAtEpochMs IS NOT NULL THEN followUpAtEpochMs
+                WHEN hardDeadlineAtEpochMs IS NOT NULL THEN hardDeadlineAtEpochMs
+                ELSE 9223372036854775807
+            END ASC,
+            createdAt DESC
+        """,
+    )
     fun observeForPerson(personId: String): Flow<List<InstructionEntity>>
 
     /**
@@ -61,6 +88,9 @@ interface InstructionDao {
 
     @Query("SELECT * FROM instructions WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): InstructionEntity?
+
+    @Query("SELECT rowid FROM instructions WHERE id = :id LIMIT 1")
+    suspend fun getRowId(id: String): Long?
 
     @Query("SELECT * FROM instructions ORDER BY capturedAt DESC")
     suspend fun snapshot(): List<InstructionEntity>
@@ -93,6 +123,7 @@ interface InstructionDao {
             updatedAt = :updatedAt,
             completedAt = :completedAt,
             droppedReason = :droppedReason,
+            localRevision = localRevision + 1,
             syncStatus = :syncStatus
         WHERE id = :id
         """,
@@ -105,6 +136,9 @@ interface InstructionDao {
         droppedReason: String?,
         syncStatus: String = SyncStatus.PENDING_UPDATE,
     )
+
+    @Query("UPDATE instructions SET archivedAtEpochMs = :archivedAtEpochMs WHERE id = :id")
+    suspend fun setArchivedAt(id: String, archivedAtEpochMs: Long?)
 
     // M3-T5: open-instruction count per person. Used to show the
     // badge on the People list. "Open" = status NOT IN (DONE,
@@ -205,7 +239,7 @@ interface InstructionDao {
     fun observeIncomingOpen(): Flow<List<InstructionEntity>>
 
     @Query(
-        """UPDATE instructions SET audienceKind = :audienceKind, audienceTarget = :audienceTarget, audienceLabel = :audienceLabel, audienceIsBroadcast = :audienceIsBroadcast, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
+        """UPDATE instructions SET audienceKind = :audienceKind, audienceTarget = :audienceTarget, audienceLabel = :audienceLabel, audienceIsBroadcast = :audienceIsBroadcast, responsiblePersonId = CASE WHEN :audienceKind = 'PERSON' THEN :audienceTarget ELSE NULL END, groupLabel = CASE WHEN :audienceIsBroadcast = 1 THEN :audienceLabel ELSE NULL END, updatedAt = :now, localRevision = localRevision + 1, syncStatus = :syncStatus WHERE id = :id"""
     )
     suspend fun setAudience(
         id: String,
@@ -218,7 +252,7 @@ interface InstructionDao {
     )
 
     @Query(
-        """UPDATE instructions SET dueAtMs = :dueAtMs, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
+        """UPDATE instructions SET dueAtMs = :dueAtMs, hardDeadlineAtEpochMs = :dueAtMs, updatedAt = :now, localRevision = localRevision + 1, syncStatus = :syncStatus WHERE id = :id"""
     )
     suspend fun setDueChip(
         id: String,
@@ -228,7 +262,7 @@ interface InstructionDao {
     )
 
     @Query(
-        """UPDATE instructions SET channel = :channel, updatedAt = :now, syncStatus = :syncStatus WHERE id = :id"""
+        """UPDATE instructions SET channel = :channel, updatedAt = :now, localRevision = localRevision + 1, syncStatus = :syncStatus WHERE id = :id"""
     )
     suspend fun setChannel(
         id: String,

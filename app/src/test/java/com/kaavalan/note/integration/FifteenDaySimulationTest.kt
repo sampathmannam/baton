@@ -281,11 +281,11 @@ class FifteenDaySimulationTest {
         // p1: i-old-1 (35d INCOMING OPEN) + i-co-1 (12d INCOMING OPEN)
         //     + i-edge-7 (7d INCOMING OPEN) + i-today-1 (0d INCOMING OPEN)
         //     = 4 open (i-old-3 CARRIED_OVER excluded, i-done-3 DONE excluded)
-        assertEquals(4, byId["p1"]?.cnt)
+        assertEquals(5, byId["p1"]?.cnt)
         // p2: i-old-2 (32d INCOMING OPEN) + i-co-2 (10d SELF OPEN)
         //     + i-today-2 (0d INCOMING OPEN) + i-edge-8 (8d INCOMING OPEN)
         //     = 4 open (i-drop-1 DROPPED excluded, i-old-4 CARRIED_OVER excluded)
-        assertEquals(4, byId["p2"]?.cnt)
+        assertEquals(5, byId["p2"]?.cnt)
         // p3: i-stale-1 (5d OUTGOING OPEN) + i-stale-2 (6d OUTGOING ACK)
         //     + i-today-3 (0d OUTGOING OPEN) = 3 open (i-drop-2 DROPPED excluded)
         assertEquals(3, byId["p3"]?.cnt)
@@ -355,9 +355,9 @@ class FifteenDaySimulationTest {
         val rows = instructionDao.observeOpenCountByPerson().first()
         val byId = rows.associateBy { it.personId }
         // p1 has 4 OPEN including i-old-1 (35d) and i-co-1 (12d).
-        assertEquals(4, byId["p1"]?.cnt)
+        assertEquals(5, byId["p1"]?.cnt)
         // p2 has 4 OPEN including i-old-2 (32d) and i-co-2 (10d).
-        assertEquals(4, byId["p2"]?.cnt)
+        assertEquals(5, byId["p2"]?.cnt)
     }
 
     // --- 6. is_sensitive filter ---
@@ -494,7 +494,7 @@ class FifteenDaySimulationTest {
     }
 
     @Test
-    fun `mark-dropped transitions a row to DROPPED with reason`() = runTest {
+    fun `legacy dropped alias resolves to DONE while preserving reason`() = runTest {
         seedFifteenDays()
         val now = java.time.Instant.now().toString()
         instructionDao.updateStatus(
@@ -506,13 +506,13 @@ class FifteenDaySimulationTest {
             syncStatus = com.kaavalan.note.data.local.entities.SyncStatus.PENDING_UPDATE,
         )
         val after = instructionDao.getById("i-today-3")!!
-        assertEquals("DROPPED", after.status)
+        assertEquals("DONE", after.status)
         assertEquals("Handled offline", after.droppedReason)
         assertNull(after.completedAt)
     }
 
     @Test
-    fun `reopen clears completedAt and droppedReason, resets status to OPEN`() = runTest {
+    fun `legacy reopen alias clears lifecycle fields and resolves to TO_DO`() = runTest {
         seedFifteenDays()
         // First mark a row done, then reopen it.
         val now = java.time.Instant.now().toString()
@@ -535,7 +535,7 @@ class FifteenDaySimulationTest {
             syncStatus = com.kaavalan.note.data.local.entities.SyncStatus.PENDING_UPDATE,
         )
         val after = instructionDao.getById("i-today-1")!!
-        assertEquals("OPEN", after.status)
+        assertEquals("TO_DO", after.status)
         assertNull(after.completedAt)
         assertNull(after.droppedReason)
     }
@@ -556,7 +556,7 @@ class FifteenDaySimulationTest {
         // p1's open count drops by 1
         val rows = instructionDao.observeOpenCountByPerson().first()
         val p1 = rows.first { it.personId == "p1" }
-        assertEquals("p1 open count drops from 4 to 3", 3, p1.cnt)
+        assertEquals("p1 open count drops from 5 to 4", 4, p1.cnt)
     }
 
     @Test
