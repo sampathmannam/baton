@@ -185,6 +185,71 @@ class PlainImporterTest {
         assertEquals("Srinagar", reloaded[0].station)
     }
 
+    @Test
+    fun `csv round-trip preserves Stage 1 instruction fields and normalizes legacy enums`() = runTest {
+        instructionDao.upsert(stage1Instruction())
+        val csv = exporter.toCsv(exporter.snapshot())
+        db.clearAllTables()
+
+        importer.importFromUri(writeTestFile("stage1.csv", csv)).getOrThrow()
+        advanceUntilIdle()
+
+        assertStage1Instruction(instructionDao.snapshot().single())
+    }
+
+    @Test
+    fun `json round-trip preserves Stage 1 instruction fields and normalizes legacy enums`() = runTest {
+        instructionDao.upsert(stage1Instruction())
+        val json = exporter.toJson(exporter.snapshot())
+        db.clearAllTables()
+
+        importer.importFromUri(writeTestFile("stage1.json", json)).getOrThrow()
+        advanceUntilIdle()
+
+        assertStage1Instruction(instructionDao.snapshot().single())
+    }
+
+    private fun stage1Instruction() = com.kaavalan.note.data.local.entities.InstructionEntity(
+        id = "stage1",
+        personId = "person-1",
+        direction = "OUTGOING",
+        status = "ACK_PENDING",
+        source = "TEXT",
+        priority = "HIGH",
+        title = "Legacy title",
+        rawText = "Original capture",
+        dueAt = "2026-09-03T10:00:00Z",
+        capturedAt = "2026-08-30T10:00:00Z",
+        createdAt = "2026-08-30T10:00:00Z",
+        updatedAt = "2026-08-31T10:00:00Z",
+        actionSummary = "Stage 1 action summary",
+        hardDeadlineAtEpochMs = 1_788_429_600_000L,
+        followUpAtEpochMs = 1_788_091_200_000L,
+        archivedAtEpochMs = 1_788_516_000_000L,
+        responsiblePersonId = "person-2",
+        groupLabel = "Station writers",
+        localRevision = 9,
+        migrationReviewRequired = true,
+        migrationMetadata = "legacy_status=ACK_PENDING",
+    )
+
+    private fun assertStage1Instruction(
+        restored: com.kaavalan.note.data.local.entities.InstructionEntity,
+    ) {
+        assertEquals("WAITING", restored.status)
+        assertEquals("URGENT", restored.priority)
+        assertEquals("Original capture", restored.rawText)
+        assertEquals("Stage 1 action summary", restored.actionSummary)
+        assertEquals(1_788_429_600_000L, restored.hardDeadlineAtEpochMs)
+        assertEquals(1_788_091_200_000L, restored.followUpAtEpochMs)
+        assertEquals(1_788_516_000_000L, restored.archivedAtEpochMs)
+        assertEquals("person-2", restored.responsiblePersonId)
+        assertEquals("Station writers", restored.groupLabel)
+        assertEquals(9L, restored.localRevision)
+        assertTrue(restored.migrationReviewRequired)
+        assertEquals("legacy_status=ACK_PENDING", restored.migrationMetadata)
+    }
+
     /**
      * Write a file into the app's cache dir and return
      * a `file://` URI. Robolectric's ContentResolver

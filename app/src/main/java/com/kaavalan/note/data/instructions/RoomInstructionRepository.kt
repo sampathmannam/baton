@@ -273,7 +273,7 @@ open class RoomInstructionRepository @Inject constructor(
             localRevision = current.localRevision + 1,
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
-        dao.upsert(updated)
+        dao.updateExisting(updated)
         upsertFts(updated)
         enqueueUpdate(id)
         if (fieldChanged) appendAudit(id, "FIELD_CHANGED", "{\"revision\":${updated.localRevision}}")
@@ -323,7 +323,7 @@ open class RoomInstructionRepository @Inject constructor(
                 localRevision = current.localRevision + 1,
                 syncStatus = SyncStatus.PENDING_UPDATE,
             )
-            dao.upsert(updated)
+            dao.updateExisting(updated)
             enqueueUpdate(id)
             appendAudit(id, auditKind, "{\"revision\":${updated.localRevision}}")
         }
@@ -353,7 +353,7 @@ open class RoomInstructionRepository @Inject constructor(
             localRevision = current.localRevision + 1,
             syncStatus = SyncStatus.PENDING_UPDATE,
         )
-        dao.upsert(updated)
+        dao.updateExisting(updated)
         upsertFts(updated)
         enqueueUpdate(id)
         appendAudit(id, "FIELD_CHANGED", "{\"revision\":${updated.localRevision}}")
@@ -389,17 +389,7 @@ open class RoomInstructionRepository @Inject constructor(
      * `updatedAt` value.
      */
     override suspend fun markDropped(id: String, reason: String?, at: String) {
-        dao.updateStatus(
-            id = id,
-            status = Status.DROPPED.name,
-            updatedAt = at,
-            completedAt = null,
-            droppedReason = reason,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        dao.setArchivedAt(id, runCatching { Instant.parse(at).toEpochMilli() }.getOrDefault(0L))
-        enqueueUpdate(id)
-        appendAudit(id, "ARCHIVED", "{}")
+        archiveCompatibility(id, reason, at)
     }
 
     // ---- v2.0 (Hierarchy): audience + due chip + channel ----
@@ -506,17 +496,7 @@ open class RoomInstructionRepository @Inject constructor(
      */
     suspend fun markDropped(id: String, reason: String?) {
         val now = Instant.now().toString()
-        dao.updateStatus(
-            id = id,
-            status = Status.DROPPED.name,
-            updatedAt = now,
-            completedAt = null,
-            droppedReason = reason,
-            syncStatus = SyncStatus.PENDING_UPDATE,
-        )
-        dao.setArchivedAt(id, runCatching { Instant.parse(now).toEpochMilli() }.getOrDefault(0L))
-        enqueueUpdate(id)
-        appendAudit(id, "ARCHIVED", "{}")
+        archiveCompatibility(id, reason, now)
     }
 
     /**
@@ -527,17 +507,33 @@ open class RoomInstructionRepository @Inject constructor(
      */
     suspend fun reopen(id: String) {
         val now = Instant.now().toString()
-        dao.updateStatus(
-            id = id,
-            status = Status.OPEN.name,
-            updatedAt = now,
-            completedAt = null,
-            droppedReason = null,
-            syncStatus = SyncStatus.PENDING_UPDATE,
+        val current = dao.getById(id) ?: return
+        dao.updateExisting(
+            current.copy(
+                archivedAtEpochMs = null,
+                droppedReason = null,
+                updatedAt = now,
+                localRevision = current.localRevision + 1,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            ),
         )
-        dao.setArchivedAt(id, null)
         enqueueUpdate(id)
         appendAudit(id, "RESTORED", "{}")
+    }
+
+    private suspend fun archiveCompatibility(id: String, reason: String?, at: String) {
+        val current = dao.getById(id) ?: return
+        dao.updateExisting(
+            current.copy(
+                archivedAtEpochMs = runCatching { Instant.parse(at).toEpochMilli() }.getOrDefault(0L),
+                droppedReason = reason,
+                updatedAt = at,
+                localRevision = current.localRevision + 1,
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            ),
+        )
+        enqueueUpdate(id)
+        appendAudit(id, "ARCHIVED", "{}")
     }
 
     /**
@@ -549,7 +545,7 @@ open class RoomInstructionRepository @Inject constructor(
      */
     suspend fun setSensitive(id: String, sensitive: Boolean) {
         val row = dao.getById(id) ?: return
-        dao.upsert(
+        dao.updateExisting(
             row.copy(
                 isSensitive = sensitive,
                 updatedAt = Instant.now().toString(),

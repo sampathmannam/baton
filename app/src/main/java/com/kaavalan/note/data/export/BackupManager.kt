@@ -15,6 +15,8 @@ import com.kaavalan.note.data.local.entities.InstructionTagCrossRef
 import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.PersonLinkEntity
 import com.kaavalan.note.data.local.entities.TagEntity
+import com.kaavalan.note.data.instructions.parsePriority
+import com.kaavalan.note.data.instructions.parseStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -218,6 +220,15 @@ private fun List<InstructionEntity>.toInstructionJsonArray(): JSONArray = JSONAr
             put("case_type", i.caseType)
             put("urgency", i.urgency)
             put("review_at_epoch_day", i.reviewAtEpochDay)
+            put("action_summary", i.actionSummary)
+            put("hard_deadline_at_epoch_ms", i.hardDeadlineAtEpochMs)
+            put("follow_up_at_epoch_ms", i.followUpAtEpochMs)
+            put("archived_at_epoch_ms", i.archivedAtEpochMs)
+            put("responsible_person_id", i.responsiblePersonId)
+            put("group_label", i.groupLabel)
+            put("local_revision", i.localRevision)
+            put("migration_review_required", i.migrationReviewRequired)
+            put("migration_metadata", i.migrationMetadata)
         })
     }
 }
@@ -303,9 +314,9 @@ private fun JSONObject.toInstructionEntity(): InstructionEntity = InstructionEnt
     id = getString("id"),
     personId = optStringOrNull("person_id"),
     direction = getString("direction"),
-    status = getString("status"),
+    status = parseStatus(getString("status")).name,
     source = getString("source"),
-    priority = getString("priority"),
+    priority = parsePriority(getString("priority")).name,
     title = getString("title"),
     rawText = getString("raw_text"),
     dueAt = optStringOrNull("due_at"),
@@ -319,6 +330,16 @@ private fun JSONObject.toInstructionEntity(): InstructionEntity = InstructionEnt
     caseType = optStringOrNull("case_type"),
     urgency = optString("urgency", "normal"),
     reviewAtEpochDay = optLongOrNull("review_at_epoch_day"),
+    actionSummary = optString("action_summary", getString("title")),
+    hardDeadlineAtEpochMs = optLongOrNull("hard_deadline_at_epoch_ms"),
+    followUpAtEpochMs = optLongOrNull("follow_up_at_epoch_ms")
+        ?: optLongOrNull("next_action_at"),
+    archivedAtEpochMs = optLongOrNull("archived_at_epoch_ms"),
+    responsiblePersonId = optStringOrNull("responsible_person_id"),
+    groupLabel = optStringOrNull("group_label"),
+    localRevision = optLong("local_revision", 1L),
+    migrationReviewRequired = optBoolean("migration_review_required", false),
+    migrationMetadata = optStringOrNull("migration_metadata"),
 )
 
 private fun JSONObject.toTagEntity(): TagEntity = TagEntity(

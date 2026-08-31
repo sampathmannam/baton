@@ -1,6 +1,8 @@
 package com.kaavalan.note.di
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -23,6 +25,7 @@ class Migration16To17Test {
     private lateinit var helper: SupportSQLiteOpenHelper
     private lateinit var db: SupportSQLiteDatabase
     private val databaseName = "migration-16-17-${System.nanoTime()}.db"
+    private val completeDatabaseName = "migration-16-17-complete-${System.nanoTime()}.db"
 
     @Before
     fun setUp() {
@@ -42,7 +45,10 @@ class Migration16To17Test {
     @After
     fun tearDown() {
         helper.close()
-        ApplicationProvider.getApplicationContext<Context>().deleteDatabase(databaseName)
+        ApplicationProvider.getApplicationContext<Context>().let { context ->
+            context.deleteDatabase(databaseName)
+            context.deleteDatabase(completeDatabaseName)
+        }
     }
 
     @Test
@@ -113,6 +119,63 @@ class Migration16To17Test {
             assertTrue(cursor.moveToFirst())
             assertEquals("1-open", cursor.getString(0))
             assertEquals("files/report.pdf", cursor.getString(1))
+        }
+    }
+
+    @Test
+    fun `migration opens through Room and validates the complete v17 schema`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val complete = Room.databaseBuilder(context, AppDatabase::class.java, completeDatabaseName)
+            .allowMainThreadQueries()
+            .build()
+        complete.openHelper.writableDatabase
+        complete.close()
+
+        SQLiteDatabase.openDatabase(
+            context.getDatabasePath(completeDatabaseName).absolutePath,
+            null,
+            SQLiteDatabase.OPEN_READWRITE,
+        ).use { raw ->
+            raw.execSQL("PRAGMA foreign_keys = OFF")
+            raw.execSQL(
+                """
+                CREATE TABLE instructions_v16 (
+                    id TEXT NOT NULL PRIMARY KEY, personId TEXT, direction TEXT NOT NULL,
+                    status TEXT NOT NULL, source TEXT NOT NULL, priority TEXT NOT NULL,
+                    title TEXT NOT NULL, rawText TEXT NOT NULL, dueAt TEXT,
+                    capturedAt TEXT NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL,
+                    isSensitive INTEGER NOT NULL, syncStatus TEXT NOT NULL,
+                    completedAt TEXT, droppedReason TEXT, nextActionAt INTEGER,
+                    caseType TEXT, urgency TEXT NOT NULL, reviewAtEpochDay INTEGER,
+                    audienceKind TEXT, audienceTarget TEXT, audienceLabel TEXT,
+                    audienceIsBroadcast INTEGER NOT NULL, dueAtMs INTEGER, channel TEXT
+                )
+                """.trimIndent(),
+            )
+            raw.execSQL("DROP TABLE instructions")
+            raw.execSQL("ALTER TABLE instructions_v16 RENAME TO instructions")
+            listOf(
+                "status", "personId", "dueAt", "syncStatus", "urgency",
+                "audienceKind", "audienceTarget", "dueAtMs", "channel",
+            ).forEach { column ->
+                raw.execSQL("CREATE INDEX index_instructions_$column ON instructions($column)")
+            }
+            raw.execSQL("PRAGMA user_version = 16")
+        }
+
+        val migrated = Room.databaseBuilder(context, AppDatabase::class.java, completeDatabaseName)
+            .addMigrations(AppDatabase.MIGRATION_16_17)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val opened = migrated.openHelper.writableDatabase
+            assertTrue(migrated.isOpen)
+            opened.query("PRAGMA user_version").use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(17, cursor.getInt(0))
+            }
+        } finally {
+            migrated.close()
         }
     }
 

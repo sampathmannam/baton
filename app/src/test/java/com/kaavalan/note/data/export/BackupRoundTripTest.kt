@@ -20,6 +20,7 @@ import com.kaavalan.note.data.local.entities.TagEntity
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -105,7 +106,7 @@ class BackupRoundTripTest {
             id = "i1",
             personId = "p1",
             direction = "OUTGOING",
-            status = "OPEN",
+            status = "ACK_PENDING",
             source = "TEXT",
             priority = "HIGH",
             title = "Send FIR 47",
@@ -121,6 +122,15 @@ class BackupRoundTripTest {
             caseType = "FIR",
             urgency = "normal",
             reviewAtEpochDay = null,
+            actionSummary = "Send the FIR report",
+            hardDeadlineAtEpochMs = 1_788_426_000_000L,
+            followUpAtEpochMs = 1_788_091_200_000L,
+            archivedAtEpochMs = 1_788_512_400_000L,
+            responsiblePersonId = "p2",
+            groupLabel = "District writers",
+            localRevision = 7,
+            migrationReviewRequired = true,
+            migrationMetadata = "legacy_status=ACK_PENDING",
         ),
     )
 
@@ -284,6 +294,28 @@ class BackupRoundTripTest {
             "restore must report 1 important_date",
             1, result.importantDates,
         )
+    }
+
+    @Test
+    fun `backup restore preserves Stage 1 fields and normalizes legacy enums`() = runTest {
+        val restoredSlot = slot<List<InstructionEntity>>()
+        coEvery { instructionDao.upsertAll(capture(restoredSlot)) } returns Unit
+
+        val file = backupManager.backup()
+        backupManager.restore(file)
+
+        val restored = restoredSlot.captured.single()
+        assertEquals("WAITING", restored.status)
+        assertEquals("URGENT", restored.priority)
+        assertEquals("Send the FIR report", restored.actionSummary)
+        assertEquals(1_788_426_000_000L, restored.hardDeadlineAtEpochMs)
+        assertEquals(1_788_091_200_000L, restored.followUpAtEpochMs)
+        assertEquals(1_788_512_400_000L, restored.archivedAtEpochMs)
+        assertEquals("p2", restored.responsiblePersonId)
+        assertEquals("District writers", restored.groupLabel)
+        assertEquals(7L, restored.localRevision)
+        assertTrue(restored.migrationReviewRequired)
+        assertEquals("legacy_status=ACK_PENDING", restored.migrationMetadata)
     }
 
     @Test

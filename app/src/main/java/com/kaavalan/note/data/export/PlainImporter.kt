@@ -9,6 +9,8 @@ import com.kaavalan.note.data.local.entities.InstructionEntity
 import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
 import com.kaavalan.note.data.local.entities.TagEntity
+import com.kaavalan.note.data.instructions.parsePriority
+import com.kaavalan.note.data.instructions.parseStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONObject
 import javax.inject.Inject
@@ -192,9 +194,9 @@ class PlainImporter @Inject constructor(
             id = cols[0],
             personId = cols[1].ifEmpty { null },
             direction = cols[2],
-            status = cols[3],
+            status = parseStatus(cols[3]).name,
             source = cols[4],
-            priority = cols[5],
+            priority = parsePriority(cols[5]).name,
             title = cols[6],
             rawText = cols[7],
             dueAt = cols[8].ifEmpty { null },
@@ -205,6 +207,16 @@ class PlainImporter @Inject constructor(
             completedAt = null,
             droppedReason = null,
             syncStatus = SyncStatus.SYNCED,
+            actionSummary = cols.getOrNull(13)?.ifEmpty { cols[6] } ?: cols[6],
+            hardDeadlineAtEpochMs = cols.getOrNull(14)?.toLongOrNull(),
+            followUpAtEpochMs = cols.getOrNull(15)?.toLongOrNull()
+                ?: cols[12].toLongOrNull(),
+            archivedAtEpochMs = cols.getOrNull(16)?.toLongOrNull(),
+            responsiblePersonId = cols.getOrNull(17)?.ifEmpty { null },
+            groupLabel = cols.getOrNull(18)?.ifEmpty { null },
+            localRevision = cols.getOrNull(19)?.toLongOrNull() ?: 1L,
+            migrationReviewRequired = cols.getOrNull(20)?.toBooleanStrictOrNull() ?: false,
+            migrationMetadata = cols.getOrNull(21)?.ifEmpty { null },
         )
     }
 
@@ -263,9 +275,9 @@ class PlainImporter @Inject constructor(
                     id = o.getString("id"),
                     personId = o.optStringOrNull("person_id"),
                     direction = o.getString("direction"),
-                    status = o.getString("status"),
+                    status = parseStatus(o.getString("status")).name,
                     source = o.getString("source"),
-                    priority = o.getString("priority"),
+                    priority = parsePriority(o.getString("priority")).name,
                     title = o.getString("title"),
                     rawText = o.getString("raw_text"),
                     dueAt = o.optStringOrNull("due_at"),
@@ -276,6 +288,16 @@ class PlainImporter @Inject constructor(
                     completedAt = o.optStringOrNull("completed_at"),
                     droppedReason = o.optStringOrNull("dropped_reason"),
                     syncStatus = SyncStatus.SYNCED,
+                    actionSummary = o.optString("action_summary", o.getString("title")),
+                    hardDeadlineAtEpochMs = o.optLongOrNull("hard_deadline_at_epoch_ms"),
+                    followUpAtEpochMs = o.optLongOrNull("follow_up_at_epoch_ms")
+                        ?: o.optLongOrNull("next_action_at"),
+                    archivedAtEpochMs = o.optLongOrNull("archived_at_epoch_ms"),
+                    responsiblePersonId = o.optStringOrNull("responsible_person_id"),
+                    groupLabel = o.optStringOrNull("group_label"),
+                    localRevision = o.optLong("local_revision", 1L),
+                    migrationReviewRequired = o.optBoolean("migration_review_required", false),
+                    migrationMetadata = o.optStringOrNull("migration_metadata"),
                 )
                 val before = instructionDao.snapshot().any { it.id == entity.id }
                 instructionDao.upsert(entity)

@@ -117,5 +117,73 @@ The migration adds nine columns and three indexes with `ALTER TABLE`/index creat
 ## Remaining risks
 
 - Deprecated status/priority aliases intentionally emit warnings until Stage 2 migrates remaining callers.
-- The migration test follows the repository's raw-SQLite migration pattern and exercises the real migration object, but does not perform a full exported-schema Room validation because schema export is disabled.
+- Schema export remains disabled, but migration coverage now combines the representative raw fixture with a complete AppDatabase downgrade/migrate/reopen test that passes Room's full v17 schema validation.
 - The Windows BellSoft JDK 17 C2 compiler crash required C1-only full-suite execution; all tests then completed with zero failures.
+
+## Independent-review remediation
+
+Follow-up commit: the commit containing this section, with subject `fix: preserve instruction data across lifecycle paths`.
+
+### Verified findings and fixes
+
+1. **Relationship retention (Critical).** Confirmed that `InstructionDao.upsert` used `INSERT OR REPLACE`; replacing an existing instruction triggered the `instruction_tags` cascading FK and removed links. Added `@Update updateExisting` and changed repository update, lifecycle, legacy patch, and sensitivity mutations to in-place updates. Creation remains the only repository path using insert/replace.
+2. **Responsible-person observation (Important).** Confirmed `observeForPerson` matched only `personId`. It now matches `personId OR responsiblePersonId`, while retaining archive filtering and follow-up/deadline ordering.
+3. **Backup/plain import preservation (Important).** Confirmed the existing full-backup and plain CSV/JSON formats omitted all nine Stage 1 fields and restored raw legacy enum strings. Existing formats now append optional Stage 1 keys/columns, read older files defensively, preserve original text separately, and normalize legacy status/priority through the domain mappings. No Stage 7 backup architecture was added.
+4. **Compatibility archive semantics (Important).** Confirmed both `markDropped` overloads changed status via `DROPPED→DONE`, and `reopen` changed it via `OPEN→TO_DO`. Compatibility archive/restore now update archive metadata in place and preserve the current simplified status/completion state.
+5. **Complete Room schema validation (Important).** Confirmed prior tests validated migration SQL only against a partial fixture. Added a complete AppDatabase test that creates v17, downgrades only the instructions table/user version to v16, reopens with production `MIGRATION_16_17`, and verifies Room opens and validates every v17 table/index. The production migration itself passed once the test harness correctly forced Room's lazy database opens; no migration SQL change was needed.
+6. **Permanent delete distinction (Minor).** Added coverage proving ordinary mutations retain tag links, while explicit permanent delete removes the instruction, FTS row, and dependent instruction-tag links.
+
+### Review-fix RED evidence
+
+- `.\gradlew.bat testDebugUnitTest --tests "com.kaavalan.note.data.instructions.InstructionLifecycleTest" --console=plain`
+  - 6 tests, 1 failure in 1m08s: `ordinary lifecycle mutations preserve instruction tag relationships`.
+  - Root cause: `INSERT OR REPLACE` deleted/reinserted the parent and cascaded the cross-ref.
+- `.\gradlew.bat testDebugUnitTest --tests "com.kaavalan.note.data.instructions.InstructionLifecycleTest.observe for person includes instructions assigned by responsible person" --console=plain`
+  - 1 test, 1 failure in 15s: empty result (`NoSuchElementException`).
+  - Root cause: DAO predicate matched only `personId`.
+- `.\gradlew.bat testDebugUnitTest --tests "com.kaavalan.note.data.export.BackupRoundTripTest.backup restore preserves Stage 1 fields and normalizes legacy enums" --tests "com.kaavalan.note.data.export.PlainImporterTest.*Stage 1*" --console=plain`
+  - 3 tests, 3 failures in 26s.
+  - Root cause: Stage 1 fields were absent and `ACK_PENDING/HIGH` restored unchanged.
+- `.\gradlew.bat testDebugUnitTest --tests "com.kaavalan.note.data.instructions.InstructionLifecycleTest.compatibility archive and reopen preserve simplified status" --console=plain`
+  - 1 test, 1 failure in 18s.
+  - Root cause: compatibility aliases mutated `WAITING` to `DONE`/`TO_DO`.
+- Complete-schema migration test harness RED sequence:
+  - First attempt: compile failure in 4s because this RoomDatabase is not Kotlin `Closeable` and cannot use `.use`.
+  - Second attempt: 1 failure in 16s because Room's seed database had not been forced open, so no tables existed.
+  - Third attempt: 1 failure in 18s because `isOpen` was asserted before the migrated Room connection was forced open.
+  - These were harness failures while adding the missing coverage; once corrected, the existing production migration passed full Room validation without a production schema change.
+
+### Review-fix GREEN evidence
+
+- Lifecycle relationship retention plus permanent-delete coverage: `InstructionLifecycleTest` GREEN in 1m34s after switching known-existing entities to `@Update`.
+- Responsible-person focused test: GREEN in 48s after broadening the query.
+- Backup/CSV/JSON Stage 1 focused tests: 3/3 GREEN in 43s after format preservation/normalization changes.
+- Compatibility archive focused test: GREEN in 1m03s after preserving status independently.
+- Complete Room-open migration validation: GREEN in 14s; Room opened the migrated complete database at user version 17.
+- Covering suites command:
+  - `$env:JAVA_TOOL_OPTIONS='-XX:TieredStopAtLevel=1'; .\gradlew.bat testDebugUnitTest --no-daemon --max-workers=1 --tests "com.kaavalan.note.data.instructions.InstructionLifecycleTest" --tests "com.kaavalan.note.di.Migration16To17Test" --tests "com.kaavalan.note.data.export.BackupRoundTripTest" --tests "com.kaavalan.note.data.export.BackupManagerTest" --tests "com.kaavalan.note.data.export.PlainExporterTest" --tests "com.kaavalan.note.data.export.PlainImporterTest" --tests "com.kaavalan.note.data.local.RoomInstructionRepositoryTest" --tests "com.kaavalan.note.data.local.RoomInstructionRepositoryCrashRecoveryTest" --tests "com.kaavalan.note.data.local.InstructionDaoTest" --tests "com.kaavalan.note.data.local.FtsSearchTest" --tests "com.kaavalan.note.data.instructions.HierarchyDispatchEndToEndTest" --console=plain`
+  - `BUILD SUCCESSFUL` in 1m09s.
+- Full JVM command (forced fresh execution):
+  - `$env:JAVA_TOOL_OPTIONS='-XX:TieredStopAtLevel=1'; .\gradlew.bat testDebugUnitTest --no-daemon --max-workers=1 --rerun-tasks --console=plain`
+  - `BUILD SUCCESSFUL` in 5m43s; 594 tests total, 582 passed, 12 skipped, 0 failures, 0 errors; all 31 tasks executed.
+
+### Follow-up files changed
+
+- `app/src/main/java/com/kaavalan/note/data/export/BackupManager.kt`
+- `app/src/main/java/com/kaavalan/note/data/export/PlainExporter.kt`
+- `app/src/main/java/com/kaavalan/note/data/export/PlainImporter.kt`
+- `app/src/main/java/com/kaavalan/note/data/instructions/RoomInstructionRepository.kt`
+- `app/src/main/java/com/kaavalan/note/data/local/InstructionDao.kt`
+- `app/src/test/java/com/kaavalan/note/data/export/BackupRoundTripTest.kt`
+- `app/src/test/java/com/kaavalan/note/data/export/PlainImporterTest.kt`
+- `app/src/test/java/com/kaavalan/note/data/instructions/InstructionLifecycleTest.kt`
+- `app/src/test/java/com/kaavalan/note/data/local/RoomInstructionRepositoryTest.kt`
+- `app/src/test/java/com/kaavalan/note/di/Migration16To17Test.kt`
+- `docs/verification/kaavalan-redesign-stage1.md`
+
+### Follow-up privacy/scope review
+
+- Original capture remains independent in `rawText`; backup/import additions serialize it unchanged and keep `actionSummary` separate.
+- No audit payload, API key, credential, raw AI payload, external intent, network service, dependency, or Stage 7 backup component was added.
+- Backup/import changes are optional-field extensions to existing JSON/CSV code only and remain backward-compatible with prior files.
+- Ordinary lifecycle changes now retain relationships; only explicit permanent delete performs dependent cleanup.

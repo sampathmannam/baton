@@ -52,12 +52,18 @@ class PlainExporter @Inject constructor(
             ))).append("\n")
         }
         val instructions = StringBuilder()
-        instructions.append("id,person_id,direction,status,source,priority,title,raw_text,due_at,captured_at,created_at,updated_at,next_action_at\n")
+        instructions.append("id,person_id,direction,status,source,priority,title,raw_text,due_at,captured_at,created_at,updated_at,next_action_at,action_summary,hard_deadline_at_epoch_ms,follow_up_at_epoch_ms,archived_at_epoch_ms,responsible_person_id,group_label,local_revision,migration_review_required,migration_metadata\n")
         snap.instructions.forEach { i ->
             instructions.append(joinCsv(listOf(
                 i.id, i.personId.orEmpty(), i.direction, i.status, i.source, i.priority,
                 i.title, i.rawText, i.dueAt.orEmpty(), i.capturedAt, i.createdAt,
-                i.updatedAt, i.nextActionAt?.toString().orEmpty(),
+                i.updatedAt, i.nextActionAt?.toString().orEmpty(), i.actionSummary,
+                i.hardDeadlineAtEpochMs?.toString().orEmpty(),
+                i.followUpAtEpochMs?.toString().orEmpty(),
+                i.archivedAtEpochMs?.toString().orEmpty(),
+                i.responsiblePersonId.orEmpty(), i.groupLabel.orEmpty(),
+                i.localRevision.toString(), i.migrationReviewRequired.toString(),
+                i.migrationMetadata.orEmpty(),
             ))).append("\n")
         }
         val tags = StringBuilder()
@@ -92,6 +98,15 @@ class PlainExporter @Inject constructor(
                 put("created_at", i.createdAt); put("updated_at", i.updatedAt)
                 put("next_action_at", i.nextActionAt)
                 put("completed_at", i.completedAt); put("dropped_reason", i.droppedReason)
+                put("action_summary", i.actionSummary)
+                put("hard_deadline_at_epoch_ms", i.hardDeadlineAtEpochMs)
+                put("follow_up_at_epoch_ms", i.followUpAtEpochMs)
+                put("archived_at_epoch_ms", i.archivedAtEpochMs)
+                put("responsible_person_id", i.responsiblePersonId)
+                put("group_label", i.groupLabel)
+                put("local_revision", i.localRevision)
+                put("migration_review_required", i.migrationReviewRequired)
+                put("migration_metadata", i.migrationMetadata)
             })
         }
         val tagArr = JSONArray()

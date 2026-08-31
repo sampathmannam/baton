@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.kaavalan.note.data.audit.AuditChainWriter
 import com.kaavalan.note.data.local.AppDatabase
 import com.kaavalan.note.data.local.TouchPersonOnActivity
+import com.kaavalan.note.data.local.entities.InstructionTagCrossRef
+import com.kaavalan.note.data.local.entities.TagEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -155,4 +157,106 @@ class InstructionLifecycleTest {
         assertNull(row.responsiblePersonId)
         assertEquals("Station writers", row.groupLabel)
     }
+
+    @Test
+    fun `observe for person includes instructions assigned by responsible person`() = runTest {
+        val created = repository.create(
+            InstructionDraft(
+                rawText = "raw",
+                actionSummary = "Responsible person action",
+                responsiblePersonId = "person-responsible",
+            ),
+        )
+
+        assertEquals(
+            created.id,
+            repository.observeForPerson("person-responsible").first().single().id,
+        )
+    }
+
+    @Test
+    fun `ordinary lifecycle mutations preserve instruction tag relationships`() = runTest {
+        val created = repository.create(
+            InstructionDraft(rawText = "raw", actionSummary = "Preserve linked tag"),
+        )
+        db.tagDao().upsert(tag("tag-1"))
+        val link = InstructionTagCrossRef(created.id, "tag-1")
+        db.instructionTagDao().attach(link)
+
+        val update = repository.update(
+            created.id,
+            created.updatedAt,
+            InstructionPatch(
+                actionSummary = "Updated without losing tag",
+                status = Status.WAITING,
+                priority = Priority.NORMAL,
+                hardDeadlineAtEpochMs = null,
+                followUpAtEpochMs = null,
+                personId = null,
+                responsiblePersonId = null,
+                groupLabel = null,
+            ),
+        ) as UpdateResult.Updated
+        assertEquals(listOf(link), db.instructionTagDao().snapshotAll())
+
+        repository.markDone(created.id, 1_788_177_600_000L)
+        repository.archive(created.id, 1_788_264_000_000L)
+        repository.restore(created.id, 1_788_350_400_000L)
+
+        assertEquals(5L, update.instruction.localRevision + 3)
+        assertEquals(listOf(link), db.instructionTagDao().snapshotAll())
+    }
+
+    @Test
+    fun `permanent delete removes instruction search row and dependent tag links`() = runTest {
+        val created = repository.create(
+            InstructionDraft(rawText = "delete raw", actionSummary = "Delete permanently"),
+        )
+        db.tagDao().upsert(tag("tag-delete"))
+        db.instructionTagDao().attach(InstructionTagCrossRef(created.id, "tag-delete"))
+
+        repository.deletePermanently(created.id)
+
+        assertNull(db.instructionDao().getById(created.id))
+        assertTrue(db.instructionTagDao().snapshotAll().none { it.instructionId == created.id })
+        assertTrue(db.instructionFtsDao().searchOnce("Delete*").isEmpty())
+    }
+
+    @Test
+    fun `compatibility archive and reopen preserve simplified status`() = runTest {
+        val created = repository.create(
+            InstructionDraft(
+                rawText = "raw",
+                actionSummary = "Wait for response",
+                status = Status.WAITING,
+            ),
+        )
+
+        repository.markDropped(created.id, "Handled offline", "2026-09-01T10:00:00Z")
+        var row = db.instructionDao().getById(created.id)!!
+        assertEquals(Status.WAITING.name, row.status)
+        assertEquals(1_788_256_800_000L, row.archivedAtEpochMs)
+
+        repository.reopen(created.id)
+        row = db.instructionDao().getById(created.id)!!
+        assertEquals(Status.WAITING.name, row.status)
+        assertNull(row.archivedAtEpochMs)
+
+        repository.markDropped(created.id, reason = null)
+        row = db.instructionDao().getById(created.id)!!
+        assertEquals(Status.WAITING.name, row.status)
+        assertTrue(row.archivedAtEpochMs != null)
+    }
+
+    private fun tag(id: String) = TagEntity(
+        id = id,
+        name = id,
+        kind = "FREE",
+        color = null,
+        usageCount = 0,
+        lastUsedAt = null,
+        userId = "test",
+        createdAt = "2026-08-31T00:00:00Z",
+        updatedAt = "2026-08-31T00:00:00Z",
+    )
 }

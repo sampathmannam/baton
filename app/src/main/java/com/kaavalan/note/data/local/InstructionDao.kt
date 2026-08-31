@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.kaavalan.note.data.local.entities.InstructionEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
 import kotlinx.coroutines.flow.Flow
@@ -57,7 +58,8 @@ interface InstructionDao {
     @Query(
         """
         SELECT * FROM instructions
-        WHERE personId = :personId AND archivedAtEpochMs IS NULL
+        WHERE (personId = :personId OR responsiblePersonId = :personId)
+          AND archivedAtEpochMs IS NULL
         ORDER BY
             CASE
                 WHEN followUpAtEpochMs IS NOT NULL THEN followUpAtEpochMs
@@ -98,6 +100,9 @@ interface InstructionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(instruction: InstructionEntity)
 
+    @Update
+    suspend fun updateExisting(instruction: InstructionEntity): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(instructions: List<InstructionEntity>)
 
@@ -136,9 +141,6 @@ interface InstructionDao {
         droppedReason: String?,
         syncStatus: String = SyncStatus.PENDING_UPDATE,
     )
-
-    @Query("UPDATE instructions SET archivedAtEpochMs = :archivedAtEpochMs WHERE id = :id")
-    suspend fun setArchivedAt(id: String, archivedAtEpochMs: Long?)
 
     // M3-T5: open-instruction count per person. Used to show the
     // badge on the People list. "Open" = status NOT IN (DONE,
