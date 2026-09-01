@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.kaavalan.note.data.local.entities.TagEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -32,6 +33,9 @@ interface TagDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tag: TagEntity)
+
+    @Update
+    suspend fun updateExisting(tag: TagEntity): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(tags: List<TagEntity>)

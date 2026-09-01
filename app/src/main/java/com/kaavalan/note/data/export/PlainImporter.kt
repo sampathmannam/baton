@@ -10,7 +10,6 @@ import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.SyncStatus
 import com.kaavalan.note.data.local.entities.TagEntity
 import com.kaavalan.note.data.instructions.parsePriority
-import com.kaavalan.note.data.instructions.parseStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONObject
 import javax.inject.Inject
@@ -27,13 +26,12 @@ import javax.inject.Singleton
  * single-purpose and the unit tests for the exporter stay
  * JVM-only.
  *
- * **What "upsert" means here.** Every entity has a
- * client-generated UUID (or an autoinc Long for some).
- * The importer calls the DAO's `upsert` method (a Room
- * `@Upsert` that REPLACE-on-conflict). Re-importing the
- * same file is idempotent — the row counts in the result
- * are `inserted + updated` but the user-visible "rows
- * now in DB" stays stable.
+ * **What "upsert" means here.** New rows are inserted;
+ * existing instructions and tags are updated in place so
+ * their relationship rows survive a re-import. Re-importing
+ * the same file is idempotent — the row counts in the result
+ * are `inserted + updated` but the user-visible "rows now in
+ * DB" stays stable.
  *
  * **Format detection.** CSV starts with a BOM (`\uFEFF`)
  * and the first non-empty line is the `id,name,...`
@@ -110,25 +108,15 @@ class PlainImporter @Inject constructor(
                     rows.forEach { cols ->
                         val entity = csvToInstruction(cols) ?: return@forEach
                         val before = instructionDao.snapshot().any { it.id == entity.id }
-                        instructionDao.upsert(entity)
+                        if (before) instructionDao.updateExisting(entity) else instructionDao.upsert(entity)
                         if (before) report.instructionsUpdated++ else report.instructionsInserted++
                     }
                 }
                 header.startsWith("id,name,kind,color") -> {
                     rows.forEach { cols ->
                         val entity = csvToTag(cols) ?: return@forEach
-                        val before = tagDao.observeAll().let { flow ->
-                            // observeAll() returns Flow, not a
-                            // suspend snapshot. Use a quick
-                            // getByName + getById pair as a
-                            // proxy for "exists".
-                            // (A v2.x can add a snapshot() to
-                            // TagDao for cleaner duplicate
-                            // detection; for v2.0.1 this
-                            // covers the common case.)
-                            runCatching { tagDao.findByNameAndKind(entity.name, entity.kind) }.getOrNull() != null
-                        }
-                        tagDao.upsert(entity)
+                        val before = tagDao.findById(entity.id) != null
+                        if (before) tagDao.updateExisting(entity) else tagDao.upsert(entity)
                         if (before) report.tagsUpdated++ else report.tagsInserted++
                     }
                 }
@@ -190,16 +178,29 @@ class PlainImporter @Inject constructor(
 
     private fun csvToInstruction(cols: List<String>): InstructionEntity? {
         if (cols.size < 13) return null
+        val dueAt = cols[8].ifEmpty { null }
+        val normalized = normalizeLegacyInstruction(
+            status = cols[3],
+            direction = cols[2],
+            dueAt = dueAt,
+            hardDeadlineAtEpochMs = cols.getOrNull(14)?.toLongOrNull(),
+            archivedAtEpochMs = cols.getOrNull(16)?.toLongOrNull(),
+            updatedAt = cols[11],
+            capturedAt = cols[9],
+            createdAt = cols[10],
+            migrationReviewRequired = cols.getOrNull(20)?.toBooleanStrictOrNull() ?: false,
+            migrationMetadata = cols.getOrNull(21)?.ifEmpty { null },
+        )
         return InstructionEntity(
             id = cols[0],
             personId = cols[1].ifEmpty { null },
             direction = cols[2],
-            status = parseStatus(cols[3]).name,
+            status = normalized.status,
             source = cols[4],
             priority = parsePriority(cols[5]).name,
             title = cols[6],
             rawText = cols[7],
-            dueAt = cols[8].ifEmpty { null },
+            dueAt = dueAt,
             capturedAt = cols[9],
             createdAt = cols[10],
             updatedAt = cols[11],
@@ -208,15 +209,15 @@ class PlainImporter @Inject constructor(
             droppedReason = null,
             syncStatus = SyncStatus.SYNCED,
             actionSummary = cols.getOrNull(13)?.ifEmpty { cols[6] } ?: cols[6],
-            hardDeadlineAtEpochMs = cols.getOrNull(14)?.toLongOrNull(),
+            hardDeadlineAtEpochMs = normalized.hardDeadlineAtEpochMs,
             followUpAtEpochMs = cols.getOrNull(15)?.toLongOrNull()
                 ?: cols[12].toLongOrNull(),
-            archivedAtEpochMs = cols.getOrNull(16)?.toLongOrNull(),
+            archivedAtEpochMs = normalized.archivedAtEpochMs,
             responsiblePersonId = cols.getOrNull(17)?.ifEmpty { null },
             groupLabel = cols.getOrNull(18)?.ifEmpty { null },
             localRevision = cols.getOrNull(19)?.toLongOrNull() ?: 1L,
-            migrationReviewRequired = cols.getOrNull(20)?.toBooleanStrictOrNull() ?: false,
-            migrationMetadata = cols.getOrNull(21)?.ifEmpty { null },
+            migrationReviewRequired = normalized.migrationReviewRequired,
+            migrationMetadata = normalized.migrationMetadata,
         )
     }
 
@@ -271,16 +272,29 @@ class PlainImporter @Inject constructor(
         root.optJSONArray("instructions")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
+                val dueAt = o.optStringOrNull("due_at")
+                val normalized = normalizeLegacyInstruction(
+                    status = o.getString("status"),
+                    direction = o.getString("direction"),
+                    dueAt = dueAt,
+                    hardDeadlineAtEpochMs = o.optLongOrNull("hard_deadline_at_epoch_ms"),
+                    archivedAtEpochMs = o.optLongOrNull("archived_at_epoch_ms"),
+                    updatedAt = o.getString("updated_at"),
+                    capturedAt = o.getString("captured_at"),
+                    createdAt = o.getString("created_at"),
+                    migrationReviewRequired = o.optBoolean("migration_review_required", false),
+                    migrationMetadata = o.optStringOrNull("migration_metadata"),
+                )
                 val entity = InstructionEntity(
                     id = o.getString("id"),
                     personId = o.optStringOrNull("person_id"),
                     direction = o.getString("direction"),
-                    status = parseStatus(o.getString("status")).name,
+                    status = normalized.status,
                     source = o.getString("source"),
                     priority = parsePriority(o.getString("priority")).name,
                     title = o.getString("title"),
                     rawText = o.getString("raw_text"),
-                    dueAt = o.optStringOrNull("due_at"),
+                    dueAt = dueAt,
                     capturedAt = o.getString("captured_at"),
                     createdAt = o.getString("created_at"),
                     updatedAt = o.getString("updated_at"),
@@ -289,18 +303,18 @@ class PlainImporter @Inject constructor(
                     droppedReason = o.optStringOrNull("dropped_reason"),
                     syncStatus = SyncStatus.SYNCED,
                     actionSummary = o.optString("action_summary", o.getString("title")),
-                    hardDeadlineAtEpochMs = o.optLongOrNull("hard_deadline_at_epoch_ms"),
+                    hardDeadlineAtEpochMs = normalized.hardDeadlineAtEpochMs,
                     followUpAtEpochMs = o.optLongOrNull("follow_up_at_epoch_ms")
                         ?: o.optLongOrNull("next_action_at"),
-                    archivedAtEpochMs = o.optLongOrNull("archived_at_epoch_ms"),
+                    archivedAtEpochMs = normalized.archivedAtEpochMs,
                     responsiblePersonId = o.optStringOrNull("responsible_person_id"),
                     groupLabel = o.optStringOrNull("group_label"),
                     localRevision = o.optLong("local_revision", 1L),
-                    migrationReviewRequired = o.optBoolean("migration_review_required", false),
-                    migrationMetadata = o.optStringOrNull("migration_metadata"),
+                    migrationReviewRequired = normalized.migrationReviewRequired,
+                    migrationMetadata = normalized.migrationMetadata,
                 )
                 val before = instructionDao.snapshot().any { it.id == entity.id }
-                instructionDao.upsert(entity)
+                if (before) instructionDao.updateExisting(entity) else instructionDao.upsert(entity)
                 if (before) report.instructionsUpdated++ else report.instructionsInserted++
             }
         }
@@ -323,8 +337,8 @@ class PlainImporter @Inject constructor(
                     updatedAt = o.getString("updated_at"),
                     syncStatus = SyncStatus.SYNCED,
                 )
-                val before = runCatching { tagDao.findByNameAndKind(entity.name, entity.kind) }.getOrNull() != null
-                tagDao.upsert(entity)
+                val before = tagDao.findById(entity.id) != null
+                if (before) tagDao.updateExisting(entity) else tagDao.upsert(entity)
                 if (before) report.tagsUpdated++ else report.tagsInserted++
             }
         }

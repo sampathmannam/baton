@@ -6,9 +6,11 @@ import com.kaavalan.note.data.local.entities.SyncQueueEntity
 import com.kaavalan.note.data.local.entities.InstructionEntity
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import java.util.concurrent.Executor
 
 /**
  * v2.0.0 (drop Supabase): the RoomInstructionRepository is
@@ -69,10 +71,10 @@ class RoomInstructionRepositoryTest {
     @Test
     fun `markDropped archives in place and preserves status`() = runTest {
         val dao = mockk<InstructionDao>(relaxed = true)
-        coEvery { dao.getById("ins-2") } returns instruction("ins-2")
+        coEvery { dao.updateArchiveState(any(), any(), any(), any(), any()) } returns 1
         val syncQueueDao = mockk<com.kaavalan.note.data.local.SyncQueueDao>(relaxed = true)
         val repo = com.kaavalan.note.data.instructions.RoomInstructionRepository(
-            db = mockk(relaxed = true),
+            db = transactionalDb(),
             dao = dao,
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
@@ -83,13 +85,13 @@ class RoomInstructionRepositoryTest {
         repo.markDropped("ins-2", "Already handled offline")
 
         coVerify {
-            dao.updateExisting(match {
-                it.id == "ins-2" &&
-                    it.status == Status.WAITING.name &&
-                    it.archivedAtEpochMs != null &&
-                    it.droppedReason == "Already handled offline" &&
-                    it.syncStatus == SyncStatus.PENDING_UPDATE
-            })
+            dao.updateArchiveState(
+                id = "ins-2",
+                archivedAtEpochMs = any(),
+                droppedReason = "Already handled offline",
+                updatedAt = any(),
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
         }
     }
 
@@ -100,13 +102,10 @@ class RoomInstructionRepositoryTest {
     @Test
     fun `reopen clears archive fields and preserves status`() = runTest {
         val dao = mockk<InstructionDao>(relaxed = true)
-        coEvery { dao.getById("ins-3") } returns instruction("ins-3").copy(
-            archivedAtEpochMs = 1L,
-            droppedReason = "legacy reason",
-        )
+        coEvery { dao.updateArchiveState(any(), any(), any(), any(), any()) } returns 1
         val syncQueueDao = mockk<com.kaavalan.note.data.local.SyncQueueDao>(relaxed = true)
         val repo = com.kaavalan.note.data.instructions.RoomInstructionRepository(
-            db = mockk(relaxed = true),
+            db = transactionalDb(),
             dao = dao,
             ftsDao = mockk(relaxed = true),
             syncQueueDao = syncQueueDao,
@@ -117,28 +116,17 @@ class RoomInstructionRepositoryTest {
         repo.reopen("ins-3")
 
         coVerify {
-            dao.updateExisting(match {
-                it.id == "ins-3" &&
-                    it.status == Status.WAITING.name &&
-                    it.archivedAtEpochMs == null &&
-                    it.droppedReason == null &&
-                    it.syncStatus == SyncStatus.PENDING_UPDATE
-            })
+            dao.updateArchiveState(
+                id = "ins-3",
+                archivedAtEpochMs = null,
+                droppedReason = null,
+                updatedAt = any(),
+                syncStatus = SyncStatus.PENDING_UPDATE,
+            )
         }
     }
 
-    private fun instruction(id: String) = InstructionEntity(
-        id = id,
-        personId = null,
-        direction = "OUTGOING",
-        status = Status.WAITING.name,
-        source = "TEXT",
-        priority = "NORMAL",
-        title = "title",
-        rawText = "raw",
-        dueAt = null,
-        capturedAt = "2026-08-31T00:00:00Z",
-        createdAt = "2026-08-31T00:00:00Z",
-        updatedAt = "2026-08-31T00:00:00Z",
-    )
+    private fun transactionalDb(): AppDatabase = mockk(relaxed = true) {
+        every { transactionExecutor } returns Executor { it.run() }
+    }
 }

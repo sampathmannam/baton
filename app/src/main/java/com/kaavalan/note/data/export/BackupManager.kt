@@ -16,7 +16,6 @@ import com.kaavalan.note.data.local.entities.PersonEntity
 import com.kaavalan.note.data.local.entities.PersonLinkEntity
 import com.kaavalan.note.data.local.entities.TagEntity
 import com.kaavalan.note.data.instructions.parsePriority
-import com.kaavalan.note.data.instructions.parseStatus
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -310,37 +309,52 @@ private fun JSONObject.toPersonEntity(): PersonEntity = PersonEntity(
     updatedAt = getString("updated_at"),
 )
 
-private fun JSONObject.toInstructionEntity(): InstructionEntity = InstructionEntity(
-    id = getString("id"),
-    personId = optStringOrNull("person_id"),
-    direction = getString("direction"),
-    status = parseStatus(getString("status")).name,
-    source = getString("source"),
-    priority = parsePriority(getString("priority")).name,
-    title = getString("title"),
-    rawText = getString("raw_text"),
-    dueAt = optStringOrNull("due_at"),
-    capturedAt = getString("captured_at"),
-    createdAt = getString("created_at"),
-    updatedAt = getString("updated_at"),
-    isSensitive = optBoolean("is_sensitive", false),
-    completedAt = optStringOrNull("completed_at"),
-    droppedReason = optStringOrNull("dropped_reason"),
-    nextActionAt = optLongOrNull("next_action_at"),
-    caseType = optStringOrNull("case_type"),
-    urgency = optString("urgency", "normal"),
-    reviewAtEpochDay = optLongOrNull("review_at_epoch_day"),
-    actionSummary = optString("action_summary", getString("title")),
-    hardDeadlineAtEpochMs = optLongOrNull("hard_deadline_at_epoch_ms"),
-    followUpAtEpochMs = optLongOrNull("follow_up_at_epoch_ms")
-        ?: optLongOrNull("next_action_at"),
-    archivedAtEpochMs = optLongOrNull("archived_at_epoch_ms"),
-    responsiblePersonId = optStringOrNull("responsible_person_id"),
-    groupLabel = optStringOrNull("group_label"),
-    localRevision = optLong("local_revision", 1L),
-    migrationReviewRequired = optBoolean("migration_review_required", false),
-    migrationMetadata = optStringOrNull("migration_metadata"),
-)
+private fun JSONObject.toInstructionEntity(): InstructionEntity {
+    val dueAt = optStringOrNull("due_at")
+    val normalized = normalizeLegacyInstruction(
+        status = getString("status"),
+        direction = getString("direction"),
+        dueAt = dueAt,
+        hardDeadlineAtEpochMs = optLongOrNull("hard_deadline_at_epoch_ms"),
+        archivedAtEpochMs = optLongOrNull("archived_at_epoch_ms"),
+        updatedAt = getString("updated_at"),
+        capturedAt = getString("captured_at"),
+        createdAt = getString("created_at"),
+        migrationReviewRequired = optBoolean("migration_review_required", false),
+        migrationMetadata = optStringOrNull("migration_metadata"),
+    )
+    return InstructionEntity(
+        id = getString("id"),
+        personId = optStringOrNull("person_id"),
+        direction = getString("direction"),
+        status = normalized.status,
+        source = getString("source"),
+        priority = parsePriority(getString("priority")).name,
+        title = getString("title"),
+        rawText = getString("raw_text"),
+        dueAt = dueAt,
+        capturedAt = getString("captured_at"),
+        createdAt = getString("created_at"),
+        updatedAt = getString("updated_at"),
+        isSensitive = optBoolean("is_sensitive", false),
+        completedAt = optStringOrNull("completed_at"),
+        droppedReason = optStringOrNull("dropped_reason"),
+        nextActionAt = optLongOrNull("next_action_at"),
+        caseType = optStringOrNull("case_type"),
+        urgency = optString("urgency", "normal"),
+        reviewAtEpochDay = optLongOrNull("review_at_epoch_day"),
+        actionSummary = optString("action_summary", getString("title")),
+        hardDeadlineAtEpochMs = normalized.hardDeadlineAtEpochMs,
+        followUpAtEpochMs = optLongOrNull("follow_up_at_epoch_ms")
+            ?: optLongOrNull("next_action_at"),
+        archivedAtEpochMs = normalized.archivedAtEpochMs,
+        responsiblePersonId = optStringOrNull("responsible_person_id"),
+        groupLabel = optStringOrNull("group_label"),
+        localRevision = optLong("local_revision", 1L),
+        migrationReviewRequired = normalized.migrationReviewRequired,
+        migrationMetadata = normalized.migrationMetadata,
+    )
+}
 
 private fun JSONObject.toTagEntity(): TagEntity = TagEntity(
     id = getString("id"),

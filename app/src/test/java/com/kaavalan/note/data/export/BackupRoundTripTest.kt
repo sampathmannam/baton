@@ -319,6 +319,49 @@ class BackupRoundTripTest {
     }
 
     @Test
+    fun `backup restore applies migration compatible legacy normalization`() = runTest {
+        val restoredSlot = slot<List<InstructionEntity>>()
+        coEvery { instructionDao.upsertAll(capture(restoredSlot)) } returns Unit
+        val file = File(
+            ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir,
+            "legacy-backup.json",
+        )
+        file.writeText(
+            """
+            {
+              "instructions": [
+                {
+                  "id": "incoming", "direction": "INCOMING", "status": "IN_PROGRESS",
+                  "source": "TEXT", "priority": "LOW", "title": "Incoming legacy",
+                  "raw_text": "raw", "due_at": "2026-09-03T10:00:00Z",
+                  "captured_at": "2026-08-31T09:00:00Z", "created_at": "2026-08-31T09:00:00Z",
+                  "updated_at": "2026-09-02T06:30:00Z"
+                },
+                {
+                  "id": "dropped", "direction": "SELF", "status": "DROPPED",
+                  "source": "TEXT", "priority": "HIGH", "title": "Dropped legacy",
+                  "raw_text": "raw", "due_at": "2026-09-03T10:00:00Z",
+                  "captured_at": "2026-08-31T09:00:00Z", "created_at": "2026-08-31T09:00:00Z",
+                  "updated_at": "2026-09-02T06:30:00Z"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        backupManager.restore(file)
+
+        val restored = restoredSlot.captured.associateBy { it.id }
+        assertEquals("TO_DO", restored.getValue("incoming").status)
+        assertEquals("TO_DO", restored.getValue("dropped").status)
+        assertEquals(1_788_330_600_000L, restored.getValue("dropped").archivedAtEpochMs)
+        assertEquals("legacy_status=DROPPED", restored.getValue("dropped").migrationMetadata)
+        restored.values.forEach {
+            assertEquals(1_788_429_600_000L, it.hardDeadlineAtEpochMs)
+        }
+    }
+
+    @Test
     fun `backup file name uses the timestamp pattern and lives in the backups subdirectory`() = runTest {
         val file = backupManager.backup()
         val name = file.name

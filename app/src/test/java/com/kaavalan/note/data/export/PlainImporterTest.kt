@@ -8,6 +8,7 @@ import com.kaavalan.note.data.local.AppDatabase
 import com.kaavalan.note.data.local.InstructionDao
 import com.kaavalan.note.data.local.PersonDao
 import com.kaavalan.note.data.local.TagDao
+import com.kaavalan.note.data.local.entities.InstructionTagCrossRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asExecutor
@@ -26,6 +27,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * v2.0.1 (PM rating): the CSV/JSON importer. Round-trips a
@@ -208,6 +211,75 @@ class PlainImporterTest {
 
         assertStage1Instruction(instructionDao.snapshot().single())
     }
+
+    @Test
+    fun `csv and json updates preserve existing instruction tag links`() = runTest {
+        instructionDao.upsert(stage1Instruction())
+        tagDao.upsert(
+            com.kaavalan.note.data.local.entities.TagEntity(
+                id = "tag-existing",
+                name = "existing",
+                kind = "FREE",
+                color = null,
+                usageCount = 0,
+                lastUsedAt = null,
+                userId = "test",
+                createdAt = "2026-08-30T10:00:00Z",
+                updatedAt = "2026-08-30T10:00:00Z",
+            ),
+        )
+        val link = InstructionTagCrossRef("stage1", "tag-existing")
+        db.instructionTagDao().attach(link)
+        val snapshot = exporter.snapshot()
+        val csv = exporter.toCsv(snapshot)
+        val json = exporter.toJson(snapshot)
+
+        importer.importFromUri(writeTestFile("existing-stage1.csv", csv)).getOrThrow()
+        assertEquals(listOf(link), db.instructionTagDao().snapshotAll())
+
+        importer.importFromUri(writeTestFile("existing-stage1.json", json)).getOrThrow()
+        assertEquals(listOf(link), db.instructionTagDao().snapshotAll())
+    }
+
+    @Test
+    fun `legacy imports use direction aware status archive dropped rows and recover due date`() = runTest {
+        val instructions = JSONArray()
+            .put(legacyInstructionJson("incoming", "INCOMING", "IN_PROGRESS"))
+            .put(legacyInstructionJson("outgoing", "OUTGOING", "IN_PROGRESS"))
+            .put(legacyInstructionJson("dropped", "SELF", "DROPPED"))
+            .put(legacyInstructionJson("ambiguous", "UNKNOWN", "ACK_PENDING"))
+        val root = JSONObject()
+            .put("people", JSONArray())
+            .put("instructions", instructions)
+            .put("tags", JSONArray())
+
+        importer.importFromUri(writeTestFile("legacy.json", root.toString())).getOrThrow()
+
+        val restored = instructionDao.snapshot().associateBy { it.id }
+        assertEquals("TO_DO", restored.getValue("incoming").status)
+        assertEquals("WAITING", restored.getValue("outgoing").status)
+        assertEquals("TO_DO", restored.getValue("dropped").status)
+        assertEquals(1_788_330_600_000L, restored.getValue("dropped").archivedAtEpochMs)
+        assertEquals("legacy_status=DROPPED", restored.getValue("dropped").migrationMetadata)
+        assertTrue(restored.getValue("ambiguous").migrationReviewRequired)
+        restored.values.forEach {
+            assertEquals(1_788_429_600_000L, it.hardDeadlineAtEpochMs)
+        }
+    }
+
+    private fun legacyInstructionJson(id: String, direction: String, status: String) = JSONObject()
+        .put("id", id)
+        .put("person_id", JSONObject.NULL)
+        .put("direction", direction)
+        .put("status", status)
+        .put("source", "TEXT")
+        .put("priority", "LOW")
+        .put("title", "Legacy $id")
+        .put("raw_text", "Legacy $id raw")
+        .put("due_at", "2026-09-03T10:00:00Z")
+        .put("captured_at", "2026-08-31T09:00:00Z")
+        .put("created_at", "2026-08-31T09:00:00Z")
+        .put("updated_at", "2026-09-02T06:30:00Z")
 
     private fun stage1Instruction() = com.kaavalan.note.data.local.entities.InstructionEntity(
         id = "stage1",

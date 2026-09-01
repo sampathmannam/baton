@@ -461,7 +461,7 @@ open class RoomInstructionRepository @Inject constructor(
         appendAudit(id, "FIELD_CHANGED", "{}")
     }
 
-    // ---- existing direct-call helpers (unchanged) ----
+    // ---- compatibility helpers for callers migrated in later stages ----
 
     /**
      * v1.1: mark an instruction DONE. Sets `status = DONE`,
@@ -489,10 +489,7 @@ open class RoomInstructionRepository @Inject constructor(
     }
 
     /**
-     * v1.1: mark an instruction DROPPED. Sets `status = DROPPED`,
-     * `droppedReason = reason`, refreshes `updatedAt`. The row stays
-     * in Room (the spec's silent drop is the carriedOver > 30 days
-     * rule, not a user-initiated drop).
+     * Archives an instruction without changing the simplified lifecycle status.
      */
     suspend fun markDropped(id: String, reason: String?) {
         val now = Instant.now().toString()
@@ -500,40 +497,35 @@ open class RoomInstructionRepository @Inject constructor(
     }
 
     /**
-     * v1.1: re-open a closed instruction. Used when the user
-     * "un-done"s a row or restores a dropped one. Status flips back
-     * to OPEN; completedAt/droppedReason are cleared; updatedAt
-     * refreshes so the 7-day brief window restarts.
+     * Restores a compatibility-archived instruction without changing its status.
      */
     suspend fun reopen(id: String) {
         val now = Instant.now().toString()
-        val current = dao.getById(id) ?: return
-        dao.updateExisting(
-            current.copy(
+        db.withTransaction {
+            val changed = dao.updateArchiveState(
+                id = id,
                 archivedAtEpochMs = null,
                 droppedReason = null,
                 updatedAt = now,
-                localRevision = current.localRevision + 1,
-                syncStatus = SyncStatus.PENDING_UPDATE,
-            ),
-        )
-        enqueueUpdate(id)
-        appendAudit(id, "RESTORED", "{}")
+            )
+            if (changed == 0) return@withTransaction
+            enqueueUpdate(id)
+            appendAudit(id, "RESTORED", "{}")
+        }
     }
 
     private suspend fun archiveCompatibility(id: String, reason: String?, at: String) {
-        val current = dao.getById(id) ?: return
-        dao.updateExisting(
-            current.copy(
+        db.withTransaction {
+            val changed = dao.updateArchiveState(
+                id = id,
                 archivedAtEpochMs = runCatching { Instant.parse(at).toEpochMilli() }.getOrDefault(0L),
                 droppedReason = reason,
                 updatedAt = at,
-                localRevision = current.localRevision + 1,
-                syncStatus = SyncStatus.PENDING_UPDATE,
-            ),
-        )
-        enqueueUpdate(id)
-        appendAudit(id, "ARCHIVED", "{}")
+            )
+            if (changed == 0) return@withTransaction
+            enqueueUpdate(id)
+            appendAudit(id, "ARCHIVED", "{}")
+        }
     }
 
     /**

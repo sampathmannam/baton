@@ -120,6 +120,30 @@ The migration adds nine columns and three indexes with `ALTER TABLE`/index creat
 - Schema export remains disabled, but migration coverage now combines the representative raw fixture with a complete AppDatabase downgrade/migrate/reopen test that passes Room's full v17 schema validation.
 - The Windows BellSoft JDK 17 C2 compiler crash required C1-only full-suite execution; all tests then completed with zero failures.
 
+## Second-review remediation — September 1, 2026
+
+Follow-up commit: the commit containing this section, with subject `fix: normalize legacy instruction restore paths`.
+
+### Root causes and fixes
+
+1. Plain CSV/JSON re-import still allowed `INSERT OR REPLACE` on existing instructions and tags. Both entities now use Room `@Update` when the primary key exists, preserving `instruction_tags` rows.
+2. Backup and plain import used the domain alias parser, which mapped every transitional status to `WAITING` and `DROPPED` to `DONE`. A shared `normalizeLegacyInstruction` helper now matches migration 16→17: only outgoing transitional work becomes `WAITING`; incoming/self transitional work becomes `TO_DO`; ambiguous ownership is marked for review; `DROPPED` becomes archived `TO_DO` with migration metadata; and legacy ISO `due_at` recovers the hard-deadline epoch.
+3. Compatibility archive/reopen previously read and rewrote the complete row outside a transaction. They now use one narrow DAO update inside `AppDatabase.withTransaction`, with the outbox and audit append in the same transaction. An audit failure therefore rolls back the lifecycle mutation.
+4. Full backup restore retains explicit snapshot semantics: relationships present in the selected snapshot are restored; relationships absent from it are not retained. Stage 7 remains responsible for the staged encrypted restore redesign.
+
+### RED evidence
+
+- Four focused tests failed before the fixes: importer relationship retention, importer migration-compatible normalization, backup migration-compatible normalization, and archive rollback on audit failure (`4 tests, 4 failed`, 1m13s).
+- The first broader run exposed two one-minute timeouts in mock-only repository tests. Root cause: relaxed `AppDatabase` mocks swallowed Room transaction executor work. The harness now supplies a direct transaction executor and verifies the narrow DAO calls; production code was unchanged for this harness correction.
+
+### GREEN evidence
+
+- Four focused regression tests: `BUILD SUCCESSFUL` in 2m15s.
+- Covering importer/backup/lifecycle/repository/migration classes: `BUILD SUCCESSFUL` in 41s.
+- Full JVM suite: `598 total, 586 passed, 12 skipped, 0 failures, 0 errors`; `BUILD SUCCESSFUL` in 1m33s with C1-only/single-worker execution.
+- Android test compilation plus debug APK assembly: `BUILD SUCCESSFUL` in 1m34s.
+- `git diff --check`: clean. Secret-pattern scan found no added key, token, or DeepSeek credential.
+
 ## Independent-review remediation
 
 Follow-up commit: the commit containing this section, with subject `fix: preserve instruction data across lifecycle paths`.

@@ -142,6 +142,25 @@ interface InstructionDao {
         syncStatus: String = SyncStatus.PENDING_UPDATE,
     )
 
+    @Query(
+        """
+        UPDATE instructions
+        SET archivedAtEpochMs = :archivedAtEpochMs,
+            droppedReason = :droppedReason,
+            updatedAt = :updatedAt,
+            localRevision = localRevision + 1,
+            syncStatus = :syncStatus
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateArchiveState(
+        id: String,
+        archivedAtEpochMs: Long?,
+        droppedReason: String?,
+        updatedAt: String,
+        syncStatus: String = SyncStatus.PENDING_UPDATE,
+    ): Int
+
     // M3-T5: open-instruction count per person. Used to show the
     // badge on the People list. "Open" = status NOT IN (DONE,
     // CARRIED_OVER, DROPPED). Indexed on (status, personId) via

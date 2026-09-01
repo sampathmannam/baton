@@ -7,6 +7,8 @@ import com.kaavalan.note.data.local.AppDatabase
 import com.kaavalan.note.data.local.TouchPersonOnActivity
 import com.kaavalan.note.data.local.entities.InstructionTagCrossRef
 import com.kaavalan.note.data.local.entities.TagEntity
+import io.mockk.coEvery
+import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -246,6 +248,36 @@ class InstructionLifecycleTest {
         row = db.instructionDao().getById(created.id)!!
         assertEquals(Status.WAITING.name, row.status)
         assertTrue(row.archivedAtEpochMs != null)
+    }
+
+    @Test
+    fun `compatibility archive rolls back when audit append fails`() = runTest {
+        val created = repository.create(
+            InstructionDraft(rawText = "raw", actionSummary = "Preserve on audit failure"),
+        )
+        val before = db.instructionDao().getById(created.id)!!
+        val failingAudit = mockk<AuditChainWriter>()
+        coEvery { failingAudit.append(any(), any(), any(), any()) } throws
+            IllegalStateException("disk full")
+        val failingRepository = RoomInstructionRepository(
+            db = db,
+            dao = db.instructionDao(),
+            ftsDao = db.instructionFtsDao(),
+            syncQueueDao = db.syncQueueDao(),
+            touchOnActivity = TouchPersonOnActivity(db.personDao()),
+            appScope = CoroutineScope(UnconfinedTestDispatcher()),
+            auditChainWriter = failingAudit,
+        )
+
+        var failed = false
+        try {
+            failingRepository.markDropped(created.id, "archive", "2026-09-01T10:00:00Z")
+        } catch (_: IllegalStateException) {
+            failed = true
+        }
+
+        assertTrue(failed)
+        assertEquals(before, db.instructionDao().getById(created.id))
     }
 
     private fun tag(id: String) = TagEntity(
