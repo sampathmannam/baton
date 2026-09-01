@@ -3,7 +3,7 @@
 ## Commits
 
 - Starting commit: `1b33b22674797bc03eea47a983af2b6c393ae124`
-- Ending commit: the commit containing this checkpoint, with subject `refactor: simplify instruction lifecycle` (resolve as `git rev-parse HEAD` after commit)
+- Ending commit: `6d53a3965fd86e6421e27ebe404eb4377767b329` (`fix: normalize legacy instruction restore paths`)
 
 ## Implementation
 
@@ -122,7 +122,7 @@ The migration adds nine columns and three indexes with `ALTER TABLE`/index creat
 
 ## Second-review remediation — September 1, 2026
 
-Follow-up commit: the commit containing this section, with subject `fix: normalize legacy instruction restore paths`.
+Follow-up commit: `6d53a3965fd86e6421e27ebe404eb4377767b329` (`fix: normalize legacy instruction restore paths`).
 
 ### Root causes and fixes
 
