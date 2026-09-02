@@ -38,3 +38,24 @@ data class Person(
     // v2.0 Tier 2 (§2.1, §2.3): last-interaction timestamp.
     val lastInteractionAt: Long? = null,
 )
+
+/**
+ * The active product projection for People screens. Legacy relationship,
+ * vault, sync, and cadence fields stay in [Person] for migration and staged
+ * callers, but are deliberately absent from this UI-facing profile.
+ */
+data class PersonProfile(
+    val id: String,
+    val name: String,
+    val phone: String?,
+    val rankOrRole: String?,
+    val unit: String?,
+)
+
+fun Person.toProfile(): PersonProfile = PersonProfile(
+    id = id,
+    name = name,
+    phone = phone,
+    rankOrRole = designation,
+    unit = station,
+)

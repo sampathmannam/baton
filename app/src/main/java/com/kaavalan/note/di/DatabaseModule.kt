@@ -20,6 +20,7 @@ import com.kaavalan.note.data.local.PersonLinkDao
 import com.kaavalan.note.data.local.SyncConflictDao
 import com.kaavalan.note.data.local.SyncQueueDao
 import com.kaavalan.note.data.local.TagDao
+import com.kaavalan.note.data.groups.GroupLabelDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -150,6 +151,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_14_15,
                 AppDatabase.MIGRATION_15_16,
                 AppDatabase.MIGRATION_16_17,
+                AppDatabase.MIGRATION_17_18,
             )
             .build()
     }
@@ -262,4 +264,7 @@ object DatabaseModule {
     @Provides
     fun provideDeliveryReceiptDao(db: AppDatabase): com.kaavalan.note.data.local.DeliveryReceiptDao =
         db.deliveryReceiptDao()
+
+    @Provides
+    fun provideGroupLabelDao(db: AppDatabase): GroupLabelDao = db.groupLabelDao()
 }

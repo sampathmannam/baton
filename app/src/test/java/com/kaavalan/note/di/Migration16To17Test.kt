@@ -123,7 +123,7 @@ class Migration16To17Test {
     }
 
     @Test
-    fun `migration opens through Room and validates the complete v17 schema`() {
+    fun `migration chain opens through Room and validates the complete current schema`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val complete = Room.databaseBuilder(context, AppDatabase::class.java, completeDatabaseName)
             .allowMainThreadQueries()
@@ -164,7 +164,10 @@ class Migration16To17Test {
         }
 
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, completeDatabaseName)
-            .addMigrations(AppDatabase.MIGRATION_16_17)
+            .addMigrations(
+                AppDatabase.MIGRATION_16_17,
+                AppDatabase.MIGRATION_17_18,
+            )
             .allowMainThreadQueries()
             .build()
         try {
@@ -172,7 +175,7 @@ class Migration16To17Test {
             assertTrue(migrated.isOpen)
             opened.query("PRAGMA user_version").use { cursor ->
                 assertTrue(cursor.moveToFirst())
-                assertEquals(17, cursor.getInt(0))
+                assertEquals(18, cursor.getInt(0))
             }
         } finally {
             migrated.close()

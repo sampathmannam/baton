@@ -3,6 +3,8 @@ package com.kaavalan.note.di
 import com.kaavalan.note.data.captures.CaptureRepository
 import com.kaavalan.note.data.instructions.InstructionRepository
 import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.groups.GroupLabelRepository
+import com.kaavalan.note.data.groups.RoomGroupLabelRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -32,6 +34,12 @@ object AppModule {
     fun providePersonRepository(
         impl: com.kaavalan.note.data.local.RoomPersonRepository,
     ): PersonRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideGroupLabelRepository(
+        impl: RoomGroupLabelRepository,
+    ): GroupLabelRepository = impl
 
     @Provides
     @Singleton

@@ -1,14 +1,10 @@
 package com.kaavalan.note.ui.home
 
-import app.cash.turbine.test
-import com.kaavalan.note.data.local.InstructionDao
-import com.kaavalan.note.data.local.TagDao
-import com.kaavalan.note.data.local.PersonOpenCount
-import com.kaavalan.note.data.local.RoomPersonRepository
-import com.kaavalan.note.data.local.entities.InstructionEntity
+import com.kaavalan.note.data.groups.GroupLabel
+import com.kaavalan.note.data.groups.GroupLabelRepository
+import com.kaavalan.note.data.person.ContactSyncService
 import com.kaavalan.note.data.person.Person
-import com.kaavalan.note.data.tags.RoomTagRepository
-import com.kaavalan.note.data.vault.VaultModeHolder
+import com.kaavalan.note.data.person.PersonRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -30,54 +26,23 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 
-/**
- * v2.0.0 (drop Supabase): the HomeViewModel is local-only. The
- * `RealtimeSync` and `SupabaseInstructionRepository` deps are gone
- * — the VM reads persons from the mode-filtered Room Flow and the
- * tags from the local Room mirror. The Obs-2 contract on
- * [HomeViewModel.refreshTagsFromNetwork] (the v1.9.10 fix) is
- * preserved: a tag-refresh failure still surfaces a
- * [HomeUiState.Error].
- */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
 
-    private val repo: RoomPersonRepository = mockk(relaxed = true)
-    private val instructionDao: InstructionDao = mockk(relaxed = true)
-    private val tagRepository: RoomTagRepository = mockk(relaxed = true)
-    private val tagDao: TagDao = mockk(relaxed = true)
-    // v2.0 T3-1: a real VaultModeHolder (a process-singleton by
-    // design). The HomeViewModel reads its `mode` flow and re-queries
-    // the person DAO when it changes. The default mode is Visible.
-    private val vaultModeHolder: VaultModeHolder = VaultModeHolder()
-
-    private val testDispatcher = UnconfinedTestDispatcher()
-    private val personsFlow = MutableStateFlow<List<Person>>(emptyList())
-    private val countsFlow = MutableStateFlow<List<PersonOpenCount>>(emptyList())
-    private val staleFlow = MutableStateFlow<List<com.kaavalan.note.data.local.PersonStaleAge>>(emptyList())
-    private val tagsFlow = MutableStateFlow<List<com.kaavalan.note.data.local.entities.TagEntity>>(emptyList())
-    // v2.0 (Hierarchy): the HomeViewModel now also reads the
-    // outgoing/incoming open instruction flows in its combine.
-    // They need explicit StateFlow mocks (relaxed = true would
-    // return a plain empty Flow, and combine waits for every
-    // source to emit at least once before it emits anything).
-    private val outgoingFlow = MutableStateFlow<List<InstructionEntity>>(emptyList())
-    private val incomingFlow = MutableStateFlow<List<InstructionEntity>>(emptyList())
+    private val personRepository: PersonRepository = mockk(relaxed = true)
+    private val groupLabelRepository: GroupLabelRepository = mockk(relaxed = true)
+    private val contactSyncService: ContactSyncService = mockk(relaxed = true)
+    private val people = MutableStateFlow<List<Person>>(emptyList())
+    private val groupLabels = MutableStateFlow<List<GroupLabel>>(emptyList())
+    private val dispatcher = UnconfinedTestDispatcher()
 
     @Before
     fun setUp() {
-        Dispatchers.setMain(testDispatcher)
-        // v2.0 T3-1: the HomeViewModel reads persons via
-        // `observeAllInMode(...)` (filtered by vault mode), not the
-        // unfiltered `observeAll()`. The default mode is Visible.
-        every { repo.observeAllInMode("visible") } returns personsFlow.asStateFlow()
-        every { repo.observeAll() } returns personsFlow.asStateFlow()
-        every { instructionDao.observeOpenCountByPerson() } returns countsFlow.asStateFlow()
-        every { instructionDao.observeStaleByPerson() } returns staleFlow.asStateFlow()
-        every { instructionDao.observeOutgoingOpen() } returns outgoingFlow.asStateFlow()
-        every { instructionDao.observeIncomingOpen() } returns incomingFlow.asStateFlow()
-        every { tagDao.observeTop(20) } returns tagsFlow.asStateFlow()
+        Dispatchers.setMain(dispatcher)
+        every { personRepository.observeAll() } returns people.asStateFlow()
+        every { groupLabelRepository.observeAll() } returns groupLabels.asStateFlow()
     }
 
     @After
@@ -85,167 +50,138 @@ class HomeViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun makeVm() = HomeViewModel(
-        personRepository = repo,
-        instructionDao = instructionDao,
-        contactSyncService = io.mockk.mockk(relaxed = true),
-        tagDao = tagDao,
-        tagRepository = tagRepository,
-        vaultModeHolder = vaultModeHolder,
+    private fun makeViewModel() = HomeViewModel(
+        personRepository = personRepository,
+        groupLabelRepository = groupLabelRepository,
+        contactSyncService = contactSyncService,
     )
 
     @Test
-    fun `empty state shown when repository returns no persons`() = runTest(testDispatcher) {
-        personsFlow.value = emptyList()
-
-        val vm = makeVm()
+    fun `empty state is shown when there are no people or private labels`() = runTest(dispatcher) {
+        val viewModel = makeViewModel()
         advanceUntilIdle()
 
-        vm.state.test {
-            // v2.0 (Hierarchy): the VM seeds _state with Loading
-            // before the first combine emission lands, so the
-            // first item in the StateFlow is always Loading.
-            // Skip past it to the first terminal state.
-            val first = awaitItem()
-            val actual = if (first is HomeUiState.Loading) awaitItem() else first
-            assertEquals(HomeUiState.Empty, actual)
-            cancelAndIgnoreRemainingEvents()
-        }
+        assertEquals(HomeUiState.Empty, viewModel.state.value)
     }
 
     @Test
-    fun `loaded state shown when repository returns persons`() = runTest(testDispatcher) {
-        val persons = listOf(
-            Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
-            Person(id = "p2", name = "Priya", designation = "DSP", station = "Srinagar", phone = null),
+    fun `loaded state exposes only active person profiles and private labels`() = runTest(dispatcher) {
+        people.value = listOf(
+            Person(
+                id = "person-1",
+                name = "K. Ramu",
+                designation = "Inspector",
+                station = "North Unit",
+                phone = "+919876543210",
+                isSensitive = true,
+                tier = "Inner",
+                cadenceOverrideDays = 14,
+                lastInteractionAt = 123L,
+            ),
         )
-        personsFlow.value = persons
+        groupLabels.value = listOf(groupLabel("group-1", "Night patrol", "person-1"))
 
-        val vm = makeVm()
-        advanceUntilIdle()
+        val loaded = makeViewModel().state.first { it is HomeUiState.Loaded } as HomeUiState.Loaded
 
-        vm.state.test {
-            // v2.0 (Hierarchy): see `empty state` test — skip
-            // the initial Loading emission.
-            val first = awaitItem()
-            val state = if (first is HomeUiState.Loading) awaitItem() else first
-            // M3-T5: open count defaults to 0 for every person who
-            // doesn't appear in the count Flow. The PersonRow uses
-            // this to hide the badge entirely.
-            assertEquals(
-                HomeUiState.Loaded(
-                    persons = persons,
-                    openCountByPersonId = mapOf("p1" to 0, "p2" to 0),
-                    stalePersonIds = emptySet(),
-                ),
-                state,
+        assertEquals(listOf("K. Ramu"), loaded.persons.map { it.name })
+        assertEquals("+919876543210", loaded.persons.single().phone)
+        assertEquals("Inspector", loaded.persons.single().rankOrRole)
+        assertEquals("North Unit", loaded.persons.single().unit)
+        assertEquals(listOf("Night patrol"), loaded.groupLabels.map { it.name })
+    }
+
+    @Test
+    fun `create person saves name phone rank role and unit`() = runTest(dispatcher) {
+        coEvery {
+            personRepository.create(
+                name = any(),
+                designation = any(),
+                station = any(),
+                phone = any(),
+                clientId = any(),
             )
-            cancelAndIgnoreRemainingEvents()
+        } returns person("person-1", "K. Ramu")
+        val viewModel = makeViewModel()
+
+        viewModel.createPerson(
+            name = "K. Ramu",
+            phone = "+919876543210",
+            rankOrRole = "Inspector",
+            unit = "North Unit",
+        )
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) {
+            personRepository.create(
+                name = "K. Ramu",
+                designation = "Inspector",
+                station = "North Unit",
+                phone = "+919876543210",
+                clientId = null,
+            )
         }
     }
 
     @Test
-    fun `M3-T5 loaded state includes the open count per person`() = runTest(testDispatcher) {
-        val persons = listOf(
-            Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
-            Person(id = "p2", name = "Priya", designation = "DSP", station = "Srinagar", phone = null),
-        )
-        personsFlow.value = persons
-        countsFlow.value = listOf(
-            PersonOpenCount(personId = "p1", cnt = 3),
-            PersonOpenCount(personId = "p2", cnt = 0),
-        )
+    fun `contact import preserves the selected phone number`() = runTest(dispatcher) {
+        coEvery {
+            personRepository.create(any(), any(), any(), any(), any())
+        } returns person("person-1", "Priya")
+        val viewModel = makeViewModel()
 
-        val vm = makeVm()
+        viewModel.importContact("Priya", "+919123456789")
         advanceUntilIdle()
 
-        // v2.0 (Hierarchy): the VM seeds _state with Loading; the
-        // .value snapshot may be the initial Loading until the
-        // combine flow's first emission completes. Wait for the
-        // first Loaded state via the StateFlow.
-        val state = vm.state.first { it !is HomeUiState.Loading }
-        assertEquals(HomeUiState.Loaded::class, state::class)
-        val loaded = state as HomeUiState.Loaded
-        assertEquals(persons, loaded.persons)
-        assertEquals(3, loaded.openCountByPersonId["p1"])
-        assertEquals(0, loaded.openCountByPersonId["p2"])
-    }
-
-    @Test
-    fun `M3-T5 person with no count row defaults to 0 (badge hidden)`() = runTest(testDispatcher) {
-        // The DAO only emits a row for persons with at least one
-        // open instruction. A person who has no open work doesn't
-        // show up in the count Flow. The VM should default to 0 so
-        // the PersonRow composable can hide the badge entirely.
-        val persons = listOf(
-            Person(id = "p1", name = "Ramu", designation = "SHO", station = "Bandipora", phone = null),
-        )
-        personsFlow.value = persons
-        countsFlow.value = emptyList()  // no rows — p1 has no open instructions
-
-        val vm = makeVm()
-        advanceUntilIdle()
-
-        // v2.0 (Hierarchy): skip the initial Loading emission.
-        val state = vm.state.first { it !is HomeUiState.Loading }
-        val loaded = state as HomeUiState.Loaded
-        assertEquals(0, loaded.openCountByPersonId["p1"])
-    }
-
-    /**
-     * v1.2 regression test (BEAU-NEW-01 / BUG-AUTH-008) — kept
-     * in v2.0.0 because the protection (the `.catch { }` block in
-     * [HomeViewModel.init] now wraps the `combine` flow that reads
-     * the local Room DB) still applies. The leak surface is now
-     * the local SQLCipher error message, but the principle is the
-     * same: never propagate the underlying exception text to the
-     * UI. We assert the surfaced [HomeUiState.Error] string is a
-     * generic user-facing message and does not echo the throwable.
-     */
-    @Test
-    fun `BEAU-NEW-01 Flow catch does not leak underlying throwable text`() = runTest(testDispatcher) {
-        val secret = "leaky-secret-DB-path-/data/data/com.kaavalan.note/databases/kaavalan-note.db"
-
-        every { repo.observeAllInMode("visible") } returns flow<List<Person>> {
-            emit(emptyList())
-            throw java.io.IOException(secret)
-        }
-
-        val vm = makeVm()
-
-        vm.state.test {
-            var saw = awaitItem()
-            while (saw !is HomeUiState.Error) {
-                saw = awaitItem()
-            }
-            val msg = saw.message
-            assertFalse("secret leaked: $msg", msg.contains(secret, ignoreCase = true))
-            assertFalse("path leaked: $msg", msg.contains("/data/data", ignoreCase = true))
-            assertFalse("kaavalan-note.db leaked: $msg", msg.contains("kaavalan-note.db", ignoreCase = true))
-            assertTrue("user-facing message should be present", msg.isNotBlank())
-            cancelAndIgnoreRemainingEvents()
+        coVerify(exactly = 1) {
+            personRepository.create(
+                name = "Priya",
+                designation = null,
+                station = null,
+                phone = "+919123456789",
+                clientId = null,
+            )
         }
     }
 
-    /**
-     * v1.9.10 (Obs-2 fix): the v1.9.8 audit's refuter surfaced
-     * that [HomeViewModel.refreshTagsFromNetwork] had an empty
-     * `onFailure` block that silently swallowed the error — the
-     * user had no signal that the tag sync had failed. The fix
-     * surfaces a [HomeUiState.Error] like the other two refreshes
-     * (persons, instructions) do. This test asserts that
-     * behaviour: a failed tag refresh still calls the repository
-     * and runs the onFailure path in v2.0.0 (where the
-     * implementation is a no-op but the function shape is
-     * preserved).
-     */
     @Test
-    fun `Obs-2 tag refresh failure surfaces HomeUiState Error`() = runTest(testDispatcher) {
-        coEvery { tagRepository.refreshFromNetwork() } throws java.io.IOException("simulated network down")
+    fun `private label create and delete are delegated to the label repository`() = runTest(dispatcher) {
+        coEvery { groupLabelRepository.create(any(), any()) } returns
+            groupLabel("group-1", "Night patrol", "person-1")
+        val viewModel = makeViewModel()
 
-        makeVm()
+        viewModel.createGroupLabel("Night patrol", "person-1")
+        viewModel.deleteGroupLabel("group-1")
         advanceUntilIdle()
 
-        coVerify(exactly = 1) { tagRepository.refreshFromNetwork() }
+        coVerify(exactly = 1) { groupLabelRepository.create("Night patrol", "person-1") }
+        coVerify(exactly = 1) { groupLabelRepository.delete("group-1") }
     }
+
+    @Test
+    fun `flow error never exposes the underlying database message`() = runTest(dispatcher) {
+        val secret = "leaky-secret-/data/data/com.kaavalan.note/databases/kaavalan-note.db"
+        every { personRepository.observeAll() } returns flow { throw IOException(secret) }
+
+        val error = makeViewModel().state.first { it is HomeUiState.Error } as HomeUiState.Error
+
+        assertFalse(error.message.contains(secret, ignoreCase = true))
+        assertFalse(error.message.contains("/data/data", ignoreCase = true))
+        assertTrue(error.message.isNotBlank())
+    }
+
+    private fun person(id: String, name: String) = Person(
+        id = id,
+        name = name,
+        designation = null,
+        station = null,
+        phone = null,
+    )
+
+    private fun groupLabel(id: String, name: String, responsiblePersonId: String?) = GroupLabel(
+        id = id,
+        name = name,
+        responsiblePersonId = responsiblePersonId,
+        createdAt = "2026-09-02T00:00:00Z",
+        updatedAt = "2026-09-02T00:00:00Z",
+    )
 }

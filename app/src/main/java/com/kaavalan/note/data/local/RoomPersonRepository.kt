@@ -46,6 +46,7 @@ class RoomPersonRepository @Inject constructor(
         name: String,
         designation: String?,
         station: String?,
+        phone: String?,
         clientId: String?,
     ): Person {
         val nowIso = nowIso()
@@ -55,7 +56,7 @@ class RoomPersonRepository @Inject constructor(
             name = name,
             designation = designation,
             station = station,
-            phone = null,
+            phone = phone,
             userId = "",
             createdAt = nowIso,
             updatedAt = nowIso,

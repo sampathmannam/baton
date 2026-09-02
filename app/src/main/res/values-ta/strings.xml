@@ -21,6 +21,10 @@
     <string name="tab_home">தொடர்புகள்</string>
     <string name="tab_today">இன்று</string>
     <string name="tab_settings">அமைப்புகள்</string>
+    <string name="person_phone">தொலைபேசி எண் (விருப்பம்)</string>
+    <string name="person_rank_or_role">பதவி அல்லது பங்கு (விருப்பம்)</string>
+    <string name="person_unit">பிரிவு (விருப்பம்)</string>
+    <string name="loading">ஏற்றப்படுகிறது…</string>
     <string name="tab_timeline">காலவரிசை</string>
     <string name="tab_people">நபர்கள்</string>
     <string name="tab_ask_ai">AI-யிடம் கேள்</string>
@@ -43,6 +47,19 @@
     <string name="timeline_retry">மீண்டும் முயற்சி</string>
     <string name="ask_ai_title">AI-யிடம் கேள்</string>
     <string name="ask_ai_not_configured">DeepSeek இன்னும் அமைக்கப்படவில்லை. உங்கள் உத்தரவுகள் இந்த கைபேசியில் தனிப்பட்டதாகவே இருக்கும்.</string>
+    <string name="people_search">நபர்களைத் தேடு</string>
+    <string name="people_no_results">பொருந்தும் நபர்கள் இல்லை</string>
+    <string name="people_group_labels">தனிப்பட்ட குழுப் பெயர்கள்</string>
+    <string name="group_label_add">குழுப் பெயரைச் சேர்</string>
+    <string name="group_label_name">குழுப் பெயர்</string>
+    <string name="group_label_private_help">இது தனிப்பட்ட பெயர் மட்டும். KaavalanNote WhatsApp குழுக்களைப் படிக்காது.</string>
+    <string name="group_label_no_responsible_person">பொறுப்பான நபர் இல்லை</string>
+    <string name="group_label_delete">குழுப் பெயரை நீக்கு</string>
+    <string name="person_active_instructions">செயலில் உள்ள உத்தரவுகள்</string>
+    <string name="person_completed_instructions">முடிக்கப்பட்ட உத்தரவுகள்</string>
+    <string name="person_reopen_instruction">மீண்டும் திற</string>
+    <string name="person_instruction_section_empty">இங்கு எதுவும் இல்லை</string>
+    <string name="person_detail_not_found">இந்த நபரை கண்டுபிடிக்க முடியவில்லை.</string>
     <string name="home_title">தொடர்புகள்</string>
     <string name="settings_title">அமைப்புகள்</string>
 

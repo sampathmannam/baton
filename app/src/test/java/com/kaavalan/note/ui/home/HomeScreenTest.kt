@@ -29,13 +29,13 @@ import java.io.File
  * fail in the unit-test classpath regardless of how the test manifest
  * is shaped. The static-scan approach is more durable and catches
  * the same class of regression (any refactor that drops the
- * `onAddPersonClick` wiring on the empty state fails the build).
+ * `onAddPerson` wiring on the empty state fails the build).
  *
  * The scan asserts:
  *  1. `HomeScreen` renders the empty state with the wiring
- *     `EmptyState(onAddPersonClick = { showAddPerson = true })`.
- *  2. The `EmptyState` Composable's body contains a
- *     `Button(onClick = onAddPersonClick, ...)` block.
+ *     `PeopleEmptyState(onAddPerson = { showAddPerson = true })`.
+ *  2. The `PeopleEmptyState` Composable's body contains a
+ *     `Button(onClick = onAddPerson, ...)` block.
  *  3. That Button's body renders a `Text(text = stringResource(R.string.home_add_person), ...)`.
  *  4. `CaptureSheet(...)` is invoked with an `onOpenAddPerson = { ... }`
  *     callback so the inline "Add a person first" card on the
@@ -64,16 +64,16 @@ class HomeScreenTest {
         )
         val text = src!!
         assertTrue(
-            "HomeScreen must render the empty state with onAddPersonClick wiring:\n" +
-                "    HomeUiState.Empty -> EmptyState(padding, onAddPersonClick = { showAddPerson = true })\n" +
+                "HomeScreen must render the empty state with onAddPerson wiring:\n" +
+                "    HomeUiState.Empty -> PeopleEmptyState(... onAddPerson = { showAddPerson = true })\n" +
                 "but the source did not contain that line.",
             text.contains(REGEX_EMPTY_STATE_WIRING),
         )
     }
 
     /**
-     * (2) The `EmptyState` Composable's body must include a
-     * `Button(onClick = onAddPersonClick, ...)`. The test scans for
+     * (2) The `PeopleEmptyState` Composable's body must include a
+     * `Button(onClick = onAddPerson, ...)`. The test scans for
      * the call site rather than parsing the AST — a refactor that
      * renames the parameter to a different onClick lambda breaks
      * the build before it ships.
@@ -81,21 +81,21 @@ class HomeScreenTest {
     @Test
     fun emptyState_callsButtonWithOnAddPersonClick() {
         val text = readHomeScreenSource()!!
-        // Find the EmptyState Composable body (the private fun EmptyState
+        // Find the PeopleEmptyState Composable body
         // declaration through to the next top-level @Composable or `}`).
         val emptyStateRange = findComposableBodyRange(
             text = text,
-            signature = "private fun EmptyState(",
+            signature = "private fun PeopleEmptyState(",
         )
         assertTrue(
-            "Could not locate the private EmptyState Composable in HomeScreen.kt",
+            "Could not locate the private PeopleEmptyState Composable in HomeScreen.kt",
             emptyStateRange != null,
         )
         val body = text.substring(emptyStateRange!!.first, emptyStateRange.second)
         assertTrue(
-            "EmptyState body must contain Button(onClick = onAddPersonClick, ...):\n" +
+            "PeopleEmptyState body must contain Button(onClick = onAddPerson, ...):\n" +
                 "    Button(\n" +
-                "        onClick = onAddPersonClick,\n" +
+                "        onClick = onAddPerson,\n" +
                 "        ...\n" +
                 "    ) { ... }\n" +
                 "but the body was:\n$body",
@@ -117,11 +117,11 @@ class HomeScreenTest {
         val text = readHomeScreenSource()!!
         val emptyStateRange = findComposableBodyRange(
             text = text,
-            signature = "private fun EmptyState(",
+            signature = "private fun PeopleEmptyState(",
         )!!
         val body = text.substring(emptyStateRange.first, emptyStateRange.second)
         assertTrue(
-            "EmptyState body must contain Text(text = stringResource(R.string.home_add_person), ...)",
+            "PeopleEmptyState body must contain the home_add_person string resource",
             body.contains(REGEX_BUTTON_HOME_ADD_PERSON_TEXT),
         )
     }
@@ -249,21 +249,21 @@ class HomeScreenTest {
         // content lambda that renders the empty state with the
         // production callback.
         val REGEX_EMPTY_STATE_WIRING = Regex(
-            """HomeUiState\.Empty\s*->\s*EmptyState\s*\(\s*[^)]*onAddPersonClick\s*=\s*\{\s*showAddPerson\s*=\s*true\s*\}""",
+            """HomeUiState\.Empty\s*->\s*PeopleEmptyState\s*\([\s\S]*?onAddPerson\s*=\s*\{\s*showAddPerson\s*=\s*true\s*\}""",
         )
 
-        // The Button in EmptyState must call `onClick = onAddPersonClick`.
+        // The Button in PeopleEmptyState must call `onClick = onAddPerson`.
         // We accept any number of parameters between `Button(` and
         // `onClick = onAddPersonClick`.
         val REGEX_BUTTON_ON_ADD_PERSON_CLICK = Regex(
-            """Button\s*\([^)]*onClick\s*=\s*onAddPersonClick""",
+            """Button\s*\([^)]*onClick\s*=\s*onAddPerson""",
         )
 
         // The Button body must render the home_add_person string
         // resource (so TalkBack reads "Add person" and the visible
         // text matches the FAB's label).
         val REGEX_BUTTON_HOME_ADD_PERSON_TEXT = Regex(
-            """Text\s*\(\s*text\s*=\s*stringResource\s*\(\s*R\.string\.home_add_person""",
+            """Text\s*\(\s*(?:text\s*=\s*)?stringResource\s*\(\s*R\.string\.home_add_person""",
         )
 
         // CaptureSheet must receive an onOpenAddPerson callback that

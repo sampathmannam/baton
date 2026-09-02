@@ -369,11 +369,9 @@ private fun MainScaffold(
                     AskAiScreen()
                 }
                 composable(Routes.PERSON) { entry ->
-                    val personId = entry.arguments?.getString("personId") ?: return@composable
+                    entry.arguments?.getString("personId") ?: return@composable
                     HomeScreenPersonDetail(
-                        personId = personId,
                         onBack = { navController.popBackStack() },
-                        onOpenLinkedPerson = { id -> navController.navigate("person/$id") },
                     )
                 }
                 // v2.0 T3-2: recovery phrase screen. Reachable
@@ -684,15 +682,11 @@ private fun androidx.compose.foundation.layout.RowScope.NavEntry(
 /** M3.5: thin wrapper for the person detail nav entry. */
 @Composable
 private fun HomeScreenPersonDetail(
-    personId: String,
     onBack: () -> Unit,
-    onOpenLinkedPerson: (String) -> Unit = {},
 ) {
     val vm: com.kaavalan.note.ui.home.PersonDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     com.kaavalan.note.ui.home.PersonDetailScreen(
-        personId = personId,
         onBack = onBack,
-        onOpenLinkedPerson = onOpenLinkedPerson,
         viewModel = vm,
     )
 }

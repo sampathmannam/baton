@@ -16,6 +16,8 @@ import com.kaavalan.note.data.local.entities.PersonLinkEntity
 import com.kaavalan.note.data.local.entities.SyncConflictEntity
 import com.kaavalan.note.data.local.entities.SyncQueueEntity
 import com.kaavalan.note.data.local.entities.TagEntity
+import com.kaavalan.note.data.groups.GroupLabelDao
+import com.kaavalan.note.data.groups.GroupLabelEntity
 import com.kaavalan.note.data.user.UserEntity
 
 /**
@@ -108,6 +110,7 @@ import com.kaavalan.note.data.user.UserEntity
         PersonLinkEntity::class,
         UserEntity::class,
         com.kaavalan.note.data.local.entities.DeliveryReceiptEntity::class,
+        GroupLabelEntity::class,
     ],
     // v1.8.0 (PROD-READINESS-P2-#3 + #4): v14 adds the
     // audit_chain_events table; v1.8.0 also adds the
@@ -117,7 +120,7 @@ import com.kaavalan.note.data.user.UserEntity
     // v2.0 (Hierarchy): v16 adds the audience + due chip +
     // channel columns on `instructions` and the new
     // `delivery_receipts` table.
-    version = 17,
+    version = 18,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -137,6 +140,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): com.kaavalan.note.data.user.UserDao
     // v2.0 (Hierarchy): the per-recipient delivery receipt DAO.
     abstract fun deliveryReceiptDao(): com.kaavalan.note.data.local.DeliveryReceiptDao
+    abstract fun groupLabelDao(): GroupLabelDao
 
     companion object {
         const val NAME = "kaavalan-note.db"
@@ -681,6 +685,31 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_hardDeadlineAtEpochMs` ON `instructions`(`hardDeadlineAtEpochMs`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_followUpAtEpochMs` ON `instructions`(`followUpAtEpochMs`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_instructions_archivedAtEpochMs` ON `instructions`(`archivedAtEpochMs`)")
+            }
+        }
+
+        val MIGRATION_17_18: Migration = object : Migration(17, 18) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `group_labels` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT COLLATE NOCASE NOT NULL,
+                        `responsiblePersonId` TEXT,
+                        `createdAt` TEXT NOT NULL,
+                        `updatedAt` TEXT NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_group_labels_name` " +
+                        "ON `group_labels` (`name`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_group_labels_responsiblePersonId` " +
+                        "ON `group_labels` (`responsiblePersonId`)",
+                )
             }
         }
     }

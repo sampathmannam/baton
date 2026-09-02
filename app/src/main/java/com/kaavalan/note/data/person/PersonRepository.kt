@@ -25,6 +25,7 @@ interface PersonRepository {
         name: String,
         designation: String?,
         station: String?,
+        phone: String? = null,
         clientId: String? = null,
     ): Person
 

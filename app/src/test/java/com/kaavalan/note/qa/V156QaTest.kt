@@ -111,6 +111,7 @@ class V156QaTest {
             name: String,
             designation: String?,
             station: String?,
+            phone: String?,
             clientId: String?,
         ): Person {
             val person = Person(
@@ -118,7 +119,7 @@ class V156QaTest {
                 name = name,
                 designation = designation,
                 station = station,
-                phone = null,
+                phone = phone,
             )
             existing[name] = person
             personsFlow.value = existing.values.toList()

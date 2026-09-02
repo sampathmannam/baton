@@ -8,8 +8,12 @@
     <string name="person_name">Name</string>
     <string name="person_designation">Designation (e.g. SP, DSP, SHO)</string>
     <string name="person_station">Station (optional)</string>
+    <string name="person_phone">Phone number (optional)</string>
+    <string name="person_rank_or_role">Rank or role (optional)</string>
+    <string name="person_unit">Unit (optional)</string>
     <string name="person_save">Save</string>
     <string name="cancel">Cancel</string>
+    <string name="loading">Loading…</string>
     <string name="tab_home">Home</string>
     <string name="tab_today">Today</string>
     <string name="tab_settings">Settings</string>
@@ -37,6 +41,21 @@
     <string name="timeline_retry">Retry</string>
     <string name="ask_ai_title">Ask AI</string>
     <string name="ask_ai_not_configured">DeepSeek is not configured yet. Your instructions remain private on this phone.</string>
+
+    <!-- Redesign Stage 3: simple People profiles and private group labels. -->
+    <string name="people_search">Search people</string>
+    <string name="people_no_results">No matching people</string>
+    <string name="people_group_labels">Private group labels</string>
+    <string name="group_label_add">Add group label</string>
+    <string name="group_label_name">Group label</string>
+    <string name="group_label_private_help">A private label only. KaavalanNote does not read WhatsApp groups.</string>
+    <string name="group_label_no_responsible_person">No responsible person</string>
+    <string name="group_label_delete">Delete group label</string>
+    <string name="person_active_instructions">Active instructions</string>
+    <string name="person_completed_instructions">Completed instructions</string>
+    <string name="person_reopen_instruction">Reopen</string>
+    <string name="person_instruction_section_empty">Nothing here</string>
+    <string name="person_detail_not_found">This person could not be found.</string>
 
     <!-- M1: single note bar + capture sheet. v1.6.2: the home pill
          now reads "Quick note" instead of "Tap to add a note" so

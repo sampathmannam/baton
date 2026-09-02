@@ -4,188 +4,91 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kaavalan.note.data.instructions.Instruction
+import com.kaavalan.note.data.instructions.InstructionDraft
 import com.kaavalan.note.data.instructions.Priority
 import com.kaavalan.note.data.instructions.RoomInstructionRepository
 import com.kaavalan.note.data.instructions.Source
-import com.kaavalan.note.data.local.InstructionDao
+import com.kaavalan.note.data.instructions.Status
 import com.kaavalan.note.data.local.PersonDao
-import com.kaavalan.note.data.local.entities.PersonEntity
-import com.kaavalan.note.data.person.PersonRepository
+import com.kaavalan.note.data.person.PersonProfile
+import com.kaavalan.note.data.person.toDomain
+import com.kaavalan.note.data.person.toProfile
+import com.kaavalan.note.ui.util.SafeError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 import javax.inject.Inject
 
-/**
- * M3-T6: ViewModel for [PersonDetailScreen]. Reads the
- * `personId` from the nav arg (`SavedStateHandle`) and combines
- * the person row with the per-person instruction timeline.
- *
- * **Reactive.** Both the person row and the instructions are
- * observed as Flows so the screen updates on every local write
- * (e.g. `setSensitive`) AND on every Realtime-driven refresh.
- * The screen never has to call a `refresh()` itself. The same
- * Room-mirror contract as the HomeScreen applies.
- *
- * **v1.1.1 root-cause fix:** the person row was previously a
- * one-shot `getById` read in `init` — the `MutableStateFlow`
- * never re-emitted when the local row changed, so the detail
- * screen's "Mark as sensitive" button stayed stale after a
- * tap. We now use [PersonDao.observeById] which emits on every
- * Room update to the row.
- */
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class PersonDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     personDao: PersonDao,
-    private val instructionDao: InstructionDao,
-    private val roomInstructionRepository: RoomInstructionRepository,
-    private val personRepository: PersonRepository,
+    private val instructionRepository: RoomInstructionRepository,
 ) : ViewModel() {
 
-    /**
-     * M3-T6: read the `personId` nav arg. The [PersonDetailScreen]
-     * composable doesn't pass it explicitly; Hilt's
-     * `SavedStateHandle` carries the nav-arg through the ViewModel
-     * constructor.
-     */
     private val personId: String = savedStateHandle.get<String>(ARG_PERSON_ID)
         ?: error("$ARG_PERSON_ID missing from nav args")
 
-    private val _personState = personDao.observeById(personId)
-
-    /**
-     * M3-T6: when the person is loaded, observe their instruction
-     * timeline. flatMapLatest swaps the inner Flow when the
-     * outer (person) changes — only one inner Flow is active at
-     * a time, so we don't leak observers.
-     */
-    val state: StateFlow<PersonDetailUiState> = _personState
-        .flatMapLatest { person ->
-            if (person == null) {
-                flowOf(PersonDetailUiState.Loading)
+    val state: StateFlow<PersonDetailUiState> = personDao.observeById(personId)
+        .flatMapLatest { personEntity ->
+            if (personEntity == null) {
+                flowOf(PersonDetailUiState.NotFound)
             } else {
-                instructionDao.observeForPerson(person.id).combine(flowOf(person)) { ins, p ->
+                instructionRepository.observeForPerson(personId).map { instructions ->
+                    val sections = partitionInstructions(instructions)
                     PersonDetailUiState.Loaded(
-                        person = p.toDomain(),
-                        instructions = ins.map { it.toDomain() },
+                        person = personEntity.toDomain().toProfile(),
+                        activeInstructions = sections.active,
+                        completedInstructions = sections.completed,
                     )
                 }
             }
         }
+        .catch { error ->
+            emit(PersonDetailUiState.Error(SafeError.forUser(error, "Could not load this person.")))
+        }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.Eagerly,
+            started = SharingStarted.WhileSubscribed(5_000),
             initialValue = PersonDetailUiState.Loading,
         )
 
-    private fun com.kaavalan.note.data.local.entities.PersonEntity.toDomain() =
-        com.kaavalan.note.data.person.Person(
-            id = id,
-            name = name,
-            designation = designation,
-            station = station,
-            phone = phone,
-            updatedAt = updatedAt,
-            isSensitive = isSensitive,
-            tier = tier,
-            cadenceOverrideDays = cadenceOverrideDays,
-            lastInteractionAt = lastInteractionAt,
-        )
-
-    private fun com.kaavalan.note.data.local.entities.InstructionEntity.toDomain(): Instruction =
-        Instruction(
-            id = id,
-            personId = personId,
-            direction = runCatching { com.kaavalan.note.data.instructions.Direction.valueOf(direction) }
-                .getOrDefault(com.kaavalan.note.data.instructions.Direction.OUTGOING),
-            status = runCatching { com.kaavalan.note.data.instructions.Status.valueOf(status) }
-                .getOrDefault(com.kaavalan.note.data.instructions.Status.OPEN),
-            source = runCatching { com.kaavalan.note.data.instructions.Source.valueOf(source) }
-                .getOrDefault(com.kaavalan.note.data.instructions.Source.TEXT),
-            priority = runCatching { com.kaavalan.note.data.instructions.Priority.valueOf(priority) }
-                .getOrDefault(com.kaavalan.note.data.instructions.Priority.NORMAL),
-            title = title,
-            rawText = rawText,
-            dueAt = dueAt,
-            capturedAt = capturedAt,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-            isSensitive = isSensitive,
-            completedAt = completedAt,
-            droppedReason = droppedReason,
-        )
-
-    /**
-     * v1.1: state-transition handlers. Each one writes through the
-     * Room repository (which also enqueues a PENDING_UPDATE for the
-     * sync outbox) and Room re-emits the timeline Flow, so the UI
-     * sees the change synchronously.
-     */
     fun markDone(instructionId: String) {
         viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDone(instructionId) }
-        }
-    }
-
-    fun markDropped(instructionId: String, reason: String?) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.markDropped(instructionId, reason) }
+            runCatching { instructionRepository.markDone(instructionId, Instant.now().toEpochMilli()) }
         }
     }
 
     fun reopen(instructionId: String) {
         viewModelScope.launch {
-            runCatching { roomInstructionRepository.reopen(instructionId) }
+            runCatching { instructionRepository.reopen(instructionId) }
         }
     }
 
-    fun setInstructionSensitive(instructionId: String, sensitive: Boolean) {
-        viewModelScope.launch {
-            runCatching { roomInstructionRepository.setSensitive(instructionId, sensitive) }
-        }
-    }
-
-    fun setPersonSensitive(personId: String, sensitive: Boolean) {
-        viewModelScope.launch {
-            runCatching { personRepository.setSensitive(personId, sensitive) }
-        }
-    }
-
-    /**
-     * v1.5.3 (VAULT-003): the "Add instruction" CTA on Person
-     * Detail. Pre-fills [personId] so the new instruction is
-     * attributed to this person. Goes through the same
-     * Room-backed [RoomInstructionRepository.create] that the
-     * global capture sheet uses, so the row is in PENDING_INSERT
-     * and the sync_queue is enqueued (a no-op in vault mode).
-     *
-     * The [text] is the raw user-typed note. We use the first 40
-     * chars as the title (same truncation rule as the global
-     * "Save as text" path) to keep the Today tab readable.
-     */
     fun createInstructionForThisPerson(text: String) {
         val trimmed = text.trim()
-        if (trimmed.isBlank()) return
+        if (trimmed.isEmpty()) return
         viewModelScope.launch {
             runCatching {
-                val title = if (trimmed.length > 40) trimmed.take(40) + "…" else trimmed
-                roomInstructionRepository.create(
-                    personId = personId,
-                    source = Source.TEXT,
-                    priority = Priority.NORMAL,
-                    title = title,
-                    rawText = trimmed,
-                    dueAt = null,
+                instructionRepository.create(
+                    InstructionDraft(
+                        rawText = trimmed,
+                        actionSummary = trimmed,
+                        personId = personId,
+                        responsiblePersonId = personId,
+                        status = Status.TO_DO,
+                        priority = Priority.NORMAL,
+                        source = Source.TEXT,
+                    ),
                 )
             }
         }
@@ -196,10 +99,24 @@ class PersonDetailViewModel @Inject constructor(
     }
 }
 
+data class PersonInstructionSections(
+    val active: List<Instruction>,
+    val completed: List<Instruction>,
+)
+
+internal fun partitionInstructions(instructions: List<Instruction>): PersonInstructionSections =
+    PersonInstructionSections(
+        active = instructions.filter { it.status != Status.DONE },
+        completed = instructions.filter { it.status == Status.DONE },
+    )
+
 sealed interface PersonDetailUiState {
     data object Loading : PersonDetailUiState
+    data object NotFound : PersonDetailUiState
     data class Loaded(
-        val person: com.kaavalan.note.data.person.Person,
-        val instructions: List<com.kaavalan.note.data.instructions.Instruction>,
+        val person: PersonProfile,
+        val activeInstructions: List<Instruction>,
+        val completedInstructions: List<Instruction>,
     ) : PersonDetailUiState
+    data class Error(val message: String) : PersonDetailUiState
 }

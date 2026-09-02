@@ -110,6 +110,7 @@ class CaptureViewModelTest {
             name: String,
             designation: String?,
             station: String?,
+            phone: String?,
             clientId: String?,
         ): Person {
             created += Triple(name, designation, station)
@@ -119,7 +120,7 @@ class CaptureViewModelTest {
                 name = name,
                 designation = designation,
                 station = station,
-                phone = null,
+                phone = phone,
             )
             existing[name] = person
             personsFlow.value = existing.values.toList()
