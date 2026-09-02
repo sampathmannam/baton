@@ -111,15 +111,17 @@ class RecoveryPhraseEndToEndTest {
     }
 
     @Test
-    fun `validate rejects a phrase with a single word flipped`() {
+    fun `validate rejects a one word change with an invalid checksum`() {
         val original = mnemonic.generate12()
-        // Flip the first word to a different word in the
-        // wordlist. The chosen replacement is *not* the
-        // original — `validate` would still pass if the
-        // flip accidentally produced another valid
-        // checksum (vanishingly unlikely for a 4-bit
-        // checksum, but possible).
-        val replacement = wordList.first { it != original[0] }
+        // A random one-word substitution still has a 1-in-16
+        // chance of producing a valid 12-word BIP39 checksum.
+        // Pick a deterministic replacement that actually
+        // corrupts the checksum so this test verifies the
+        // validator instead of occasionally failing by chance.
+        val replacement = wordList.first { candidate ->
+            candidate != original[0] &&
+                !mnemonic.validate(listOf(candidate) + original.drop(1))
+        }
         val tampered = listOf(replacement) + original.drop(1)
         assertFalse(
             "A phrase with a flipped word must fail the checksum",
