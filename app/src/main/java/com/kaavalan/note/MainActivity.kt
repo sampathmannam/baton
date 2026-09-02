@@ -24,7 +24,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -75,7 +75,8 @@ import com.kaavalan.note.ui.privacy.RecoveryPhraseScreen
 import com.kaavalan.note.ui.privacy.ThreatModelScreen
 import com.kaavalan.note.ui.settings.SettingsSheet
 import com.kaavalan.note.ui.theme.KaavalanNoteTheme
-import com.kaavalan.note.ui.today.TodayScreen
+import com.kaavalan.note.ui.timeline.AskAiScreen
+import com.kaavalan.note.ui.timeline.TimelineScreen
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -266,7 +267,7 @@ private fun MainScaffold(
     var showVaultExport by remember { mutableStateOf(false) }
     var showVaultImport by remember { mutableStateOf(false) }
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route ?: Routes.HOME
+    val currentRoute = backStackEntry?.destination?.route ?: Routes.TIMELINE
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -326,11 +327,10 @@ private fun MainScaffold(
 
     Scaffold(
         bottomBar = {
-            if (currentRoute in setOf(Routes.HOME, Routes.TODAY)) {
+            if (currentRoute in setOf(Routes.TIMELINE, Routes.PEOPLE, Routes.ASK_AI)) {
                 BottomNav(
                     navController = navController,
                     currentRoute = currentRoute,
-                    onSettingsClick = { showSettings = true },
                 )
             }
         },
@@ -343,19 +343,30 @@ private fun MainScaffold(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Routes.HOME,
+                startDestination = Routes.TIMELINE,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                composable(Routes.HOME) {
+                composable(Routes.TIMELINE) {
+                    TimelineScreen(
+                        onCapture = {
+                            rootViewModel.onQuickCapture()
+                            navController.navigate(Routes.PEOPLE) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        onOpenSettings = { showSettings = true },
+                    )
+                }
+                composable(Routes.PEOPLE) {
                     HomeScreen(
                         onOpenSettings = { showSettings = true },
                         onOpenPerson = { id -> navController.navigate("person/$id") },
                     )
                 }
-                composable(Routes.TODAY) {
-                    TodayScreen(
-                        onOpenPerson = { id -> navController.navigate("person/$id") },
-                    )
+                composable(Routes.ASK_AI) {
+                    AskAiScreen()
                 }
                 composable(Routes.PERSON) { entry ->
                     val personId = entry.arguments?.getString("personId") ?: return@composable
@@ -497,7 +508,6 @@ private fun MainScaffold(
 private fun BottomNav(
     navController: NavHostController,
     currentRoute: String,
-    onSettingsClick: () -> Unit,
 ) {
     // v1.6.3: with `enableEdgeToEdge()` the system 3-button
     // nav (or gesture indicator) sits at the very bottom of
@@ -568,25 +578,12 @@ private fun BottomNav(
             .navigationBarsPadding(),
     ) {
         NavEntry(
-            label = stringResource(R.string.tab_home),
-            icon = Icons.Default.Home,
-            route = Routes.HOME,
-            currentRoute = currentRoute,
-            onClick = {
-                navController.navigate(Routes.HOME) {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
-        )
-        NavEntry(
-            label = stringResource(R.string.tab_today),
+            label = stringResource(R.string.tab_timeline),
             icon = Icons.Default.Today,
-            route = Routes.TODAY,
+            route = Routes.TIMELINE,
             currentRoute = currentRoute,
             onClick = {
-                navController.navigate(Routes.TODAY) {
+                navController.navigate(Routes.TIMELINE) {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                     launchSingleTop = true
                     restoreState = true
@@ -594,11 +591,30 @@ private fun BottomNav(
             },
         )
         NavEntry(
-            label = stringResource(R.string.tab_settings),
-            icon = Icons.Default.Settings,
-            route = "settings-tab",
+            label = stringResource(R.string.tab_people),
+            icon = Icons.Default.Home,
+            route = Routes.PEOPLE,
             currentRoute = currentRoute,
-            onClick = onSettingsClick,
+            onClick = {
+                navController.navigate(Routes.PEOPLE) {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
+        )
+        NavEntry(
+            label = stringResource(R.string.tab_ask_ai),
+            icon = Icons.Default.Search,
+            route = Routes.ASK_AI,
+            currentRoute = currentRoute,
+            onClick = {
+                navController.navigate(Routes.ASK_AI) {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
         )
     }
 }
@@ -682,8 +698,11 @@ private fun HomeScreenPersonDetail(
 }
 
 object Routes {
-    const val HOME = "home"
-    const val TODAY = "today"
+    const val TIMELINE = "timeline"
+    const val PEOPLE = "people"
+    const val ASK_AI = "ask-ai"
+    @Deprecated("Use PEOPLE") const val HOME = PEOPLE
+    @Deprecated("Use TIMELINE") const val TODAY = TIMELINE
     const val PERSON = "person/{personId}"
     // v2.0 T3-2 + T3-3: the recovery phrase and threat model
     // screens. They are reachable from Settings → Privacy

@@ -13,6 +13,30 @@
     <string name="tab_home">Home</string>
     <string name="tab_today">Today</string>
     <string name="tab_settings">Settings</string>
+    <string name="tab_timeline">Timeline</string>
+    <string name="tab_people">People</string>
+    <string name="tab_ask_ai">Ask AI</string>
+
+    <!-- Redesign Stage 2: one instruction timeline, without dashboard summaries. -->
+    <string name="timeline_title">Timeline</string>
+    <string name="timeline_capture">Capture instruction</string>
+    <string name="timeline_filter_all">All</string>
+    <string name="timeline_filter_to_do">To do</string>
+    <string name="timeline_filter_waiting">Waiting</string>
+    <string name="timeline_filter_done">Done</string>
+    <string name="timeline_bucket_late">Late</string>
+    <string name="timeline_bucket_today">Today</string>
+    <string name="timeline_bucket_next_7_days">Next 7 days</string>
+    <string name="timeline_bucket_later">Later</string>
+    <string name="timeline_urgent">Urgent</string>
+    <string name="timeline_action_with_you">Action with you</string>
+    <string name="timeline_waiting_on_other">Waiting on another person</string>
+    <string name="timeline_completed">Completed</string>
+    <string name="timeline_empty">Nothing to follow up</string>
+    <string name="timeline_error">Instructions could not be loaded.</string>
+    <string name="timeline_retry">Retry</string>
+    <string name="ask_ai_title">Ask AI</string>
+    <string name="ask_ai_not_configured">DeepSeek is not configured yet. Your instructions remain private on this phone.</string>
 
     <!-- M1: single note bar + capture sheet. v1.6.2: the home pill
          now reads "Quick note" instead of "Tap to add a note" so
