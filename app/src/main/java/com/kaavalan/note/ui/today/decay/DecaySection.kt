@@ -7,7 +7,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -260,7 +259,16 @@ private fun DecayRow(
     var showActionSheet by remember { mutableStateOf(false) }
     var markedRecent by remember { mutableStateOf(false) }
 
-    BoxWithConstraints(
+    // v2.1.2 (release-integrity): BoxWithConstraints -> Box. The swipe
+    // threshold is a fixed dp constant converted via LocalDensity, not
+    // a constraint read from BoxWithConstraintsScope (maxWidth /
+    // maxHeight / constraints are never referenced anywhere in this
+    // composable). BoxWithConstraints forces a subcomposition pass to
+    // supply that scope; paying that cost on every DecayRow with
+    // nothing reading it was pure waste on a row rendered in a
+    // LazyColumn. Lint's UnusedBoxWithConstraintsScope check is the
+    // one that caught it.
+    Box(
         modifier = Modifier.fillMaxWidth(),
     ) {
         val density = LocalDensity.current
