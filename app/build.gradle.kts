@@ -783,6 +783,12 @@ dependencies {
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.espresso.core)
+    // v2.1.2 (test-infra): GrantPermissionRule. `androidx.test:rules` was
+    // already present transitively (androidx.test:runner pulls it in at
+    // runtime) but not exposed on the compile classpath, so the six
+    // Compose UI smoke tests that now use GrantPermissionRule.grant(...)
+    // to pre-grant POST_NOTIFICATIONS could not compile against it.
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(platform(libs.compose.bom))
     // v2.1.2 (release-integrity): androidTestImplementation(libs.mockk)
     // removed. `libs.mockk` resolves to the plain JVM `io.mockk:mockk`

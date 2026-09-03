@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -347,7 +348,18 @@ fun SettingsSheet(
                 Text(
                     text = stringResource(R.string.settings_title),
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.weight(1f),
+                    // v2.1.2 (test-infra): the bottom nav's Settings tab
+                    // label is still composed underneath the modal sheet,
+                    // so `onNodeWithText("Settings")` matches two nodes
+                    // once the sheet is open (BottomNavTabSwitchTest hit
+                    // this: "Expected at most 1 node but found 2"). A
+                    // testTag has no runtime or a11y effect -- it exists
+                    // only for test targeting -- and uniquely identifies
+                    // this specific header regardless of what other UI
+                    // text happens to say "Settings".
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("settings_sheet_title"),
                 )
                 IconButton(
                     onClick = onDismiss,
