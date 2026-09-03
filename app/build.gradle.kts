@@ -784,7 +784,23 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.mockk)
+    // v2.1.2 (release-integrity): androidTestImplementation(libs.mockk)
+    // removed. `libs.mockk` resolves to the plain JVM `io.mockk:mockk`
+    // artifact -- correct for `testImplementation` (used above), wrong
+    // for `androidTestImplementation`, which runs on-device and needs
+    // the separately published `io.mockk:mockk-android` artifact
+    // instead. Nothing in app/src/androidTest/ actually references
+    // MockK (verified by search), so this was a dead, wrong-variant
+    // declaration. Its transitive `org.junit.jupiter:*` dependencies
+    // collided on `META-INF/LICENSE.md` during resource merging and
+    // failed `assembleDebugAndroidTest` outright --
+    // `./gradlew :app:connectedDebugAndroidTest` could not even build,
+    // let alone run, on any device. This had never been caught because
+    // the CI androidTest job is optional and skips without a device
+    // (see the job's own doc comment below); running it against a real
+    // emulator for the first time is what surfaced this. If a future
+    // instrumented test needs mocking, add `io.mockk:mockk-android` as
+    // its own catalog entry rather than reusing this alias.
     // v1.8.0 (PROD-READINESS-P0-#7): the androidTest source
     // set needs the Compose UI test rule + the Hilt testing
     // annotation. The previous build was missing these — the
